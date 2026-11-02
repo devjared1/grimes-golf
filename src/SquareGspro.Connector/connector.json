@@ -1,0 +1,22 @@
+{
+  // GSPro Open Connect listener (GSPro: choose "Other / Open API" as the launch monitor)
+  "GsProHost": "127.0.0.1",
+  "GsProPort": 921,
+
+  // Sent to GSPro as DeviceID
+  "DeviceId": "SquareGolf-GSPro-Connector",
+
+  // BLE advertised name is "SquareGolf(XXXX)". Set DeviceName to the exact name if several monitors are nearby.
+  "DeviceNamePrefix": "SquareGolf",
+  "DeviceName": null,
+  "ScanTimeoutSeconds": 30,
+
+  "HeartbeatSeconds": 5,
+  "SendClubData": true,
+  "ClubMetricsTimeoutMs": 800,
+  "AdvancedSpin": true,
+
+  // Used until GSPro tells us the real club / hand
+  "DefaultClub": "I7",
+  "DefaultHanded": "RH"
+}

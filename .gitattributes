@@ -1,0 +1,7 @@
+* text=auto
+
+# Binary data and assets
+*.dem binary
+*.hdr binary
+*.jpg binary
+*.png binary

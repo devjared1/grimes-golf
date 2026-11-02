@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SquareGspro.Physics\SquareGspro.Physics.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Mapped courses (OpenStreetMap, ODbL), refreshed with tools/fetch-osm-course.ps1. -->
+    <EmbeddedResource Include="Course\Data\*.osm" LogicalName="SquareGspro.Core.Course.Data.%(Filename)%(Extension)" />
+    <!-- Ground elevation (USGS 3DEP, public domain), refreshed with tools/fetch-elevation.ps1. -->
+    <EmbeddedResource Include="Course\Data\*.dem" LogicalName="SquareGspro.Core.Course.Data.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,28 @@
+# .NET build output
+bin/
+obj/
+dist/
+*.user
+*.suo
+TestResults/
+
+# IDEs
+.vs/
+.vscode/
+.idea/
+
+# Godot (see also src/SquareGspro.Godot/.gitignore)
+.godot/
+.mono/
+
+# Local Claude Code settings
+**/.claude/settings.local.json
+
+# OS
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Local secrets (e.g. a future AI API key)
+*.secrets.json
+.env

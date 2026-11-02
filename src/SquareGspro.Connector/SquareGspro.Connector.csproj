@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>SquareGsproConnector</AssemblyName>
+    <RootNamespace>SquareGspro.Connector</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SquareGspro.Core\SquareGspro.Core.csproj" />
+    <ProjectReference Include="..\SquareGspro.Bluetooth\SquareGspro.Bluetooth.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="connector.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
