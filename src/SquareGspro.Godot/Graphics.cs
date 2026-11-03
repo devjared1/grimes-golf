@@ -13,7 +13,7 @@ public static class Graphics
     private sealed record Preset(
         Viewport.Msaa Msaa, bool Taa, Viewport.ScreenSpaceAAEnum ScreenAa, float RenderScale,
         DirectionalLight3D.ShadowMode Splits, float ShadowDistance, int ShadowAtlas, RenderingServer.ShadowQuality Softness,
-        Sky.RadianceSizeEnum Radiance, bool Ssao, bool Ssil, bool Ssr);
+        Sky.RadianceSizeEnum Radiance, bool Ssao, bool Ssil, bool Ssr, bool Dof = false);
 
     private static Preset For(GraphicsQuality q) => q switch
     {
@@ -29,12 +29,12 @@ public static class Graphics
         // light between nearby surfaces; SSR puts trees and banks in the water.
         GraphicsQuality.High => new(Viewport.Msaa.Msaa2X, false, Viewport.ScreenSpaceAAEnum.Smaa, 1,
             DirectionalLight3D.ShadowMode.Parallel4Splits, 320, 4096, RenderingServer.ShadowQuality.SoftMedium,
-            Sky.RadianceSizeEnum.Size512, true, true, true),
+            Sky.RadianceSizeEnum.Size512, true, true, true, Dof: true),
         // Plus 4× MSAA and sharper, longer shadows. (Volumetric fog was tried for light shafts: it greys the whole view
         // once the camera rises after the ball.)
         _ => new(Viewport.Msaa.Msaa4X, false, Viewport.ScreenSpaceAAEnum.Smaa, 1,
             DirectionalLight3D.ShadowMode.Parallel4Splits, 450, 8192, RenderingServer.ShadowQuality.SoftHigh,
-            Sky.RadianceSizeEnum.Size1024, true, true, true),
+            Sky.RadianceSizeEnum.Size1024, true, true, true, Dof: true),
     };
 
     /// <summary>The preset last applied; things that scale with it themselves (<see cref="GrassField"/>) follow it.</summary>
@@ -66,5 +66,12 @@ public static class Graphics
         env.SsrEnabled = p.Ssr;
         env.SsrMaxSteps = 48;
         env.SsrFadeOut = 1.5f;
+
+        // A long lens's shallow focus up close: grass right in front of a low camera goes soft. (A far blur was tried
+        // for the tree lines: it blurs the sky's clouds too.)
+        if (view.GetCamera3D() is { } camera)
+            camera.Attributes = p.Dof
+                ? new CameraAttributesPractical { DofBlurNearEnabled = true, DofBlurNearDistance = 1.2f, DofBlurNearTransition = 0.8f, DofBlurAmount = 0.06f }
+                : null;
     }
 }

@@ -52,6 +52,7 @@ public partial class Main
         _course = null;
         _outcome = null;
         _player.CupAt = null;
+        _player.LieAt = null;
         _player.SetOtherBalls(Array.Empty<ShotPlayer.OtherBall>());
         _player.Clear();
         _rangeResult = null;
@@ -210,6 +211,7 @@ public partial class Main
         _player.GroundTop = terrain != null ? 0f : Scenery.GreenTop;
         _camera.GroundAt = terrain == null ? null : v => (float)terrain.HeightAt(new P2(-v.Z, v.X));
         _player.CupAt = BallAt(round.Hole.Pin);
+        _player.LieAt = v => round.Hole.LieAt(new P2(-v.Z, v.X));
         _player.Clear(BallAt(round.Ball));
         FrameMinimap(round.Hole);
         _hud.HideResult();

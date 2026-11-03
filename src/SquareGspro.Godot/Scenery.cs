@@ -188,6 +188,7 @@ public static class Scenery
                 FogSkyAffect = 0.0f,
                 AdjustmentEnabled = true,
                 AdjustmentSaturation = 1.15f,
+                AdjustmentColorCorrection = Grade(),
             },
         };
         var sun = new DirectionalLight3D
@@ -203,6 +204,35 @@ public static class Scenery
         parent.AddChild(world);
         parent.AddChild(sun);
         return (world, sun);
+    }
+
+    /// <summary>
+    /// The colour grade (a 3D lookup applied after tone mapping): a touch of contrast, shadows a little cool and
+    /// highlights a little warm, the afternoon-broadcast look.
+    /// </summary>
+    private static ImageTexture3D Grade()
+    {
+        const int n = 32;
+        var slices = new Godot.Collections.Array<Image>();
+        for (int b = 0; b < n; b++)
+        {
+            var img = Image.CreateEmpty(n, n, false, Image.Format.Rgb8);
+            for (int g = 0; g < n; g++)
+                for (int r = 0; r < n; r++)
+                {
+                    var c = new Vector3(r, g, b) / (n - 1);
+                    float l = c.Dot(new Vector3(0.2126f, 0.7152f, 0.0722f));
+                    // Gentle S-curve on each channel.
+                    var s = c * c * (new Vector3(3, 3, 3) - 2 * c);
+                    c = c.Lerp(s, 0.18f);
+                    c += (1 - l) * (1 - l) * new Vector3(-0.012f, 0.0f, 0.018f) + l * l * new Vector3(0.022f, 0.008f, -0.02f);
+                    img.SetPixel(r, g, new Color(Mathf.Clamp(c.X, 0, 1), Mathf.Clamp(c.Y, 0, 1), Mathf.Clamp(c.Z, 0, 1)));
+                }
+            slices.Add(img);
+        }
+        var lut = new ImageTexture3D();
+        lut.Create(Image.Format.Rgb8, n, n, n, false, slices);
+        return lut;
     }
 
     /// <summary>Visual cup: larger than regulation so it reads on screen; the ball is drawn in real proportion to it.</summary>

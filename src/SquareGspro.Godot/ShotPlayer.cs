@@ -1,5 +1,6 @@
 using Godot;
 using SquareGspro.Core;
+using SquareGspro.Core.Course;
 
 namespace SquareGspro.Range3D;
 
@@ -53,6 +54,9 @@ public partial class ShotPlayer : Node3D
 
     /// <summary>Draw the previous shot's flight faintly (physics tuning comparisons).</summary>
     public bool ShowGhost { get; set; }
+
+    /// <summary>What the ground is at a point (null: grass everywhere, as on the range); picks what flies up where the ball lands.</summary>
+    public Func<Vector3, Lie>? LieAt { get; set; }
 
     public bool IsPlaying { get; private set; }
     /// <summary>Seconds since the current shot finished rolling (0 while playing).</summary>
@@ -125,6 +129,15 @@ public partial class ShotPlayer : Node3D
         IsPlaying = true;
         IdleSeconds = 0;
         _carryLabel.Visible = false;
+    }
+
+    /// <summary>The burst where a flight first comes down (not for putts, which never leave the ground).</summary>
+    private void Splash(IReadOnlyList<FlightPoint> pts, int landing, Vector3 land)
+    {
+        var a = pts[landing - 1]; var b = pts[landing];
+        float fall = (float)((a.Y - b.Y) / Math.Max(b.T - a.T, 1e-3));
+        var ground = land - new Vector3(0, Lift - GroundTop, 0);
+        Impacts.Land(this, ground, LieAt?.Invoke(ground) ?? Lie.Fairway, ShotDirection, fall);
     }
 
     /// <summary>Removes all shots and puts the ball at <paramref name="ballAt"/> (the range tee by default).</summary>
@@ -220,6 +233,7 @@ public partial class ShotPlayer : Node3D
                 // Beside the landing spot, off the descending trail.
                 _carryLabel.Position = land + new Vector3(0, 0.5f, 0) + ShotDirection.Cross(Vector3.Up) * 3.5f;
                 _carryLabel.Visible = true;
+                if (cur.Flight.LandingIndex > 0) Splash(pts, cur.Flight.LandingIndex, land);
             }
 
             for (int s = 0; s < _shots.Count; s++)

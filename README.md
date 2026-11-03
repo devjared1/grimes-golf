@@ -106,7 +106,7 @@ several monitors, club-data timeout, advanced vs standard spin, default club).
 - **Settings** (main menu, the in-game menu, numpad `*` or gamepad Back): players (1-4, name and left-handed),
   house rules, auto-connect, text size (Small / Normal / Large / Extra large: smaller for a laptop, bigger for
   reading from the mat or a projector), full screen, graphics quality (Low / Medium / High / Ultra: anti-aliasing,
-  shadow detail and reach, bounced light and reflections in the water, and how far 3D grass reaches round the camera;
+  shadow detail and reach, bounced light and reflections in the water, how far 3D grass reaches round the camera, and soft focus on grass right in front of a low camera;
   High is the default), and the camera's hole flyover. The course last played and the camera mode are remembered too, so no command-line switches are
   needed. The whole UI also scales up with the window (a full-screen projector shows it bigger), and switches to a
   compact layout when large text leaves less room.

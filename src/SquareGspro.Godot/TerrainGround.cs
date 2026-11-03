@@ -43,7 +43,12 @@ public static class TerrainGround
             vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
             return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
         }
-        float stripes(float width) { return mix(0.9, 1.07, step(0.5, fract(world_pos.z / (2.0 * width)))); }
+        // Mowing stripes: bands mown in turn one way and back along x. Grass leaning away from the eye shows its lighter
+        // blades, so the bands swap light and dark as the view turns, and fade when looking across them.
+        float stripes(float width, vec3 look) {
+            float s = step(0.5, fract(world_pos.z / (2.0 * width))) * 2.0 - 1.0;
+            return 0.985 + 0.085 * mix(s, s * look.x * 1.4, 0.65);
+        }
         float edge(float coverage) { float w = max(fwidth(coverage), 0.02); return smoothstep(0.5 - w, 0.5 + w, coverage); }
         void fragment() {
             if (cup_hole.w > 0.0 && distance(world_pos.xz, cup_hole.xy) < cup_hole.w) discard;
@@ -60,9 +65,13 @@ public static class TerrainGround
             // Each area's colour times its photo detail; the rough's look also serves the deep rough.
             vec3 rough_c = mix(mix(deep_a, deep_b, n), mix(rough_a, rough_b, n), edge(cm.r))
                            * photo_detail(grass_albedo, p, rough_look.x, rough_look.y);
+            vec3 look = normalize(world_pos - CAMERA_POSITION_WORLD);
             vec3 c = rough_c;
-            c = mix(c, mix(fair_a, fair_b, n) * stripes(6.0) * photo_detail(grass_albedo, p, fair_look.x, fair_look.y), f);
-            c = mix(c, mix(green_a, green_b, n) * stripes(1.5) * photo_detail(grass_albedo, p, green_look.x, green_look.y), g);
+            c = mix(c, mix(fair_a, fair_b, n) * stripes(6.0, look) * photo_detail(grass_albedo, p, fair_look.x, fair_look.y), f);
+            // The collar: the fringe's band round each green (painted with the fairway), mown as one ring between the two.
+            float collar = f * (1.0 - g) * smoothstep(0.03, 0.2, textureLod(mask, uv, 1.5).g);
+            c = mix(c, mix(mix(fair_a, green_a, 0.45), mix(fair_b, green_b, 0.45), n) * 0.92 * photo_detail(grass_albedo, p, green_look.x, fair_look.y), collar);
+            c = mix(c, mix(green_a, green_b, n) * stripes(1.5, look) * photo_detail(grass_albedo, p, green_look.x, green_look.y), g);
             // Cart paths: concrete, weathered in patches with a fine speckle.
             c = mix(c, concrete * (0.9 + 0.14 * n) * (0.95 + 0.1 * noise(p * 4.0)), path);
             // Grass just outside a bunker is its lip: a little longer and shadowed. Banks by water are wet and dark.
@@ -84,8 +93,10 @@ public static class TerrainGround
             float open_water = w * (1.0 - pond);
             NORMAL_MAP = mix(bump, water_normal(p, TIME), open_water);
             NORMAL_MAP_DEPTH = mix(mix(mix(mix(rough_look.z, fair_look.z, f), green_look.z, g), 0.8, s), 1.0, w) * (1.0 - w * pond) * (1.0 - 0.85 * path);
-            ROUGHNESS = mix(0.9, 0.04, open_water);
-            SPECULAR = mix(0.25, 0.5, open_water);
+            // Close-mown greens have a soft sheen where they face the sun.
+            float sheen = g * (1.0 - s) * (1.0 - w);
+            ROUGHNESS = mix(mix(0.9, 0.55, sheen), 0.04, open_water);
+            SPECULAR = mix(mix(0.25, 0.42, sheen), 0.5, open_water);
         }
         """;
 
