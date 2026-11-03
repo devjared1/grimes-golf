@@ -140,10 +140,11 @@ public static class Scenery
     /// </summary>
     private static readonly Vector3 SkyRotation = new(0, Mathf.Pi, 0), SunRotationDegrees = new(-48, -34.2f, 0);
 
-    public static void AddSkyAndSun(Node3D parent)
+    /// <summary>Adds the sky, its lighting and the sun; <see cref="Graphics"/> sets their quality.</summary>
+    public static (WorldEnvironment World, DirectionalLight3D Sun) AddSkyAndSun(Node3D parent)
     {
         var sky = new PanoramaSkyMaterial { Panorama = GD.Load<Texture2D>(SkyPanorama), EnergyMultiplier = 1.0f };
-        parent.AddChild(new WorldEnvironment
+        var world = new WorldEnvironment
         {
             Environment = new Godot.Environment
             {
@@ -170,8 +171,8 @@ public static class Scenery
                 AdjustmentEnabled = true,
                 AdjustmentSaturation = 1.15f,
             },
-        });
-        parent.AddChild(new DirectionalLight3D
+        };
+        var sun = new DirectionalLight3D
         {
             RotationDegrees = SunRotationDegrees,
             LightColor = new Color(1.0f, 0.96f, 0.90f),
@@ -180,7 +181,10 @@ public static class Scenery
             ShadowEnabled = true,
             ShadowBlur = 1.2f,
             DirectionalShadowMaxDistance = 250,
-        });
+        };
+        parent.AddChild(world);
+        parent.AddChild(sun);
+        return (world, sun);
     }
 
     /// <summary>Visual cup: larger than regulation so it reads on screen; the ball is drawn in real proportion to it.</summary>

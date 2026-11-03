@@ -6,7 +6,7 @@ namespace SquareGspro.Range3D;
 
 /// <summary>
 /// The settings screen, over everything: players (1-4: name and handedness), house rules, the launch monitor,
-/// text size and full screen, and the camera's hole flyover and landing zoom. Works with a mouse, the keyboard or a gamepad (arrows /
+/// text size, full screen and graphics quality, and the camera's hole flyover and landing zoom. Works with a mouse, the keyboard or a gamepad (arrows /
 /// D-pad move between fields, Enter / A presses; Esc / B closes without saving). Nothing changes until it's saved.
 /// </summary>
 public partial class SettingsPanel : Control
@@ -19,7 +19,7 @@ public partial class SettingsPanel : Control
     private Button _save = null!, _saveNewRound = null!;
     private SpinBox _mulligans = null!, _gimme = null!;
     private CheckBox _doublePar = null!, _autoConnect = null!, _fullScreen = null!, _flyover = null!;
-    private OptionButton _textSize = null!;
+    private OptionButton _textSize = null!, _graphics = null!;
     private Label _roundNote = null!;
 
     public override void _Ready()
@@ -84,6 +84,13 @@ public partial class SettingsPanel : Control
         v.AddChild(Row("Text size (bigger for the mat or a projector)", _textSize));
         _fullScreen = new CheckBox { Text = "Full screen" };
         v.AddChild(_fullScreen);
+        _graphics = new OptionButton { CustomMinimumSize = new Vector2(170, 0),
+                                       TooltipText = "Lower it if the ball flight stutters; Ultra wants a fast graphics card" };
+        _graphics.AddItem("Low");   // in GraphicsQuality order
+        _graphics.AddItem("Medium");
+        _graphics.AddItem("High");
+        _graphics.AddItem("Ultra");
+        v.AddChild(Row("Graphics quality (shadows, lighting, smoothing)", _graphics));
         v.AddChild(UiTheme.Caption("Camera"));
         _flyover = new CheckBox { Text = "Fly down each hole before the first tee shot (Space skips it)" };
         v.AddChild(_flyover);
@@ -143,6 +150,7 @@ public partial class SettingsPanel : Control
         _autoConnect.ButtonPressed = current.AutoConnect;
         _textSize.Selected = (int)current.TextSize;
         _fullScreen.ButtonPressed = current.FullScreen;
+        _graphics.Selected = (int)current.Graphics;
         _flyover.ButtonPressed = current.HoleFlyover;
         _roundNote.Visible = roundInProgress;
         _saveNewRound.Text = roundInProgress ? "Save and start a new round" : "Save and start a round";
@@ -165,6 +173,7 @@ public partial class SettingsPanel : Control
             AutoConnect = _autoConnect.ButtonPressed,
             TextSize = (TextSize)Math.Max(0, _textSize.Selected),
             FullScreen = _fullScreen.ButtonPressed,
+            Graphics = (GraphicsQuality)Math.Max(0, _graphics.Selected),
             HoleFlyover = _flyover.ButtonPressed,
         };
         Close();

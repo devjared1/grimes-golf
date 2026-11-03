@@ -3,7 +3,7 @@ using SquareGspro.Core.Storage;
 namespace SquareGspro.Range3D;
 
 /// <summary>
-/// The settings screen: players, house rules, auto-connect, text size and full screen. Saved to
+/// The settings screen: players, house rules, auto-connect, text size, full screen and graphics quality. Saved to
 /// settings.json. Players and rules belong to a round, so changes to them apply from the next round (or now, with
 /// "Save and start a new round").
 /// </summary>
@@ -20,6 +20,7 @@ public partial class Main
         var old = _settings;
         SaveSettingsAlways(s);
         if (s.TextSize != old.TextSize || s.FullScreen != old.FullScreen) ApplyDisplaySettings();
+        if (s.Graphics != old.Graphics) ApplyGraphics();
         if (s.AutoConnect != old.AutoConnect) _autoConnect = s.AutoConnect;
         _rangePlayer %= s.Golfers.Count;
         if (!_courseMode) ShowRangePlayer();

@@ -7,6 +7,9 @@ namespace SquareGspro.Core.Storage;
 /// <summary>How big the on-screen text and controls are drawn (for reading from the mat or on a projector).</summary>
 public enum TextSize { Small, Normal, Large, ExtraLarge }
 
+/// <summary>How much the 3D view spends on looks: lower for laptops and older graphics cards, Ultra for a fast one.</summary>
+public enum GraphicsQuality { Low, Medium, High, Ultra }
+
 /// <summary>
 /// The app's settings, kept as <c>settings.json</c> in the data folder and changed from the settings screen.
 /// Everything a guest would otherwise need a command-line flag for lives here.
@@ -20,10 +23,11 @@ public enum TextSize { Small, Normal, Large, ExtraLarge }
 /// <param name="CameraFollow">Camera follows the ball rather than staying behind it (remembered).</param>
 /// <param name="FullScreen">Fill the screen (a TV or projector) rather than a window.</param>
 /// <param name="HoleFlyover">Fly the camera down each hole before the first tee shot.</param>
+/// <param name="Graphics">3D quality: anti-aliasing, shadows and lighting effects.</param>
 public sealed record AppSettings(
     IReadOnlyList<Golfer>? Players = null, HouseRules? HouseRules = null, bool AutoConnect = true, ulong? LastMonitor = null,
     TextSize TextSize = TextSize.Normal, string? Course = null, bool CameraFollow = true,
-    bool FullScreen = false, bool HoleFlyover = true)
+    bool FullScreen = false, bool HoleFlyover = true, GraphicsQuality Graphics = GraphicsQuality.High)
 {
     public const string FileName = "settings.json";
 

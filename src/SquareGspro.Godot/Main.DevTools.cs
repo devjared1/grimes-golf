@@ -43,6 +43,12 @@ public partial class Main
             _settings = _settings with { TextSize = size };
             ApplyDisplaySettings();
         }
+        // --graphics=Ultra: this run only (not saved), to compare the presets.
+        if (Enum.TryParse<GraphicsQuality>(Arg("--graphics"), true, out var quality))
+        {
+            _settings = _settings with { Graphics = quality };
+            ApplyGraphics();
+        }
         // --hit-at=2,8.5: press HIT SHOT at these times (seconds after start).
         if (Arg("--hit-at") is { } at)
             _hitPresses = new Queue<double>(at.Split(',').Select(t => double.Parse(t, System.Globalization.CultureInfo.InvariantCulture)));

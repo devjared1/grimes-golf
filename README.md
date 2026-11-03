@@ -105,7 +105,8 @@ several monitors, club-data timeout, advanced vs standard spin, default club).
   starts again.
 - **Settings** (main menu, the in-game menu, numpad `*` or gamepad Back): players (1-4, name and left-handed),
   house rules, auto-connect, text size (Small / Normal / Large / Extra large: smaller for a laptop, bigger for
-  reading from the mat or a projector), full screen, and the camera's hole flyover. The course last played and the camera mode are remembered too, so no command-line switches are
+  reading from the mat or a projector), full screen, graphics quality (Low / Medium / High / Ultra: anti-aliasing,
+  shadow detail and reach, bounced light and reflections in the water; High is the default), and the camera's hole flyover. The course last played and the camera mode are remembered too, so no command-line switches are
   needed. The whole UI also scales up with the window (a full-screen projector shows it bigger), and switches to a
   compact layout when large text leaves less room.
 - **Without a keyboard**: a gamepad, a wireless numpad or a presenter clicker can play a whole round (table below).
@@ -149,7 +150,7 @@ skips it for the course (the unfinished round, if there is one), `-- --hole=N` s
 shots, `--hit-at=2,8.5` presses HIT SHOT at those times (seconds after start), `--screenshot=file.png` saves the
 window and quits (after `--screenshot-delay=seconds`, default 4, or once the demo shots finish), `--monitor-drawer`
 opens the drawer, `--settings` the settings, `--menu` the in-game menu, `--scorecard` the scorecard just before the
-screenshot, and `--reconnecting` shows the reconnecting banner. `--players=Ann,Bob,Cat:L` (`:L` = left-handed) and `--text-size=Large` apply to that run only.
+screenshot, and `--reconnecting` shows the reconnecting banner. `--players=Ann,Bob,Cat:L` (`:L` = left-handed), `--text-size=Large` and `--graphics=Ultra` apply to that run only.
 `--tuner` opens the physics tuner (the screenshot then also saves it as `file-tuner.png`), `--tuner-tab=Lies` (or
 `Flight`, or a surface such as `Green`) picks its tab, and `--tune=key=value` (e.g. `--tune=flight.drag=1.2`) changes
 one value after the demo shots and replays the last one.

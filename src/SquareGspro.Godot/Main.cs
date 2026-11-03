@@ -57,7 +57,7 @@ public partial class Main : Node3D
         _dataFolder = OS.GetUserDataDir();
         CrashLog.Install(_dataFolder);
 
-        Scenery.AddSkyAndSun(this);
+        (_world, _sun) = Scenery.AddSkyAndSun(this);
         _rangeWorld = new RangeWorld();
         AddChild(_rangeWorld);
         _player = new ShotPlayer();
@@ -99,6 +99,7 @@ public partial class Main : Node3D
         var args = OS.GetCmdlineUserArgs();
         _settings = AppSettings.Load(_dataFolder, Log);
         ApplyDisplaySettings();
+        ApplyGraphics();
         SetupSettings();
         SetupDevTools(args);
         // Runs that play shots by themselves (or jump holes) don't save, or resume, anything.
@@ -191,6 +192,12 @@ public partial class Main : Node3D
         else if (!_settings.FullScreen && full) DisplayServer.WindowSetMode(DisplayServer.WindowMode.Windowed);
         UpdateInsets();
     }
+
+    private WorldEnvironment _world = null!;
+    private DirectionalLight3D _sun = null!;
+
+    /// <summary>3D quality (anti-aliasing, shadows, lighting effects): see <see cref="Graphics"/>.</summary>
+    private void ApplyGraphics() => Graphics.Apply(_settings.Graphics, GetViewport(), _world, _sun);
 
     /// <summary>
     /// Tells the camera how much of the screen the UI covers, so the ball stays centred in what's left (in UI units,
