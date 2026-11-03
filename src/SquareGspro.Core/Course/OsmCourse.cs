@@ -6,8 +6,8 @@ namespace SquareGspro.Core.Course;
 
 /// <summary>
 /// Builds a <see cref="Course"/> from OpenStreetMap data (an .osm XML file, e.g. from <c>tools/fetch-osm-course.ps1</c>).
-/// Uses golf=hole lines (ref, par, name), golf=tee/green/fairway/bunker, water hazards and natural=water, woods,
-/// and the leisure=golf_course outline as the out-of-bounds line. Coordinates are projected to metres around the
+/// Uses golf=hole lines (ref, par, name), golf=tee/green/fairway/bunker, water hazards and natural=water, ditches and
+/// streams, golf=cartpath (or paths tagged golf_cart=yes), woods, and the leisure=golf_course outline as the out-of-bounds line. Coordinates are projected to metres around the
 /// course centre: X north, Z east.
 /// Holes without a mapped fairway get one generated along the hole line. Duplicate or missing hole numbers are
 /// repaired by routing (the next hole's tee is the one nearest the previous green). What was fixed or generated is
@@ -21,6 +21,8 @@ public static class OsmCourse
     public const double FairwayWidth = 32, ApronWidth = 24;
     /// <summary>Generated fairways start this far from the tee on par 4s and 5s (about 100 yd).</summary>
     public const double FairwayStart = 90;
+    /// <summary>Width of a cart path mapped as a line without a width tag (m).</summary>
+    public const double CartPathWidth = 2.5;
 
     private const double EarthRadius = 6371008.8;
     /// <summary>How far the modelled ground extends past the course (beyond it the ground continues flat).</summary>
@@ -37,14 +39,19 @@ public static class OsmCourse
     private sealed record HoleLine(long WayId, int? Ref, int? Par, string Name, List<P2> Route);
 
     /// <param name="elevationFile">Optional embedded .dem with the course's ground heights.</param>
-    public static Course FromResource(string file, string name, string? elevationFile = null)
+    public static Course FromResource(string file, string name, string? elevationFile = null) => FromResource(file, name, elevationFile, shapeWater: true);
+
+    /// <param name="shapeWater">False leaves ponds as the elevation data has them (tests check the map against them).</param>
+    internal static Course FromResource(string file, string name, string? elevationFile, bool shapeWater)
     {
         using var s = typeof(OsmCourse).Assembly.GetManifestResourceStream("SquareGspro.Core.Course.Data." + file)
             ?? throw new FileNotFoundException($"Course data '{file}' is not embedded in SquareGspro.Core.");
-        return Load(s, name, elevationFile == null ? null : ElevationGrid.FromResource(elevationFile));
+        return Load(s, name, elevationFile == null ? null : ElevationGrid.FromResource(elevationFile), shapeWater);
     }
 
-    public static Course Load(Stream osm, string? name = null, ElevationGrid? elevation = null)
+    public static Course Load(Stream osm, string? name = null, ElevationGrid? elevation = null) => Load(osm, name, elevation, shapeWater: true);
+
+    private static Course Load(Stream osm, string? name, ElevationGrid? elevation, bool shapeWater)
     {
         XDocument doc;
         using (var reader = XmlReader.Create(osm, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null }))
@@ -116,6 +123,18 @@ public static class OsmCourse
             .Where(s => s.Box.Max.X >= near.Min.X && s.Box.Min.X <= near.Max.X && s.Box.Max.Z >= near.Min.Z && s.Box.Min.Z <= near.Max.Z)
             .ToList();
         var allWater = water.Cast<Shape>().Concat(waterLines).ToList();
+
+        // Cart paths: lines as wide as tagged (2.5 m if not), or mapped as areas (area=yes). Bridges carry them over water.
+        bool NearBox(Bounds b) => b.Max.X >= near.Min.X && b.Min.X <= near.Max.X && b.Max.Z >= near.Min.Z && b.Min.Z <= near.Max.Z;
+        var pathLines = ways.Values
+            .Where(w => w.Nodes.Count >= 2 && IsCartPath(w.Tags) && !(w.Closed && w.Tag("area") == "yes"))
+            .Select(w => (Way: w, Shape: (Shape)new Strip(w.Nodes.Select(Project).ToList(), TaggedWidth(w) ?? CartPathWidth)))
+            .Where(x => NearBox(x.Shape.Box))
+            .ToList();
+        var cartPaths = pathLines.Select(x => x.Shape)
+            .Concat(AreasWhere(t => IsCartPath(t) && t.GetValueOrDefault("area") == "yes"))
+            .ToList();
+        var bridges = pathLines.Where(x => x.Way.Tag("bridge") is { } b && b != "no").Select(x => x.Shape).ToList();
 
         // Hole lines run tee to green; flip any drawn the other way.
         lines = lines.Select(l =>
@@ -191,7 +210,7 @@ public static class OsmCourse
             var frame = Bounds.Of(route.Concat(greens.Where(g => g.Contains(pin)).SelectMany(g => g.Points))).Expand(35);
             return new Hole(n, l.Name, par, tee, pin, aim, fairways, greens, bunkers, allWater, frame)
             {
-                Tees = tees, Boundary = boundary, Route = route,
+                Tees = tees, CartPaths = cartPaths, Bridges = bridges, Boundary = boundary, Route = route,
             };
         }).ToList();
 
@@ -200,7 +219,7 @@ public static class OsmCourse
         if (elevation != null)
         {
             bool covered = new[] { extent.Min, extent.Max }.All(p => elevation.Covers(lat0 + p.X / k, lon0 + p.Z / kLon));
-            if (covered) terrain = new Terrain(elevation, lat0, lon0, k, kLon, extent.Expand(TerrainMargin), greens);
+            if (covered) terrain = new Terrain(elevation, lat0, lon0, k, kLon, extent.Expand(TerrainMargin), greens, bunkers, shapeWater ? allWater : null);
             else notes.Add("The elevation data doesn't cover the whole course; playing it flat.");
         }
 
@@ -300,8 +319,15 @@ public static class OsmCourse
 
     /// <summary>The tagged width (metres), or a typical one for the kind of waterway.</summary>
     private static double WaterwayWidth(Way w) =>
-        double.TryParse(w.Tag("width")?.Replace(" m", ""), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) && v > 0 ? v
-        : w.Tag("waterway") switch { "stream" => 3, "river" or "canal" => 10, _ => 1.5 };
+        TaggedWidth(w) ?? w.Tag("waterway") switch { "stream" => 3, "river" or "canal" => 10, _ => 1.5 };
+
+    private static double? TaggedWidth(Way w) =>
+        double.TryParse(w.Tag("width")?.Replace(" m", ""), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : null;
+
+    /// <summary>golf=cartpath, or a path or track tagged for golf carts.</summary>
+    private static bool IsCartPath(Dictionary<string, string> t) =>
+        t.GetValueOrDefault("golf") == "cartpath"
+        || (t.GetValueOrDefault("golf_cart") is "designated" or "yes" && t.GetValueOrDefault("highway") is "path" or "track" or "service" or "footway");
 
     private static int GuessPar(double metres) => metres < 230 ? 3 : metres < 430 ? 4 : 5;
 

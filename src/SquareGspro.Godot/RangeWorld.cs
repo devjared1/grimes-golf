@@ -12,12 +12,46 @@ public partial class RangeWorld : Node3D
     public const float RangeLength = 330f; // metres of mown range
     public static readonly int[] TargetYards = { 50, 100, 150, 200, 250, 300 };
 
+    private MeshInstance3D _aimLine = null!, _aimRing = null!;
+
     public override void _Ready()
     {
         AddGround();
         AddTee();
         AddTargets();
         AddTrees();
+        var aimMat = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(1, 0.9f, 0.3f, 0.7f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, NoDepthTest = false,
+        };
+        _aimLine = new MeshInstance3D { MaterialOverride = aimMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        _aimRing = new MeshInstance3D
+        {
+            Mesh = new TorusMesh { InnerRadius = 2.4f, OuterRadius = 2.9f, Rings = 48, RingSegments = 6 },
+            MaterialOverride = aimMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        AddChild(_aimLine);
+        AddChild(_aimRing);
+    }
+
+    /// <summary>Where target flag <paramref name="index"/> (into <see cref="TargetYards"/>) stands, on the ground.</summary>
+    public static Vector3 TargetPosition(int index) =>
+        new(index % 2 == 0 ? 13 : -14, 0, -TargetYards[index] * Yard);   // alternate sides so the yardage signs don't stack up from the tee
+
+    /// <summary>
+    /// The aim line from the tee: along <paramref name="headingRad"/> (0 = straight downrange, positive = right) for
+    /// <paramref name="length"/> metres, with a ring where it ends. Hidden while a shot is in the air.
+    /// </summary>
+    public void SetAim(double headingRad, double length, bool visible)
+    {
+        _aimLine.Visible = _aimRing.Visible = visible && length > 1;
+        var dir = new Vector3((float)Math.Sin(headingRad), 0, (float)-Math.Cos(headingRad));
+        float len = (float)Math.Max(length - 3.5, 0.5);   // stops at the ring
+        _aimLine.Mesh = new BoxMesh { Size = new Vector3(0.22f, 0.01f, len) };
+        _aimLine.Position = dir * (1.5f + len / 2) + new Vector3(0, 0.08f, 0);
+        _aimLine.Rotation = new Vector3(0, (float)-headingRad, 0);
+        _aimRing.Position = dir * (float)length + new Vector3(0, 0.08f, 0);
     }
 
     private void AddGround()
@@ -77,8 +111,8 @@ public partial class RangeWorld : Node3D
         for (int i = 0; i < TargetYards.Length; i++)
         {
             int yd = TargetYards[i];
-            float z = -yd * Yard;
-            float x = i % 2 == 0 ? 13 : -14; // alternate sides so the yardage signs don't stack up from the tee
+            var at = TargetPosition(i);
+            float x = at.X, z = at.Z;
             float radius = 7 + yd * 0.035f;
             AddChild(new MeshInstance3D
             {

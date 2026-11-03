@@ -1,0 +1,252 @@
+using Godot;
+
+namespace SquareGspro.Range3D;
+
+/// <summary>A course in the New Game list.</summary>
+public sealed record CourseCard(string Name, string Description);
+
+/// <summary>
+/// The screen the app opens on: New Game (pick a course, see its stats and start a round), Resume Game (when a round
+/// is unfinished), Driving Range, Settings and Quit, with the launch monitor's status and the version. The range is
+/// visible behind it. Works with a mouse, keyboard or gamepad (arrows / D-pad move, Enter / A picks, Esc / B goes back
+/// from the course list).
+/// </summary>
+public partial class MainMenu : Control
+{
+    public event Action? ResumePressed, RangePressed, SettingsPressed, QuitPressed, MonitorPressed;
+    /// <summary>Start a new round on this course.</summary>
+    public event Action<int>? StartCourse;
+    /// <summary>The course list wants this course's stats (answer with <see cref="SetCourseStats"/>).</summary>
+    public event Action<int>? CourseStatsWanted;
+
+    private VBoxContainer _home = null!, _courses = null!, _courseList = null!;
+    private Button _newGame = null!, _resume = null!, _start = null!;
+    private Label _resumeNote = null!, _monitorText = null!, _courseName = null!, _courseDescription = null!, _courseStats = null!, _players = null!;
+    private PanelContainer _monitorCard = null!;
+    private readonly List<Button> _courseButtons = new();
+    private readonly Dictionary<int, string> _stats = new();
+    private IReadOnlyList<CourseCard> _cards = Array.Empty<CourseCard>();
+    private int _selected;
+
+    public override void _Ready()
+    {
+        Visible = false;
+        SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        MouseFilter = MouseFilterEnum.Stop;
+
+        // Dark on the left, fading out over the range on the right.
+        var shade = new TextureRect { Texture = Fade(), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, MouseFilter = MouseFilterEnum.Ignore };
+        shade.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        AddChild(shade);
+
+        var margin = new MarginContainer();
+        margin.SetAnchorsAndOffsetsPreset(LayoutPreset.LeftWide);
+        margin.OffsetRight = 560;
+        margin.AddThemeConstantOverride("margin_left", 64);
+        margin.AddThemeConstantOverride("margin_top", 56);
+        margin.AddThemeConstantOverride("margin_bottom", 40);
+        AddChild(margin);
+        var column = new VBoxContainer();
+        column.AddThemeConstantOverride("separation", 10);
+        margin.AddChild(column);
+
+        var brand = new HBoxContainer();
+        brand.AddThemeConstantOverride("separation", 0);
+        brand.AddChild(UiTheme.Text("SQUARE", 52, UiTheme.Accent, bold: true));
+        brand.AddChild(UiTheme.Text(" RANGE", 52, UiTheme.Ink, bold: true));
+        column.AddChild(brand);
+        column.AddChild(UiTheme.Text($"Garage golf simulator   ·   {Hud.Version}", 15, UiTheme.Muted));
+        column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 28) });
+
+        _home = new VBoxContainer();
+        _home.AddThemeConstantOverride("separation", 12);
+        column.AddChild(_home);
+        _newGame = BigButton("New Game", "Pick a course and start a round", primary: true);
+        _newGame.Pressed += ShowCourses;
+        _home.AddChild(_newGame);
+        _resume = BigButton("Resume Game", "Carry on with the unfinished round");
+        _resume.Pressed += () => ResumePressed?.Invoke();
+        _home.AddChild(_resume);
+        _resumeNote = UiTheme.Text("", 14, UiTheme.Muted);
+        _resumeNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _home.AddChild(_resumeNote);
+        var range = BigButton("Driving Range", "Hit balls on the range");
+        range.Pressed += () => RangePressed?.Invoke();
+        _home.AddChild(range);
+        var settings = BigButton("Settings", "Players, house rules, launch monitor, text size");
+        settings.Pressed += () => SettingsPressed?.Invoke();
+        _home.AddChild(settings);
+        var quit = BigButton("Quit", "Close Square Range");
+        quit.Pressed += () => QuitPressed?.Invoke();
+        _home.AddChild(quit);
+
+        BuildCoursePage(column);
+
+        column.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+        _monitorCard = new PanelContainer();
+        var mv = new HBoxContainer();
+        mv.AddThemeConstantOverride("separation", 12);
+        var mt = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        mt.AddThemeConstantOverride("separation", 2);
+        mt.AddChild(UiTheme.Caption("Launch monitor"));
+        _monitorText = UiTheme.Text("Not connected", 18, UiTheme.Ink, bold: true);
+        mt.AddChild(_monitorText);
+        mv.AddChild(mt);
+        var details = new Button { Text = "Connection…", ThemeTypeVariation = "FlatButton", SizeFlagsVertical = SizeFlags.ShrinkCenter, TooltipText = "Devices, connect / disconnect, battery, log  [L]" };
+        details.Pressed += () => MonitorPressed?.Invoke();
+        mv.AddChild(details);
+        _monitorCard.AddChild(mv);
+        column.AddChild(_monitorCard);
+        SetMonitorStatus("Not connected", UiTheme.Muted);
+    }
+
+    private void BuildCoursePage(VBoxContainer column)
+    {
+        _courses = new VBoxContainer { Visible = false };
+        _courses.AddThemeConstantOverride("separation", 10);
+        column.AddChild(_courses);
+        _courses.AddChild(UiTheme.Text("New Game", 26, UiTheme.Ink, bold: true));
+        _courses.AddChild(UiTheme.Caption("Course"));
+        _courseList = new VBoxContainer();
+        _courseList.AddThemeConstantOverride("separation", 6);
+        _courses.AddChild(_courseList);
+
+        var card = new PanelContainer();
+        card.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 12, 1, 18));
+        var cv = new VBoxContainer();
+        cv.AddThemeConstantOverride("separation", 8);
+        _courseName = UiTheme.Text("", 22, UiTheme.Ink, bold: true);
+        cv.AddChild(_courseName);
+        _courseStats = UiTheme.Text("", 17, UiTheme.Accent, bold: true);
+        cv.AddChild(_courseStats);
+        _courseDescription = UiTheme.Text("", 15, UiTheme.Muted);
+        _courseDescription.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _courseDescription.CustomMinimumSize = new Vector2(420, 0);
+        cv.AddChild(_courseDescription);
+        cv.AddChild(new HSeparator());
+        _players = UiTheme.Text("", 15, UiTheme.Ink);
+        _players.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        cv.AddChild(_players);
+        card.AddChild(cv);
+        _courses.AddChild(card);
+
+        var buttons = new HBoxContainer();
+        buttons.AddThemeConstantOverride("separation", 10);
+        _start = new Button { Text = "Start Round", ThemeTypeVariation = "PrimaryButton", CustomMinimumSize = new Vector2(200, 54) };
+        _start.AddThemeFontSizeOverride("font_size", 20);
+        _start.Pressed += () => StartCourse?.Invoke(_selected);
+        buttons.AddChild(_start);
+        var players = new Button { Text = "Players…", CustomMinimumSize = new Vector2(0, 54), TooltipText = "Change the players in Settings" };
+        players.Pressed += () => SettingsPressed?.Invoke();
+        buttons.AddChild(players);
+        buttons.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        var back = new Button { Text = "Back", ThemeTypeVariation = "FlatButton", CustomMinimumSize = new Vector2(0, 54), TooltipText = "Back to the menu  [Esc, gamepad B]" };
+        back.Pressed += ShowHome;
+        buttons.AddChild(back);
+        _courses.AddChild(buttons);
+    }
+
+    private static Button BigButton(string text, string tooltip, bool primary = false)
+    {
+        var b = new Button { Text = text, TooltipText = tooltip, CustomMinimumSize = new Vector2(380, 62), Alignment = HorizontalAlignment.Left,
+                             ThemeTypeVariation = primary ? "PrimaryButton" : "" };
+        b.AddThemeFontSizeOverride("font_size", 24);
+        b.AddThemeFontOverride("font", UiTheme.Bold);
+        return b;
+    }
+
+    /// <summary>A horizontal fade from nearly opaque on the left to clear on the right.</summary>
+    private static Texture2D Fade()
+    {
+        var g = new Gradient();
+        g.SetColor(0, new Color(0.04f, 0.05f, 0.06f, 0.96f));
+        g.SetColor(1, new Color(0.04f, 0.05f, 0.06f, 0.0f));
+        g.AddPoint(0.42f, new Color(0.04f, 0.05f, 0.06f, 0.88f));
+        return new GradientTexture2D { Gradient = g, Width = 256, Height = 4, FillFrom = Vector2.Zero, FillTo = new Vector2(1, 0) };
+    }
+
+    public bool IsOpen => Visible;
+    /// <summary>On the course list (Esc / B goes back to the menu from there).</summary>
+    public bool OnCoursePage => Visible && _courses.Visible;
+
+    /// <summary>
+    /// Shows the menu. <paramref name="resume"/> describes the unfinished round (null = none, Resume is hidden);
+    /// <paramref name="players"/> is who a new round would start with.
+    /// </summary>
+    public void Open(string? resume, IReadOnlyList<CourseCard> courses, int selected, string players)
+    {
+        _cards = courses;
+        _selected = Math.Clamp(selected, 0, Math.Max(0, courses.Count - 1));
+        _resume.Visible = resume != null;
+        _resumeNote.Text = resume ?? "";
+        _resumeNote.Visible = resume != null;
+        _players.Text = players;
+        Visible = true;
+        ShowHome();
+    }
+
+    public void Close()
+    {
+        Visible = false;
+        GetViewport().GuiReleaseFocus();
+    }
+
+    /// <summary>Updates the players line (after the settings change).</summary>
+    public void SetPlayers(string players) => _players.Text = players;
+
+    public void ShowHome()
+    {
+        _courses.Visible = false;
+        _home.Visible = true;
+        (_resume.Visible ? _resume : _newGame).GrabFocus();
+    }
+
+    private void ShowCourses()
+    {
+        _home.Visible = false;
+        _courses.Visible = true;
+        foreach (var c in _courseList.GetChildren()) c.Free();
+        _courseButtons.Clear();
+        var group = new ButtonGroup();
+        for (int i = 0; i < _cards.Count; i++)
+        {
+            int index = i;
+            var b = new Button { Text = _cards[i].Name, ToggleMode = true, ButtonGroup = group, ThemeTypeVariation = "TabButton",
+                                 Alignment = HorizontalAlignment.Left, CustomMinimumSize = new Vector2(0, 48) };
+            b.AddThemeFontSizeOverride("font_size", 19);
+            b.Toggled += on => { if (on) SelectCourse(index); };
+            _courseList.AddChild(b);
+            _courseButtons.Add(b);
+        }
+        if (_courseButtons.Count > 0) _courseButtons[_selected].ButtonPressed = true;
+        SelectCourse(_selected);
+        _start.GrabFocus();
+    }
+
+    private void SelectCourse(int index)
+    {
+        if (index >= _cards.Count) return;
+        _selected = index;
+        _courseName.Text = _cards[index].Name;
+        _courseDescription.Text = _cards[index].Description;
+        _courseStats.Text = _stats.GetValueOrDefault(index, "Loading course…");
+        if (!_stats.ContainsKey(index)) CourseStatsWanted?.Invoke(index);
+    }
+
+    /// <summary>A course's stats line ("18 holes · Par 72 · 6,412 yd"), once it's loaded.</summary>
+    public void SetCourseStats(int index, string stats)
+    {
+        _stats[index] = stats;
+        if (index == _selected) _courseStats.Text = stats;
+    }
+
+    /// <summary>Monitor status as in the top bar ("Ready — hit!", "Not connected", ...) with its colour.</summary>
+    public void SetMonitorStatus(string text, Color accent)
+    {
+        _monitorText.Text = text;
+        var box = UiTheme.Box(UiTheme.Card, 12, 1, 16);
+        box.BorderWidthLeft = 6;
+        box.BorderColor = accent;
+        _monitorCard.AddThemeStyleboxOverride("panel", box);
+    }
+}

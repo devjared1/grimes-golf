@@ -5,7 +5,8 @@ namespace SquareGspro.Range3D;
 
 /// <summary>
 /// Renders a hole from its Core definition (so what you see is exactly what the rules use): rough, fairways, greens
-/// with fringe, bunkers, water, tees, pins, out-of-bounds stakes and trees. For a mapped course
+/// with fringe, bunkers (with rakes), water, tees, pins, yardage markers, out-of-bounds stakes, trees, and grass
+/// blades around the ball. For a mapped course
 /// (<see cref="Course.SharedLayout"/>) the whole course is drawn once, with a flag on every green, and
 /// <see cref="ShowHole"/> switches holes. Also draws the aim line from the ball to the target.
 /// </summary>
@@ -17,6 +18,8 @@ public partial class CourseWorld : Node3D
     private MeshInstance3D _aimRing = null!;
     private MeshInstance3D _mapPin = null!;
     private readonly Dictionary<Hole, (MeshInstance3D Disc, Node3D Cup, Flagstick Flag)> _pins = new();
+    private GrassPatch _grass = null!;
+    private P2? _grassAt;
 
     public CourseWorld(Course course, Hole hole)
     {
@@ -25,7 +28,9 @@ public partial class CourseWorld : Node3D
     }
 
     // Godot needs a parameterless constructor for scripts it may instantiate itself.
-    public CourseWorld() : this(TestCourse.Course, TestCourse.Holes[0]) { }
+    public CourseWorld() : this(CourseLibrary.All[0].Load()) { }
+
+    private CourseWorld(Course course) : this(course, course.Holes[0]) { }
 
     public Course Course => _courseDef;
     private bool Shared => _courseDef.SharedLayout;
@@ -62,6 +67,10 @@ public partial class CourseWorld : Node3D
         ShowHole(h);
         AddStakes();
         AddTrees();
+        foreach (var hole in Shared ? _courseDef.Holes : new[] { h }) AddYardageMarkers(hole);
+        AddRakes(h);
+        _grass = new GrassPatch();
+        AddChild(_grass);
 
         var guide = new StandardMaterial3D
         {
@@ -95,7 +104,7 @@ public partial class CourseWorld : Node3D
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         });
 
-        // Layers are a few cm apart so they never z-fight: first cut < fairway < tee < fringe < green < bunker < water.
+        // Layers are a few cm apart so they never z-fight: first cut < fairway < tee < cart path < fringe < green < bunker < water.
         var firstCut = Scenery.Grass(Scenery.Rough, Scenery.RoughAlt, 0);
         var tees = (Shared ? _courseDef.Holes : new[] { h }).Select(Scenery.TeeCut);
         foreach (var c in Scenery.FirstCut(h).Concat(tees)) Scenery.AddShape(this, c, 0.015f, firstCut);
@@ -103,6 +112,8 @@ public partial class CourseWorld : Node3D
         foreach (var f in h.Fairways) Scenery.AddShape(this, f, 0.03f, fairway);
         var tee = Scenery.Grass(new Color(0.40f, 0.66f, 0.29f), new Color(0.44f, 0.70f, 0.31f), 1.0f, Scenery.Turf.Fairway);
         foreach (var t in h.Tees) Scenery.AddShape(this, t, 0.045f, tee);
+        var concrete = Scenery.CartPath();
+        foreach (var c in h.CartPaths) Scenery.AddShape(this, c, 0.052f, concrete);
         foreach (var g in h.Greens) Scenery.AddShape(this, g, 0.06f, fairway, grow: 1.8f);
         var green = Scenery.Grass(Scenery.Green, Scenery.GreenAlt, 1.5f, Scenery.Turf.Green);
         foreach (var g in h.Greens) Scenery.AddShape(this, g, 0.09f, green);
@@ -110,7 +121,38 @@ public partial class CourseWorld : Node3D
         foreach (var b in h.Bunkers) Scenery.AddShape(this, b, 0.12f, sand);
         var water = Scenery.Water();
         foreach (var w in h.Water) Scenery.AddShape(this, w, 0.15f, water);
+        foreach (var b in h.Bridges) Scenery.AddShape(this, b, 0.165f, concrete);
     }
+
+    /// <summary>Grows grass blades around the ball where it rests (nothing happens if it hasn't moved).</summary>
+    public void ShowGrassAround(P2 ball)
+    {
+        if (_grassAt is { } at && at.DistanceTo(ball) < 0.01) return;
+        _grassAt = ball;
+        // Only the features near the ball matter: a cut-down hole makes the thousands of lie look-ups cheap.
+        var h = _hole;
+        double reach = GrassPatch.Radius + Hole.FringeWidth + Hole.FirstCutWidth + 1;
+        List<Shape> Near(IReadOnlyList<Shape> shapes) => shapes.Where(s => s.IsNear(ball, reach)).ToList();
+        var local = h with { Fairways = Near(h.Fairways), Greens = Near(h.Greens), Bunkers = Near(h.Bunkers), Water = Near(h.Water), Tees = Near(h.Tees), CartPaths = Near(h.CartPaths), Bridges = Near(h.Bridges) };
+        // Well inside the course outline, nothing near the ball is out of bounds: skip testing the (long) outline.
+        if (h.Boundary != null && h.Boundary.Any(b => b.DistanceTo(ball) < -GrassPatch.Radius - 1))
+            local = local with { Boundary = new[] { new Ellipse(ball, reach, reach) } };
+        _grass.Grow(ball, local.LieAt, SurfaceAt);
+    }
+
+    /// <summary>
+    /// Top of the drawn surface at a point: the ground mesh with real heights, else the flat layer that lie is drawn
+    /// at (see <see cref="BuildFlatGround"/>).
+    /// </summary>
+    private float SurfaceAt(P2 p, Lie lie) => Ground != null ? TerrainGround.MeshHeightAt(Ground, p) : lie switch
+    {
+        Lie.Rough => 0.015f,
+        Lie.Fairway => 0.03f,
+        Lie.Tee => _hole.Tees.Count > 0 ? 0.045f : 0.09f,
+        Lie.CartPath => 0.052f,
+        Lie.Fringe => 0.06f,
+        _ => 0,
+    };
 
     /// <summary>Dashed line on the ground from the ball along the aim heading, with a ring at the target distance.</summary>
     public void SetAim(P2 ball, double heading, double length, bool visible, bool showRing = true)
@@ -320,6 +362,90 @@ public partial class CourseWorld : Node3D
         };
         for (int i = 0; i < stakes.Count; i++) mm.SetInstanceTransform(i, new Transform3D(Basis.Identity, stakes[i]));
         AddChild(new MultiMeshInstance3D { Multimesh = mm, MaterialOverride = new StandardMaterial3D { AlbedoColor = Colors.White } });
+    }
+
+    /// <summary>Yardages marked on the hole line, to the middle of the green, for the markers in the fairway.</summary>
+    private static readonly (double Yards, Color Color)[] Yardages =
+    {
+        (100, new Color(0.85f, 0.12f, 0.10f)), (150, new Color(0.95f, 0.95f, 0.93f)), (200, new Color(0.15f, 0.30f, 0.80f)),
+    };
+
+    /// <summary>
+    /// Sprinkler-plate yardage markers: a coloured disc with a white rim set into the fairway on the hole line at 100
+    /// (red), 150 (white) and 200 (blue) yards from the middle of the green. Skipped where that spot isn't fairway.
+    /// </summary>
+    private void AddYardageMarkers(Hole hole)
+    {
+        var line = hole.Route ?? new[] { hole.Tee, hole.TeeAim, hole.Pin };
+        var green = hole.Greens.FirstOrDefault(g => g.Contains(hole.Pin));
+        P2 middle = green is Polygon poly ? poly.Centroid : green is Ellipse e ? e.Center : hole.Pin;
+        double length = OsmCourse.Length(line);
+        var rim = new StandardMaterial3D { AlbedoColor = new Color(0.92f, 0.92f, 0.90f), Roughness = 0.5f };
+        foreach (var (yards, color) in Yardages)
+        {
+            // Walk back from the green along the line to the spot that far from its middle.
+            double want = yards * Units.YardsToMetres;
+            P2? spot = null;
+            for (double s = length; s > 0; s -= 0.5)
+            {
+                var p = OsmCourse.PointAt(line, s);
+                if (p.DistanceTo(middle) >= want) { spot = p; break; }
+            }
+            if (spot is not { } at || hole.LieAt(at) != Lie.Fairway) continue;
+            var top = Scenery.ToGodot(at, SurfaceAt(at, Lie.Fairway));
+            AddChild(new MeshInstance3D
+            {
+                Mesh = new CylinderMesh { TopRadius = 0.3f, BottomRadius = 0.3f, Height = 0.03f, RadialSegments = 24 },
+                Position = top, MaterialOverride = rim, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            });
+            AddChild(new MeshInstance3D
+            {
+                Mesh = new CylinderMesh { TopRadius = 0.23f, BottomRadius = 0.23f, Height = 0.032f, RadialSegments = 24 },
+                Position = top, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = color, Roughness = 0.5f },
+            });
+        }
+    }
+
+    /// <summary>
+    /// A rake left on the grass beside each sizeable bunker, on the side away from the green, lying along the edge
+    /// with its head toward the sand.
+    /// </summary>
+    private void AddRakes(Hole h)
+    {
+        var handle = new StandardMaterial3D { AlbedoColor = new Color(0.86f, 0.74f, 0.42f), Roughness = 0.6f };
+        var head = new StandardMaterial3D { AlbedoColor = new Color(0.93f, 0.48f, 0.12f), Roughness = 0.7f };
+        foreach (var bunker in h.Bunkers)
+        {
+            if (bunker is not (Polygon or Ellipse)) continue;
+            var outline = bunker is Polygon p ? p.Points : ((Ellipse)bunker).Outline(32);
+            var box = bunker.Box;
+            if ((box.Max.X - box.Min.X) * (box.Max.Z - box.Min.Z) < 40) continue;
+            var centre = new P2(outline.Average(q => q.X), outline.Average(q => q.Z));
+            var green = h.Greens.OrderBy(g => g.DistanceTo(centre)).FirstOrDefault();
+            // The edge point farthest from the green (or the first, if there's no green about).
+            var edge = green == null ? outline[0] : outline.MaxBy(q => green.DistanceTo(q));
+            var outward = edge - centre;
+            outward *= 1 / Math.Max(outward.Length, 1e-6);
+            var along = new P2(-outward.Z, outward.X);
+            // Handle end on the grass, head end angled in toward the sand.
+            P2 butt = edge + outward * 0.9 - along * 0.8, tip = edge + outward * 0.35 + along * 0.8;
+            Vector3 On(P2 q) => Scenery.ToGodot(q, SurfaceAt(q, h.LieAt(q)) + 0.015f);
+            Vector3 a = On(butt), b = On(tip);
+            float len = a.DistanceTo(b);
+            var rake = new Node3D { Position = a, Basis = Basis.LookingAt(b - a, Vector3.Up) };   // -Z along the handle
+            rake.AddChild(new MeshInstance3D
+            {
+                Mesh = new CylinderMesh { TopRadius = 0.013f, BottomRadius = 0.013f, Height = len, RadialSegments = 8 },
+                Position = new Vector3(0, 0, -len / 2), RotationDegrees = new Vector3(90, 0, 0), MaterialOverride = handle,
+            });
+            rake.AddChild(new MeshInstance3D
+            {
+                Mesh = new BoxMesh { Size = new Vector3(0.55f, 0.035f, 0.05f) },
+                Position = new Vector3(0, 0.005f, -len), MaterialOverride = head,
+            });
+            AddChild(rake);
+        }
     }
 
     /// <summary>

@@ -11,13 +11,22 @@ config_version=5
 [application]
 
 config/name="Square Range 3D"
+config/version="0.9.2"
 run/main_scene="res://Main.tscn"
+config/use_custom_user_dir=true
+config/custom_user_dir_name="Square Range 3D"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[debug]
+
+file_logging/enable_file_logging=true
 
 [display]
 
 window/size/viewport_width=1600
 window/size/viewport_height=900
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [dotnet]
 

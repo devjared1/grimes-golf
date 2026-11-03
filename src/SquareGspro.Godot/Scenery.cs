@@ -259,11 +259,92 @@ public static class Scenery
         Roughness = 1, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
     };
 
-    public static StandardMaterial3D Water() => new()
+    /// <summary>Cart path concrete, weathered light grey.</summary>
+    public static readonly Color Concrete = new(0.66f, 0.65f, 0.61f);
+
+    /// <summary>Cart path concrete for the flat test holes (the terrain shader draws its own).</summary>
+    public static StandardMaterial3D CartPath() => new() { AlbedoColor = Concrete, Roughness = 0.85f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
+
+    /// <summary>Open water colours: deep and dark (the sky's reflection does most of the work), and the silty shallows.</summary>
+    public static readonly Color WaterDeep = new(0.035f, 0.11f, 0.13f), WaterShallow = new(0.20f, 0.30f, 0.24f);
+
+    /// <summary>
+    /// Shared GLSL for moving water: ripples as a normal map (tangent x = world x, y = world z; needs
+    /// <c>TURF_VERTEX</c>-style tangents) from a few travelling waves plus wind-blown noise, calmed with distance so
+    /// far water doesn't shimmer.
+    /// </summary>
+    public const string WaterGlsl = """
+        float water_hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float water_noise(vec2 p) {
+            vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(water_hash(i), water_hash(i + vec2(1, 0)), f.x), mix(water_hash(i + vec2(0, 1)), water_hash(i + vec2(1, 1)), f.x), f.y);
+        }
+        float water_height(vec2 p, float t) {
+            return sin(dot(p, vec2(0.82, 0.57)) * 1.7 + t * 1.3) * 0.5
+                 + sin(dot(p, vec2(-0.45, 0.89)) * 2.9 + t * 1.9) * 0.3
+                 + sin(dot(p, vec2(0.97, -0.24)) * 5.3 + t * 2.7) * 0.15
+                 + (water_noise(p * 3.0 + vec2(t * 0.4, t * 0.25)) - 0.5) * 0.4
+                 + (water_noise(p * 9.0 - vec2(t * 0.7, t * 0.3)) - 0.5) * 0.12;
+        }
+        vec3 water_normal(vec2 p, float t) {
+            const float e = 0.04;
+            float h = water_height(p, t);
+            vec2 slope = vec2(water_height(p + vec2(e, 0.0), t) - h, water_height(p + vec2(0.0, e), t) - h) / e;
+            float calm = 1.0 / (1.0 + length(fwidth(p)) * 6.0);
+            return normalize(vec3(-slope * 0.06 * calm, 1.0)) * 0.5 + 0.5;
+        }
+        """;
+
+    private const string WaterShader = """
+        shader_type spatial;
+        render_mode blend_mix, cull_disabled, depth_draw_always;
+        uniform vec3 deep_color : source_color;
+        uniform vec3 shallow_color : source_color;
+        // 1 = see the bed through shallow water (needs real ground under it); 0 = opaque (the flat test holes).
+        uniform float see_through = 1.0;
+        uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
+        varying vec3 world_pos;
+        """ + WaterGlsl + """
+        void vertex() {
+            world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+            TANGENT = vec3(1.0, 0.0, 0.0);
+            BINORMAL = vec3(0.0, 0.0, 1.0);
+        }
+        void fragment() {
+            float depth = 4.0;
+            if (see_through > 0.5) {
+                // Water depth under this point: the ground behind it along the view ray, turned to vertical.
+                vec4 bed = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, texture(depth_tex, SCREEN_UV).r, 1.0);
+                bed.xyz /= bed.w;
+                vec3 ray = normalize(VERTEX);
+                float along = (VERTEX.z - bed.z) / max(-ray.z, 0.05);
+                depth = max(along, 0.0) * abs(dot(ray, normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz)));
+            }
+            float murk = 1.0 - exp(-depth * 1.8);
+            NORMAL_MAP = water_normal(world_pos.xz, TIME);
+            float facing = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+            float fresnel = pow(1.0 - facing, 4.0);
+            // A thin, broken line of foam where the water meets the bank.
+            float foam = (1.0 - smoothstep(0.0, 0.1, depth)) * smoothstep(0.35, 0.75, water_noise(world_pos.xz * 5.0 + vec2(TIME * 0.3, -TIME * 0.2)));
+            ALBEDO = mix(mix(shallow_color, deep_color, murk), vec3(0.75, 0.78, 0.74), foam * 0.6);
+            ALPHA = clamp(mix(0.3, 0.94, murk) + fresnel * 0.6 + foam * 0.4, 0.0, 1.0) * smoothstep(0.0, 0.03, depth);
+            ROUGHNESS = mix(0.03, 0.4, foam);
+            SPECULAR = 0.5;
+        }
+        """;
+
+    /// <summary>
+    /// Open water: rippling, reflecting the sky, darker with depth. <paramref name="seeThrough"/> shows the bed through
+    /// the shallows and a soft shoreline (for water surfaces over real ground).
+    /// </summary>
+    public static ShaderMaterial Water(bool seeThrough = false)
     {
-        AlbedoColor = new Color(0.10f, 0.32f, 0.50f), Roughness = 0.06f, Metallic = 0.35f,
-        CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-    };
+        var m = new ShaderMaterial { Shader = new Shader { Code = WaterShader } };
+        m.SetShaderParameter("deep_color", WaterDeep);
+        m.SetShaderParameter("shallow_color", WaterShallow);
+        m.SetShaderParameter("see_through", seeThrough ? 1f : 0f);
+        return m;
+    }
 
     /// <summary>Hole coordinates (X forward, Z right) to Godot (-Z forward, X right).</summary>
     public static Vector3 ToGodot(P2 p, float y = 0) => new((float)p.Z, y, (float)-p.X);

@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Calls the OSM API "map" request for a bounding box, then keeps golf features (holes, tees, greens, fairways,
-  bunkers, water hazards, rough), the golf_course outline, water and woods, plus the nodes they use. Everything
+  bunkers, water hazards, rough, cart paths), the golf_course outline, water, ditches and woods, plus the nodes they use. Everything
   else (roads, buildings, ...) is dropped. Re-run it after editing the course on openstreetmap.org.
 
   Map data (c) OpenStreetMap contributors, available under the Open Database Licence (ODbL).
@@ -37,7 +37,7 @@ function Tags($el) {
 }
 function Wanted($t) {
     $t.ContainsKey("golf") -or $t["leisure"] -eq "golf_course" -or $t["natural"] -in @("water", "wood") -or
-        $t["landuse"] -eq "forest" -or $t.ContainsKey("waterway")
+        $t["landuse"] -eq "forest" -or $t.ContainsKey("waterway") -or $t["golf_cart"] -in @("yes", "designated")
 }
 
 $osm = $doc.osm

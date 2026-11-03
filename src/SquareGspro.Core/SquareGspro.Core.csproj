@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="SquareGspro.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\SquareGspro.Physics\SquareGspro.Physics.csproj" />
   </ItemGroup>
 

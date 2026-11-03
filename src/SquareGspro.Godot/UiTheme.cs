@@ -22,6 +22,14 @@ public static class UiTheme
     public static readonly Color Warn = new(0.96f, 0.72f, 0.26f);
     public static readonly Color Danger = new(0.92f, 0.38f, 0.36f);
 
+    /// <summary>Each player's colour (name, ball, scorecard row): gold, sky blue, pink, orange.</summary>
+    private static readonly Color[] Players =
+    {
+        new(1.0f, 0.82f, 0.25f), new(0.45f, 0.78f, 1.0f), new(1.0f, 0.52f, 0.78f), new(1.0f, 0.6f, 0.25f),
+    };
+
+    public static Color PlayerColor(int player) => Players[((player % Players.Length) + Players.Length) % Players.Length];
+
     private static readonly string[] FontNames = { "Segoe UI", "Inter", "Roboto", "Helvetica Neue", "Arial", "Sans-Serif" };
     public static readonly Font Regular = new SystemFont { FontNames = FontNames };
     public static readonly Font Bold = new SystemFont { FontNames = FontNames, FontWeight = 700 };

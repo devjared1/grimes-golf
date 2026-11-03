@@ -3,22 +3,28 @@ using SquareGspro.Physics;
 namespace SquareGspro.Core.Course;
 
 /// <param name="Flight">The ball's path in hole coordinates (Y = height of the ball), cut off where it actually stopped.</param>
-/// <param name="Rest">Where the ball finished (the pin if holed). On a penalty the next shot is from <see cref="NextBall"/>.</param>
+/// <param name="Rest">Where the ball finished (the pin if holed). After a penalty or cart-path relief the next shot is from <see cref="NextBall"/>.</param>
 public sealed record ShotOutcome(
     FlightResult Flight, P2 Start, P2 Rest, Lie RestLie, P2 NextBall, bool Holed, int Penalty, int Strokes, string Message)
 {
     /// <summary>How the lie and stance changed the measured launch (null for putts and unplayed shots).</summary>
     public LieAdjustment? LieEffect { get; init; }
+    /// <summary>The hole ended without holing out: the strokes reached the house-rules limit (double par).</summary>
+    public bool PickedUp { get; init; }
+    /// <summary>The hole is finished, holed or picked up.</summary>
+    public bool HoleOver => Holed || PickedUp;
 }
 
 /// <summary>
 /// Plays a round over a list of holes: positions the ball, applies each shot along an aim heading, works out where it
 /// finishes and keeps score. Penalties are stroke-and-distance (one stroke, replay from the previous spot).
+/// <see cref="HouseRules"/> set the tap-in distance, mulligans and the double-par pick-up.
 /// <para>
 /// The ball's motion comes from the physics engine (<see cref="SquareGspro.Physics"/>): aerodynamic flight, bounces
 /// and roll over the hole's ground (<see cref="CourseGround"/>: real heights with <see cref="Terrain"/>, flat
 /// without; surface by lie). This class adds the rules the physics doesn't know: water and out of bounds stop the
-/// ball, a ball that rolls into a bunker stays there, and the cup can catch it.
+/// ball, a ball that rolls into a bunker stays there, a ball stopping on a cart path gets free relief, and the cup can
+/// catch it.
 /// </para>
 /// </summary>
 public sealed class HoleRound
@@ -31,8 +37,6 @@ public sealed class HoleRound
     public const double CaptureRadius = 0.075, CaptureSpeed = 1.6;
     /// <summary>Regulation cup: 4.25 in across, at least 4 in deep.</summary>
     public const double CupRadius = 0.054, CupDepth = 0.10;
-    /// <summary>Putts finishing this close are tapped in for one more stroke.</summary>
-    public const double GimmeMetres = 0.6;
 
     /// <summary>Gravity along a slope for a rolling ball (solid sphere: 5/7 g), for the putt read's first guess.</summary>
     private const double SlopeGravity = 5.0 / 7.0 * PhysicsConstants.Gravity;
@@ -42,11 +46,15 @@ public sealed class HoleRound
 
     private readonly int?[] _scores;
     private (P2 Ball, double Heading, double Speed, int Physics)? _read;
+    /// <summary>The round before the last counted shot on this hole, for a mulligan.</summary>
+    private State? _beforeLast;
 
-    public HoleRound(IReadOnlyList<Hole> holes, Terrain? terrain = null)
+    public HoleRound(IReadOnlyList<Hole> holes, Terrain? terrain = null, HouseRules? rules = null)
     {
         Holes = holes;
         Terrain = terrain;
+        Rules = rules ?? HouseRules.Strict;
+        MulligansLeft = Rules.Mulligans;
         _scores = new int?[holes.Count];
         StartHole(0);
     }
@@ -54,14 +62,23 @@ public sealed class HoleRound
     public IReadOnlyList<Hole> Holes { get; }
     /// <summary>Ground heights (null = flat).</summary>
     public Terrain? Terrain { get; }
+    public HouseRules Rules { get; }
     public IReadOnlyList<int?> Scores => _scores;
     public int HoleIndex { get; private set; }
     public Hole Hole => Holes[HoleIndex];
     public P2 Ball { get; private set; }
     public Lie Lie { get; private set; }
     public int Strokes { get; private set; }
+    /// <summary>The hole is finished (holed out, or picked up at the house-rules limit).</summary>
     public bool Holed { get; private set; }
-    public bool RoundComplete => _scores.All(s => s != null);
+    /// <summary>The hole was picked up at double par rather than holed.</summary>
+    public bool PickedUp { get; private set; }
+    public int MulligansLeft { get; private set; }
+    /// <summary>A mulligan can take back the last shot: one is left, and the hole wasn't holed by it.</summary>
+    public bool CanMulligan => MulligansLeft > 0 && _beforeLast != null && (!Holed || PickedUp);
+    /// <summary>The first hole this player plays (0, unless they joined the round part-way through).</summary>
+    public int FirstHole { get; private set; }
+    public bool RoundComplete => _scores.Skip(FirstHole).All(s => s != null);
     public double DistanceToPin => Ball.DistanceTo(Hole.Pin);
 
     public void StartHole(int index)
@@ -71,13 +88,15 @@ public sealed class HoleRound
         Lie = Lie.Tee;
         Strokes = 0;
         Holed = false;
+        PickedUp = false;
+        _beforeLast = null;
         _scores[index] = null;
     }
 
     /// <summary>Where the round stands (hole, ball, lie, strokes, that hole's score), to replay a shot from.</summary>
-    public sealed record State(int HoleIndex, P2 Ball, Lie Lie, int Strokes, bool Holed, int? Score);
+    public sealed record State(int HoleIndex, P2 Ball, Lie Lie, int Strokes, bool Holed, int? Score, bool PickedUp = false);
 
-    public State Save() => new(HoleIndex, Ball, Lie, Strokes, Holed, _scores[HoleIndex]);
+    public State Save() => new(HoleIndex, Ball, Lie, Strokes, Holed, _scores[HoleIndex], PickedUp);
 
     /// <summary>Puts the round back to <paramref name="s"/>, e.g. to replay the shot played from there.</summary>
     public void Restore(State s)
@@ -87,7 +106,38 @@ public sealed class HoleRound
         Lie = s.Lie;
         Strokes = s.Strokes;
         Holed = s.Holed;
+        PickedUp = s.PickedUp;
+        _beforeLast = null;
         _scores[s.HoleIndex] = s.Score;
+    }
+
+    /// <summary>
+    /// Takes a saved round back up (after a restart): every hole's score, where the current hole stands and the
+    /// mulligans left. Scores for holes outside this course are ignored.
+    /// </summary>
+    public void Resume(IReadOnlyList<int?> scores, State current, int mulligansLeft, int firstHole = 0)
+    {
+        for (int i = 0; i < _scores.Length; i++) _scores[i] = i < scores.Count ? scores[i] : null;
+        Restore(current);
+        MulligansLeft = Math.Clamp(mulligansLeft, 0, Rules.Mulligans);
+        FirstHole = Math.Clamp(firstHole, 0, _scores.Length - 1);
+    }
+
+    /// <summary>A player joining part-way through: they start on the tee of hole <paramref name="index"/>; the holes before don't count for them.</summary>
+    public void JoinAt(int index)
+    {
+        FirstHole = index;
+        StartHole(index);
+    }
+
+    /// <summary>Takes back the last shot (stroke, penalty and all) and uses up one mulligan. False if none can be taken.</summary>
+    public bool Mulligan()
+    {
+        if (!CanMulligan) return false;
+        var before = _beforeLast!;
+        Restore(before);
+        MulligansLeft--;
+        return true;
     }
 
     public double GroundAt(P2 p) => Terrain?.HeightAt(p) ?? 0;
@@ -163,7 +213,7 @@ public sealed class HoleRound
             {
                 var measured = LaunchConditions.FromDisplayUnits(shot.BallMph, shot.LaunchDeg, shot.DirectionDeg, Math.Max(0, shot.SpinRpm), shot.SpinAxisDeg);
                 lieEffect = ActivePhysics.LieModel.Apply(measured, StanceAt(start, headingRad, leftHanded), LoftFor(club, shot));
-                var rules = new Rules(Hole, cup: true);
+                var rules = new HoleRules(Hole, cup: true);
                 var r = Engine.SimulateShot(new SimulationRequest
                 {
                     Launch = lieEffect.Launch,
@@ -192,8 +242,12 @@ public sealed class HoleRound
         }
 
         var (rest, restLie, holed) = end;
+        _beforeLast = Save();
         int penalty = restLie is Lie.Water or Lie.OutOfBounds ? 1 : 0;
         Strokes += 1 + penalty;
+        int? max = Rules.MaxScore(Hole.Par);
+        bool pickedUp = false;
+        (P2 At, Lie Lie)? relief = null;
         string message;
         if (holed)
         {
@@ -204,23 +258,74 @@ public sealed class HoleRound
             message = restLie == Lie.Water ? "In the water. 1 stroke penalty, replay from the previous spot."
                                            : "Out of bounds. 1 stroke penalty, replay from the previous spot.";
         }
-        else if (restLie == Lie.Green && rest.DistanceTo(Hole.Pin) <= GimmeMetres)
+        else if (restLie == Lie.Green && rest.DistanceTo(Hole.Pin) <= Rules.GimmeMetres && Strokes + 1 <= (max ?? int.MaxValue))
         {
             Strokes++;
             holed = true;
             message = $"Tapped in. {ScoreName(Strokes, Hole.Par)}";
         }
+        else if (restLie == Lie.CartPath && CartPathRelief(rest) is { } drop)
+        {
+            relief = drop;
+            message = $"Cart path: free relief to the {LieName(drop.Lie).ToLowerInvariant()}, {drop.At.DistanceTo(Hole.Pin) * Units.MetresToYards:0} yd to the pin";
+        }
         else message = $"{LieName(restLie)}, {rest.DistanceTo(Hole.Pin) * Units.MetresToYards:0} yd to the pin";
 
+        if (!holed && Strokes >= max)
+        {
+            // House rules: that's the most a hole can cost. Pick up and score double par.
+            pickedUp = true;
+            Strokes = max.Value;
+            message = (penalty > 0 ? message.Split('.')[0] + ". " : "") + $"Picked up: double par, {Strokes}.";
+        }
+
         if (holed) { Holed = true; Ball = Hole.Pin; Lie = Lie.Green; _scores[HoleIndex] = Strokes; }
-        else if (penalty == 0) { Ball = rest; Lie = restLie; }
+        else
+        {
+            if (penalty == 0) { Ball = relief?.At ?? rest; Lie = relief?.Lie ?? restLie; }
+            if (pickedUp) { Holed = PickedUp = true; _scores[HoleIndex] = Strokes; }
+        }
 
         var flight = new FlightResult(path, landing, carryYd, start.DistanceTo(rest) * Units.MetresToYards, apexYd,
             Offline(start, rest, headingRad) * Units.MetresToYards, hang, descent);
-        return new ShotOutcome(flight, start, rest, restLie, Ball, holed, penalty, Strokes, message) { LieEffect = lieEffect };
+        return new ShotOutcome(flight, start, rest, restLie, Ball, holed, penalty, Strokes, message) { LieEffect = lieEffect, PickedUp = pickedUp };
     }
 
     private FlightPoint OnGround(P2 p, double t) => new(t, p.X, GroundAt(p), p.Z);
+
+    /// <summary>How far clear of a cart path the relief point is (the ball and the golfer's stance), m.</summary>
+    public const double ReliefClearance = 0.6;
+    /// <summary>Furthest the search for relief looks (m); beyond it the ball is played from the path.</summary>
+    private const double ReliefSearch = 20;
+
+    /// <summary>
+    /// Free relief from a cart path at <paramref name="at"/>: the nearest point at least <see cref="ReliefClearance"/>
+    /// from every path, no nearer the hole, in bounds and on grass (not a bunker, green or water). Of equally near
+    /// points, the one closest to the hole. Null if there's none within <see cref="ReliefSearch"/>.
+    /// </summary>
+    public (P2 At, Lie Lie)? CartPathRelief(P2 at)
+    {
+        var hole = Hole;
+        double toPin = at.DistanceTo(hole.Pin);
+        var paths = hole.CartPaths.Where(c => c.IsNear(at, ReliefSearch + ReliefClearance)).ToList();
+        for (double r = 0.25; r <= ReliefSearch; r += 0.25)
+        {
+            (P2 At, Lie Lie)? best = null;
+            double bestToPin = double.MaxValue;
+            int steps = Math.Max(72, (int)Math.Ceiling(2 * Math.PI * r / 0.25));
+            for (int k = 0; k < steps; k++)
+            {
+                double a = 2 * Math.PI * k / steps;
+                var p = at + new P2(Math.Cos(a), Math.Sin(a)) * r;
+                double d = p.DistanceTo(hole.Pin);
+                if (d < toPin || d >= bestToPin || paths.Any(c => c.DistanceTo(p) < ReliefClearance)) continue;
+                var lie = hole.LieAt(p);
+                if (lie is Lie.Fairway or Lie.Rough or Lie.DeepRough or Lie.Fringe or Lie.Tee) { best = (p, lie); bestToPin = d; }
+            }
+            if (best != null) return best;
+        }
+        return null;
+    }
 
     /// <summary>What stopped the ball (a rule, not the physics).</summary>
     private enum StopKind { Hazard, Bunker, LandedInCup, Cup }
@@ -230,13 +335,13 @@ public sealed class HoleRound
     /// stop the ball; a ball that rolls into a bunker from outside stays there; a ball landing on the cup goes in; a
     /// rolling ball reaching the cup is handed to <see cref="AtTheCup"/>. One per simulation (it keeps state).
     /// </summary>
-    private sealed class Rules : IGroundObserver
+    private sealed class HoleRules : IGroundObserver
     {
         private readonly Hole _hole;
         private readonly bool _cup;
         private Lie? _rollLie;
 
-        public Rules(Hole hole, bool cup) { _hole = hole; _cup = cup; }
+        public HoleRules(Hole hole, bool cup) { _hole = hole; _cup = cup; }
 
         public (StopKind Kind, P2 At, Lie Lie, P2 Velocity)? Event { get; private set; }
 
@@ -309,7 +414,7 @@ public sealed class HoleRound
             path.Add(OnGround(from, t));
             return Finish(path, null, from, cup);
         }
-        var rules = new Rules(Hole, cup);
+        var rules = new HoleRules(Hole, cup);
         var r = Engine.SimulatePutt(new PuttingRequest
         {
             Terrain = Ground, StartX = from.Z, StartY = from.X, BallSpeed = Math.Min(speed, MaxRollSpeed),
@@ -493,7 +598,7 @@ public sealed class HoleRound
 
     public static string LieName(Lie lie) => lie switch
     {
-        Lie.OutOfBounds => "Out of bounds", Lie.DeepRough => "Deep rough", _ => lie.ToString(),
+        Lie.OutOfBounds => "Out of bounds", Lie.DeepRough => "Deep rough", Lie.CartPath => "Cart path", _ => lie.ToString(),
     };
 
     public static string ScoreName(int strokes, int par) => (strokes - par) switch

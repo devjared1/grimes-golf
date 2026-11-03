@@ -81,11 +81,13 @@ public sealed class ElevationGrid
 /// The ground of a mapped course in its own frame (metres, X north, Z east around the course origin): a regular grid
 /// of heights relative to <see cref="Datum"/> (the height at the course origin), resampled from an
 /// <see cref="ElevationGrid"/> and smoothed (lightly everywhere, more on greens, where lidar noise would otherwise
-/// read as bumps). Physics and the rendered ground both use this grid, so the ball sits on what you see.
+/// read as bumps), with bunkers dug in and ponds given a level surface over a carved bed. Physics and the rendered
+/// ground both use this grid, so the ball sits on what you see.
 /// </summary>
 public sealed class Terrain
 {
     private readonly float[] _h;
+    private readonly Dictionary<Shape, double> _waterLevels = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>A flat or synthetic terrain from a height function (tests, tools).</summary>
     public Terrain(Bounds area, double cell, Func<P2, double> height)
@@ -105,7 +107,8 @@ public sealed class Terrain
     /// importer's: lat = lat0 + X / metresPerDegreeLat, lon = lon0 + Z / metresPerDegreeLon).
     /// </summary>
     public Terrain(ElevationGrid grid, double lat0, double lon0, double metresPerDegreeLat, double metresPerDegreeLon,
-                   Bounds area, IReadOnlyList<Shape> greens, double cell = 2.0)
+                   Bounds area, IReadOnlyList<Shape> greens, IReadOnlyList<Shape>? bunkers = null, IReadOnlyList<Shape>? water = null,
+                   double cell = 2.0)
         : this(area, cell, p => grid.At(lat0 + p.X / metresPerDegreeLat, lon0 + p.Z / metresPerDegreeLon))
     {
         Datum = grid.At(lat0, lon0);
@@ -113,7 +116,96 @@ public sealed class Terrain
 
         // Light smoothing everywhere (~2 m) takes out lidar noise.
         Blur(_h, 1, 2);
+        Sculpt(greens, bunkers ?? Array.Empty<Shape>(), water ?? Array.Empty<Shape>());
+    }
+
+    /// <summary>Shapes the built features into the ground: greens first, then bunkers (kept off the greens), then ponds.</summary>
+    public void Sculpt(IReadOnlyList<Shape> greens, IReadOnlyList<Shape> bunkers, IReadOnlyList<Shape> water)
+    {
         foreach (var g in greens) ShapeGreen(g);
+        foreach (var b in bunkers) ShapeBunker(b, greens);
+        foreach (var w in water) ShapePond(w);
+    }
+
+    /// <summary>
+    /// The level surface of a pond (m, same datum as the heights), or null for water that follows the ground
+    /// (creeks, ditches, and water too big or too sloped to sit level).
+    /// </summary>
+    public double? WaterLevel(Shape water) => _waterLevels.TryGetValue(water, out var level) ? level : null;
+
+    /// <summary>Visits the grid points within <paramref name="margin"/> of a shape, with their distance from its edge (negative inside).</summary>
+    private void Around(Shape shape, double margin, Action<int, double> visit)
+    {
+        var b = shape.Box.Expand(margin);
+        int i0 = Math.Max(0, (int)((b.Min.X - Origin.X) / Cell)), i1 = Math.Min(CountX - 1, (int)Math.Ceiling((b.Max.X - Origin.X) / Cell));
+        int j0 = Math.Max(0, (int)((b.Min.Z - Origin.Z) / Cell)), j1 = Math.Min(CountZ - 1, (int)Math.Ceiling((b.Max.Z - Origin.Z) / Cell));
+        for (int i = i0; i <= i1; i++)
+            for (int j = j0; j <= j1; j++)
+            {
+                double d = shape.DistanceTo(Point(i, j));
+                if (d < margin) visit(i * CountZ + j, d);
+            }
+    }
+
+    private static double Smooth(double t) { t = Math.Clamp(t, 0, 1); return t * t * (3 - 2 * t); }
+
+    /// <summary>
+    /// Digs a bunker in: a sand floor below the surrounding ground (deeper for bigger bunkers), reached down a face a
+    /// couple of metres wide, with a low grass lip around it that stands up more on the side facing a green.
+    /// Neither the lip nor the dig touches a green or its fringe.
+    /// </summary>
+    private void ShapeBunker(Shape bunker, IReadOnlyList<Shape> greens)
+    {
+        const double face = 2.5, lipWidth = 3, lipLow = 0.1, lipHigh = 0.35, greenReach = 12;
+        var box = bunker.Box;
+        double size = Math.Min(box.Max.X - box.Min.X, box.Max.Z - box.Min.Z);
+        double depth = Math.Clamp(0.4 + 0.03 * size, 0.5, 1.1);
+        var nearGreens = greens.Where(g => g.IsNear(box.Center, Math.Max(box.Max.X - box.Min.X, box.Max.Z - box.Min.Z) + greenReach)).ToList();
+        Around(bunker, lipWidth, (idx, d) =>
+        {
+            var p = Point(idx / CountZ, idx % CountZ);
+            double toGreen = nearGreens.Count == 0 ? double.MaxValue : nearGreens.Min(g => g.DistanceTo(p));
+            if (toGreen <= Hole.FringeWidth + 0.5) return;
+            double lip = lipLow + (lipHigh - lipLow) * Smooth(1 - toGreen / greenReach);
+            // The lip peaks at the edge, falling away outside and (sooner) down the face inside.
+            double lipShape = d >= 0 ? 1 - Smooth(d / lipWidth) : 1 - Smooth(-d / (face * 0.6));
+            double dig = d < 0 ? depth * Smooth(-d / face) : 0;
+            // Fade the lip out just before a fringe so the step never reaches the putting surface.
+            double keep = Smooth((toGreen - Hole.FringeWidth - 0.5) / 2);
+            _h[idx] += (float)((lip * lipShape - dig) * keep);
+        });
+    }
+
+    /// <summary>
+    /// Gives a pond a level surface just below its lowest bank and carves its bed below that, so the water lies flat
+    /// instead of draping over the slope. Water that would need carving more than a few metres (a long river on a
+    /// hill, say) is left following the ground.
+    /// </summary>
+    private void ShapePond(Shape water)
+    {
+        if (water is not (Polygon or Ellipse)) return;
+        const double maxCarve = 3, bed = 1.2, shelf = 5, freeboard = 0.1;
+        IReadOnlyList<P2> outline = water is Polygon poly ? poly.Points : ((Ellipse)water).Outline(48);
+        // Lowest bank: sampled every metre or so along the outline.
+        double level = double.MaxValue;
+        for (int i = 0; i < outline.Count; i++)
+        {
+            P2 a = outline[i], b = outline[(i + 1) % outline.Count];
+            int steps = Math.Max(1, (int)(a.DistanceTo(b) / 1.0));
+            for (int s = 0; s < steps; s++) level = Math.Min(level, HeightAt(a + (b - a) * ((double)s / steps)));
+        }
+        level -= freeboard;
+
+        double highest = double.MinValue;
+        Around(water, 0, (idx, d) => highest = Math.Max(highest, _h[idx]));
+        if (highest == double.MinValue || highest - level > maxCarve) return;
+
+        _waterLevels[water] = level;
+        Around(water, 0, (idx, d) =>
+        {
+            double target = level - freeboard - bed * Smooth(-d / shelf);
+            if (_h[idx] > target) _h[idx] = (float)target;
+        });
     }
 
     /// <summary>Steepest overall tilt a green is given (real greens are rarely over 3-4%).</summary>

@@ -381,14 +381,14 @@ public class RangeShotTests
     }
 }
 
-public class SwingMeterShotTests
+public class ScreenShotTests
 {
     private static readonly ClubPreset SevenIron = ClubPresets.Find("I7")!, Pw = ClubPresets.Find("PW")!;
 
     [Fact]
-    public void AFullPerfectCentredSwingIsTheClubsStockShot()
+    public void AFullStraightMediumSpinSwingIsTheClubsStockShot()
     {
-        var s = Caddie.SwingShot(SevenIron, new Swing(1, 0));
+        var s = Caddie.SwingShot(SevenIron, new Swing(1));
         Assert.Equal(SevenIron.BallMph, s.BallMph, 9);
         Assert.Equal(SevenIron.LaunchDeg, s.LaunchDeg, 9);
         Assert.Equal(SevenIron.SpinRpm, s.SpinRpm, 9);
@@ -401,42 +401,43 @@ public class SwingMeterShotTests
     {
         double full = Caddie.Carry("PW") * Units.MetresToYards;
         foreach (double p in new[] { 0.6, 0.8 })
-            Assert.InRange(Caddie.SwingShot(Pw, new Swing(p, 0)).Fly().CarryYards, full * p * 0.93, full * p * 1.07);
-        Assert.True(Caddie.SwingShot(Pw, new Swing(0.5, 0)).SpinRpm < Pw.SpinRpm, "a partial swing spins less");
+            Assert.InRange(Caddie.SwingShot(Pw, new Swing(p)).Fly().CarryYards, full * p * 0.93, full * p * 1.07);
+        Assert.True(Caddie.SwingShot(Pw, new Swing(0.5)).SpinRpm < Pw.SpinRpm, "a partial swing spins less");
+        Assert.Equal(0.5, Caddie.PowerFor("PW", Caddie.Carry("PW") / 2), 6);
+        Assert.Equal(1, Caddie.PowerFor("PW", Caddie.Carry("PW") * 3));
     }
 
     [Fact]
-    public void LateTimingHooksEarlySlicesAndThePerfectWindowIsStraight()
+    public void ADrawStartsRightAndCurvesLeftAndAFadeTheOpposite()
     {
-        var late = Caddie.SwingShot(SevenIron, new Swing(1, 0.8));
-        var early = Caddie.SwingShot(SevenIron, new Swing(1, -0.8));
-        Assert.True(late.DirectionDeg < 0 && late.SpinAxisDeg < 0, "late: pulled and hooked (right-hander)");
-        Assert.True(early.DirectionDeg > 0 && early.SpinAxisDeg > 0, "early: pushed and sliced");
-        Assert.True(Caddie.SwingShot(SevenIron, new Swing(1, 0.8), leftHanded: true).SpinAxisDeg > 0, "a left-hander's late swing curves right");
-        var nearlyPerfect = Caddie.SwingShot(SevenIron, new Swing(1, Caddie.PerfectTiming * 0.9));
-        Assert.Equal(0, nearlyPerfect.SpinAxisDeg, 9);
-        // The same miss costs less on a smaller swing.
-        Assert.True(Math.Abs(Caddie.SwingShot(SevenIron, new Swing(0.5, 0.8)).SpinAxisDeg) < Math.Abs(late.SpinAxisDeg));
+        var draw = Caddie.SwingShot(SevenIron, new Swing(1, ShotShape.Draw));
+        var fade = Caddie.SwingShot(SevenIron, new Swing(1, ShotShape.Fade));
+        Assert.True(draw.DirectionDeg > 0 && draw.SpinAxisDeg < 0, "draw (right-hander): starts right, curves left");
+        Assert.True(fade.DirectionDeg < 0 && fade.SpinAxisDeg > 0, "fade: starts left, curves right");
+        Assert.True(Caddie.SwingShot(SevenIron, new Swing(1, ShotShape.Draw), leftHanded: true).SpinAxisDeg > 0, "a left-hander's draw curves right");
+        // Both curve back to finish near the aim line (within a few yards of it).
+        foreach (var s in new[] { draw, fade })
+            Assert.InRange(s.Fly().LateralYards, -6, 6);
+        // Smaller swings curve less.
+        Assert.True(Math.Abs(Caddie.SwingShot(SevenIron, new Swing(0.5, ShotShape.Draw)).SpinAxisDeg) < Math.Abs(draw.SpinAxisDeg));
     }
 
     [Fact]
-    public void StrikePointMovesLaunchSpinAndCurve()
+    public void SpinLevelMovesLaunchAndSpin()
     {
-        var low = Caddie.SwingShot(Pw, new Swing(1, 0, StrikeY: -0.8));
-        var high = Caddie.SwingShot(Pw, new Swing(1, 0, StrikeY: 0.8));
-        Assert.True(low.LaunchDeg > Pw.LaunchDeg && low.SpinRpm > Pw.SpinRpm, "below centre: higher, more spin");
-        Assert.True(high.LaunchDeg < Pw.LaunchDeg && high.SpinRpm < Pw.SpinRpm, "above centre: lower, less spin");
-        Assert.True(Caddie.SwingShot(Pw, new Swing(1, 0, StrikeX: 0.8)).SpinAxisDeg > 0, "right of centre curves right");
-        Assert.True(high.BallMph < Pw.BallMph, "off centre loses speed");
+        var low = Caddie.SwingShot(Pw, new Swing(1, Spin: SpinLevel.Low));
+        var high = Caddie.SwingShot(Pw, new Swing(1, Spin: SpinLevel.High));
+        Assert.True(low.LaunchDeg < Pw.LaunchDeg && low.SpinRpm < Pw.SpinRpm, "low: lower, less spin");
+        Assert.True(high.LaunchDeg > Pw.LaunchDeg && high.SpinRpm > Pw.SpinRpm, "high: higher, more spin");
+        Assert.Equal(Pw.BallMph, high.BallMph, 9);
     }
 
     [Fact]
     public void PuttPowerIsTheShareOfTheMetersRoll()
     {
-        var putt = Caddie.SwingPutt(new Swing(0.5, 0), fullScaleMetres: 6, Lie.Green);
+        var putt = Caddie.SwingPutt(new Swing(0.5), fullScaleMetres: 6, Lie.Green);
         Assert.Equal(3, Caddie.PuttRollMetres(putt.BallMph / ShotMapper.MsToMph, Lie.Green), 6);
         Assert.Equal(0, putt.DirectionDeg, 9);
-        Assert.True(Caddie.SwingPutt(new Swing(0.5, 1), 6, Lie.Green).DirectionDeg < 0, "late pulls it");
         // The scale is a round number of feet with the putt at about 70%.
         double scale = Caddie.PuttScaleMetres(4);
         Assert.InRange(4 / scale, 0.55, 0.72);
@@ -656,6 +657,40 @@ public class LieTests
     }
 
     [Fact]
+    public void BunkersAreDugInWithALipThatStaysOffTheGreen()
+    {
+        var area = new Bounds(new P2(-60, -60), new P2(60, 60));
+        var terrain = new Terrain(area, 1.0, p => p.X * 0.02);
+        var bunker = new Polygon(new[] { new P2(-10, -5), new P2(10, -5), new P2(10, 5), new P2(-10, 5) });
+        var green = new Polygon(new[] { new P2(-10, 7), new P2(10, 7), new P2(10, 30), new P2(-10, 30) });
+        double greenBefore = terrain.HeightAt(new P2(0, 8));
+        terrain.Sculpt(new[] { green }, new[] { bunker }, Array.Empty<Shape>());
+
+        Assert.InRange(terrain.HeightAt(new P2(0, 0)), -1.1, -0.5);                    // floor below the old ground (0 at X = 0)
+        Assert.True(terrain.HeightAt(new P2(0, -5)) > 0.05, "a lip stands up at the edge");
+        Assert.Equal(-14 * 0.02, terrain.HeightAt(new P2(-14, -20)), 6);                // ground well away is untouched
+        Assert.Equal(greenBefore, terrain.HeightAt(new P2(0, 8)), 2);                   // the green beside it isn't
+    }
+
+    [Fact]
+    public void PondsLieLevelBelowTheirLowestBank()
+    {
+        var area = new Bounds(new P2(-60, -60), new P2(60, 60));
+        var terrain = new Terrain(area, 1.0, p => p.X * 0.03);   // 0.6 m fall across the pond
+        var pond = new Polygon(new[] { new P2(-10, -10), new P2(10, -10), new P2(10, 10), new P2(-10, 10) });
+        var creek = new Strip(new[] { new P2(-40, 30), new P2(40, 30) }, 3);
+        terrain.Sculpt(Array.Empty<Shape>(), Array.Empty<Shape>(), new Shape[] { pond, creek });
+
+        var level = terrain.WaterLevel(pond);
+        Assert.NotNull(level);
+        Assert.True(level < -10 * 0.03, "below the lowest bank");
+        foreach (var p in new[] { new P2(-8, 0), new P2(0, 0), new P2(8, 5) })
+            Assert.True(terrain.HeightAt(p) < level, "the bed is under the water everywhere");
+        Assert.Null(terrain.WaterLevel(creek));   // creeks follow the ground
+        Assert.Equal(20 * 0.03, terrain.HeightAt(new P2(20, 0)), 6);
+    }
+
+    [Fact]
     public void ShotsFromTheRoughAreAdjustedAndTheTeeShotIsNot()
     {
         var round = new HoleRound(TestCourse.Holes);
@@ -783,8 +818,8 @@ public class OsmCourseTests
         Assert.InRange(c.Holes[14].LengthYards, 530, 590);      // 15: the long par 5
         // Holes are numbered correctly in the map (7 used to be tagged 8; the synthetic test covers renumbering).
         Assert.DoesNotContain(c.Notes, n => n.Contains("playing it as hole"));
-        // Fairways are mapped for holes 1-4; the rest are generated.
-        Assert.Contains(c.Notes, n => n.StartsWith("Fairways aren't mapped for holes 5,"));
+        // Every par 4 and 5 has a mapped fairway; the par 3s get a generated apron.
+        Assert.Contains(c.Notes, n => n.StartsWith("Fairways aren't mapped for holes 6, 8, 11, 14;"));
     }
 
     [Fact]
@@ -792,8 +827,9 @@ public class OsmCourseTests
     {
         var c = DeerRun.Value;
         var h1 = c.Holes[0];
-        Assert.True(h1.Fairways.OfType<Polygon>().Count() >= 4);
-        Assert.True(h1.Water.OfType<Polygon>().Count() >= 3);
+        Assert.True(h1.Fairways.OfType<Polygon>().Count() >= 17);
+        Assert.True(h1.Water.OfType<Polygon>().Count() >= 7);
+        Assert.True(h1.Water.OfType<Strip>().Count() >= 4);     // ditches
         // Every pond plays as water.
         foreach (var pond in h1.Water.OfType<Polygon>())
         {
@@ -813,7 +849,10 @@ public class OsmCourseTests
             Assert.Equal(Lie.Tee, h.LieAt(h.Tee));
             Assert.Equal(Lie.Green, h.LieAt(h.Pin));
             Assert.True(h.InBounds(h.Tee) && h.InBounds(h.Pin), $"hole {h.Number}");
-            if (h.Par >= 4) Assert.Equal(Lie.Fairway, h.LieAt(OsmCourse.PointAt(h.Route!, OsmCourse.Length(h.Route!) * 0.6)));
+            // Mostly fairway down the line (15 has a strip of rough at the ditch; 10 ends short of the pond).
+            if (h.Par >= 4)
+                Assert.True(new[] { 0.4, 0.5, 0.6, 0.7, 0.8 }.Count(f => h.LieAt(OsmCourse.PointAt(h.Route!, OsmCourse.Length(h.Route!) * f)) == Lie.Fairway) >= 3,
+                    $"hole {h.Number}");
             Assert.Equal(Lie.OutOfBounds, h.LieAt(h.Pin + new P2(5000, 0)));
             Assert.InRange(h.Tee.DistanceTo(h.TeeAim), 100, 290);
         }
@@ -863,11 +902,14 @@ public class OsmCourseTests
         Assert.InRange(t.Datum, 150, 350);                         // Moulton is ~200 m above sea level
 
         // Ponds are flattened in lidar elevation models: inside the mapped outline the ground should be level
-        // (if the grid were shifted against the map, the banks would show up as spread).
-        foreach (var pond in c.Holes[0].Water.OfType<Polygon>())
+        // (if the grid were shifted against the map, the banks would show up as spread). Checked before the
+        // app carves its own pond beds.
+        var raw = OsmCourse.FromResource("deer-run.osm", "Deer Run", "deer-run.dem", shapeWater: false);
+        foreach (var pond in raw.Holes[0].Water.OfType<Polygon>())
         {
-            var inside = Inside(pond).Select(t.HeightAt).ToList();
+            var inside = Inside(pond).Select(raw.Terrain!.HeightAt).ToList();
             Assert.True(StdDev(inside) < 0.35, $"pond spread {StdDev(inside):0.00} m");
+            Assert.NotNull(t.WaterLevel(c.Holes[0].Water.First(w => w is Polygon q && q.Box == pond.Box)));   // and they're given a level surface
         }
         // Greens are gentler than the land around them (1 m data is a little noisy, so allow some slope).
         var greenSlopes = c.Holes[0].Greens.OfType<Polygon>().Select(g => Inside(g, 12).Average(p => t.Gradient(p).Length)).ToList();
@@ -1028,5 +1070,106 @@ public class OsmImporterTests
         Assert.Equal(3, c.Holes[1].Par);                          // guessed from ~155 m
         Assert.True(c.Holes[1].Tee.X > c.Holes[1].Pin.X);         // reversed: tees off from the north end
         Assert.Contains(c.Notes, n => n.Contains("no number"));
+    }
+}
+
+public class CartPathTests
+{
+    /// <summary>A straight par 4 down +X with a 2.5 m path across it at 150 m, and a wide concrete apron at 145-160 m on <paramref name="apron"/>.</summary>
+    private static Hole Hole(bool apron = false)
+    {
+        var path = new Strip(new[] { new P2(150, -60), new P2(150, 60) }, 2.5);
+        var slab = new Polygon(new[] { new P2(145, -60), new P2(160, -60), new P2(160, 60), new P2(145, 60) });
+        return new Hole(1, "", 4, new P2(0, 0), new P2(300, 0), new P2(230, 0),
+            new Shape[] { new Strip(new[] { new P2(20, 0), new P2(290, 0) }, 40) }, new Shape[] { new Ellipse(new P2(300, 0), 12, 12) },
+            Array.Empty<Shape>(), Array.Empty<Shape>(), new Bounds(new P2(-50, -100), new P2(400, 100)))
+        {
+            CartPaths = apron ? new Shape[] { slab } : new Shape[] { path },
+        };
+    }
+
+    [Fact]
+    public void PathIsItsOwnLieOverTheFairway()
+    {
+        var h = Hole();
+        Assert.Equal(Lie.CartPath, h.LieAt(new P2(150, 0)));
+        Assert.Equal(Lie.CartPath, h.LieAt(new P2(150, 50)));   // out in the rough too
+        Assert.Equal(Lie.Fairway, h.LieAt(new P2(152, 0)));
+    }
+
+    [Fact]
+    public void ReliefIsTheNearestClearPointNoNearerTheHole()
+    {
+        var round = new HoleRound(new[] { Hole() });
+        var at = new P2(150.3, 0);
+        var drop = round.CartPathRelief(at);
+        Assert.NotNull(drop);
+        var (p, lie) = drop!.Value;
+        Assert.Equal(Lie.Fairway, lie);
+        Assert.True(p.DistanceTo(round.Hole.Pin) >= at.DistanceTo(round.Hole.Pin));
+        // Behind the path (away from the hole), just clear of it: edge at 148.75, plus the stance clearance.
+        Assert.InRange(p.X, 148.75 - HoleRound.ReliefClearance - 0.3, 148.75 - HoleRound.ReliefClearance + 0.01);
+        Assert.InRange(Math.Abs(p.Z), 0, 1.0);
+    }
+
+    [Fact]
+    public void BallStoppingOnThePathGetsFreeRelief()
+    {
+        var round = new HoleRound(new[] { Hole(apron: true) });
+        round.Restore(new HoleRound.State(0, new P2(140, 0), Lie.Fairway, 1, false, null));
+        // Rolls onto the concrete and stops on it (it runs easily on concrete, so anywhere on the 15 m slab).
+        var o = round.Play(new RangeShot(9, 1, 0, 0, 0, null, null), putt: true, 0);
+        Assert.Equal(Lie.CartPath, o.RestLie);
+        Assert.Contains("free relief", o.Message);
+        Assert.Equal(0, o.Penalty);
+        Assert.Equal(2, round.Strokes);
+        Assert.Equal(Lie.Fairway, round.Lie);
+        Assert.Equal(round.Ball, o.NextBall);
+        Assert.True(round.Ball.X <= 145 - HoleRound.ReliefClearance + 0.01, $"dropped at {round.Ball.X:0.00}");
+    }
+
+    [Fact]
+    public void ConcreteBouncesHigherAndRollsFurtherThanFairway()
+    {
+        var concrete = CourseGround.SurfaceFor(Lie.CartPath).Effective();
+        var fairway = CourseGround.SurfaceFor(Lie.Fairway).Effective();
+        foreach (double v in new[] { 3.0, 8.0, 15.0, 25.0 })
+            Assert.True(concrete.RestitutionAt(v) > fairway.RestitutionAt(v) + 0.1, $"at {v} m/s");
+        Assert.True(concrete.RollingResistance < fairway.RollingResistance / 2);
+        Assert.Contains(PhysicsTuning.Parameters, p => p.Key == "ground.cartPath.bounce");
+    }
+
+    [Fact]
+    public void DeerRunCartPathsAreImported()
+    {
+        var h = OsmCourse.FromResource("deer-run.osm", "Deer Run").Holes[0];
+        var paths = h.CartPaths.OfType<Strip>().ToList();
+        Assert.True(paths.Count >= 14);
+        // Untagged paths get the default width; one is tagged width=1.25.
+        Assert.True(paths.Count(p => p.Width == OsmCourse.CartPathWidth) >= paths.Count - 1);
+        Assert.Contains(paths, p => p.Width == 1.25);
+        // The five short ones bridge the ditches. Every path plays as path all along, bridges included.
+        Assert.Equal(5, h.Bridges.Count);
+        foreach (var p in paths)
+        {
+            double len = OsmCourse.Length(p.Points);
+            Assert.All(Enumerable.Range(0, 11), i => Assert.Equal(Lie.CartPath, h.LieAt(OsmCourse.PointAt(p.Points, len * i / 10))));
+        }
+    }
+
+    [Fact]
+    public void BridgeOverWaterIsPathNotWater()
+    {
+        var ditch = new Strip(new[] { new P2(100, -60), new P2(100, 60) }, 2);
+        var bridge = new Strip(new[] { new P2(96, 0), new P2(104, 0) }, 2.5);
+        var h = Hole() with { Water = new Shape[] { ditch } };
+        h = h with { CartPaths = new Shape[] { bridge }, Bridges = new Shape[] { bridge } };
+        Assert.Equal(Lie.CartPath, h.LieAt(new P2(100, 0)));
+        Assert.Equal(Lie.Water, h.LieAt(new P2(100, 3)));
+        // Relief from the middle of the bridge is off the end, not into the ditch.
+        var round = new HoleRound(new[] { h });
+        var (at, lie) = round.CartPathRelief(new P2(100, 0))!.Value;
+        Assert.Equal(Lie.Fairway, lie);
+        Assert.True(ditch.DistanceTo(at) > 0 && bridge.DistanceTo(at) >= HoleRound.ReliefClearance - 1e-9);
     }
 }

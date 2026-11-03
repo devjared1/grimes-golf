@@ -38,6 +38,7 @@ public sealed class PhysicsTuning
     {
         ("fairway", "Fairway", Lie.Fairway), ("fringe", "Fringe", Lie.Fringe), ("rough", "Rough", Lie.Rough),
         ("deepRough", "Deep rough", Lie.DeepRough), ("sand", "Sand", Lie.Bunker), ("green", "Green", Lie.Green),
+        ("cartPath", "Cart path", Lie.CartPath),
     };
 
     /// <summary>Lies with a strike penalty (key prefix, title, engine lie).</summary>

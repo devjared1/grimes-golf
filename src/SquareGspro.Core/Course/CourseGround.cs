@@ -39,14 +39,18 @@ public sealed class CourseGround : ITerrainProvider
         Lie.Rough => Surfaces.Rough,
         Lie.DeepRough => Surfaces.DeepRough,
         Lie.Bunker => Surfaces.Sand,
+        Lie.CartPath => Surfaces.CartPath,
         _ => Surfaces.Fairway,
     };
 
-    /// <summary>The engine's lie kind for a course lie (for <see cref="LieModel"/>). Water and out of bounds never get struck.</summary>
+    /// <summary>
+    /// The engine's lie kind for a course lie (for <see cref="LieModel"/>). Water and out of bounds never get struck,
+    /// nor do cart paths (relief), but a clean lie is the closest if one is.
+    /// </summary>
     public static LieKind ToLieKind(Lie lie) => lie switch
     {
         Lie.Tee => LieKind.Tee,
-        Lie.Fairway => LieKind.Fairway,
+        Lie.Fairway or Lie.CartPath => LieKind.Fairway,
         Lie.Fringe => LieKind.Fringe,
         Lie.Green => LieKind.Green,
         Lie.DeepRough => LieKind.DeepRough,
