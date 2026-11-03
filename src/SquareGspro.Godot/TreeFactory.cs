@@ -16,6 +16,10 @@ namespace SquareGspro.Range3D;
 /// and the crowns sway a little in the wind. Mesh vertex colours carry baked shading (darker inside and low in the
 /// crown); instance colours carry each tree's tint.
 /// </para>
+/// <para>
+/// Nearby trees also wear <see cref="LeafCards"/>: sprays of leaves (or needles along each conifer branch) over the
+/// crown, so up close it breaks up into leaves instead of reading as a smooth shell.
+/// </para>
 /// </summary>
 public static class TreeFactory
 {
@@ -27,7 +31,10 @@ public static class TreeFactory
         shader_type spatial;
         render_mode cull_disabled;
         uniform float leaf_scale = 16.0;
+        uniform float shell_shade = 1.0;   // under leaf cards (nearby trees) the crown is its shaded inside
         varying vec3 local_pos;
+        varying vec3 world_pos;
+        """ + Scenery.CloudGlsl + """
         float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
         float noise3(vec3 p) {
             vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -42,33 +49,52 @@ public static class TreeFactory
             VERTEX.x += sin(TIME * 1.3 + phase) * 0.006 * sway;
             VERTEX.z += sin(TIME * 0.9 + phase * 1.7) * 0.004 * sway;
             local_pos = VERTEX + vec3(fract(phase) * 13.0);   // each tree its own leaf pattern
+            world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
         }
         void fragment() {
             float leaves = noise3(local_pos * leaf_scale) * 0.6 + noise3(local_pos * leaf_scale * 2.9) * 0.4;
             float edge_on = 1.0 - abs(dot(NORMAL, VIEW));
             if (leaves < edge_on * 0.95 - 0.2) discard;
-            vec3 c = COLOR.rgb * mix(0.55, 1.1, leaves);
-            ALBEDO = c;
+            vec3 c = COLOR.rgb * mix(0.55, 1.1, leaves) * shell_shade;
+            ALBEDO = c * cloud_light(world_pos, TIME, PROJECTION_MATRIX);
             BACKLIGHT = c * 0.35;
             ROUGHNESS = 0.85;
             SPECULAR = 0.2;
         }
         """;
 
-    private static ShaderMaterial? _foliage;
+    private static ShaderMaterial? _foliage, _foliageUnderCards;
     private static StandardMaterial3D? _bark;
-    private static Mesh? _coniferNear, _coniferFar, _broadleafNear, _broadleafFar, _trunkNear, _trunkFar;
+    private static Mesh? _coniferNear, _coniferFar, _broadleafNear, _broadleafFar, _trunkNear, _trunkFar, _coniferCards, _broadleafCards;
 
     private static ShaderMaterial Foliage => _foliage ??= new ShaderMaterial { Shader = new Shader { Code = FoliageShader } };
+    private static ShaderMaterial FoliageUnderCards => _foliageUnderCards ??= UnderCards();
+
+    private static ShaderMaterial UnderCards()
+    {
+        var m = new ShaderMaterial { Shader = Foliage.Shader };
+        m.SetShaderParameter("shell_shade", 0.78f);
+        return m;
+    }
     private static StandardMaterial3D Bark => _bark ??= new StandardMaterial3D { AlbedoColor = new Color(0.27f, 0.20f, 0.14f), Roughness = 1 };
 
     /// <summary>Plants a tree at each spot (ground level), mixed kinds and sizes, the same every time for <paramref name="seed"/>.</summary>
     public static void AddForest(Node3D parent, IReadOnlyList<Vector3> spots, ulong seed)
     {
         if (spots.Count == 0) return;
-        _coniferNear ??= Conifer(tiers: 8, spokes: 11, seed: 1);
+        if (_coniferNear == null)
+        {
+            var cards = new LeafCards.Builder();
+            _coniferNear = Conifer(tiers: 8, spokes: 11, seed: 1, cards);
+            _coniferCards = cards.Build();
+        }
         _coniferFar ??= ConiferFar();
-        _broadleafNear ??= Broadleaf(seed: 2);
+        if (_broadleafNear == null)
+        {
+            var cards = new LeafCards.Builder();
+            _broadleafNear = Broadleaf(seed: 2, cards);
+            _broadleafCards = cards.Build();
+        }
         _broadleafFar ??= BroadleafFar();
         _trunkNear ??= Trunk(sides: 7, branches: true);
         _trunkFar ??= Trunk(sides: 6, branches: false);
@@ -99,8 +125,11 @@ public static class TreeFactory
             var conifers = trees.Where(t => t.Conifer).ToList();
             var broadleaves = trees.Where(t => !t.Conifer).ToList();
             // Near: detailed crowns and trunks with branches, casting shadows. Far: simple crowns and trunks, no shadows.
-            Add(parent, _coniferNear, Foliage, conifers, near: true);
-            Add(parent, _broadleafNear, Foliage, broadleaves, near: true);
+            Add(parent, _coniferNear, FoliageUnderCards, conifers, near: true);
+            Add(parent, _broadleafNear, FoliageUnderCards, broadleaves, near: true);
+            // Cards cast no shadows: the crown under them does, and cut-out cards in the shadow maps halved Ultra's frame rate.
+            Add(parent, _coniferCards!, LeafCards.Conifer, conifers, near: true, shadows: false);
+            Add(parent, _broadleafCards!, LeafCards.Broadleaf, broadleaves, near: true, shadows: false);
             Add(parent, _trunkFar, Bark, conifers, near: true, tinted: false);       // a conifer's trunk has no limbs
             Add(parent, _trunkNear, Bark, broadleaves, near: true, tinted: false);
             Add(parent, _coniferFar, Foliage, conifers, near: false);
@@ -109,7 +138,7 @@ public static class TreeFactory
         }
     }
 
-    private static void Add(Node3D parent, Mesh mesh, Material material, List<(Transform3D Xform, Color Tint, bool Conifer)> trees, bool near, bool tinted = true)
+    private static void Add(Node3D parent, Mesh mesh, Material material, List<(Transform3D Xform, Color Tint, bool Conifer)> trees, bool near, bool tinted = true, bool shadows = true)
     {
         if (trees.Count == 0) return;
         var mm = new MultiMesh
@@ -128,7 +157,7 @@ public static class TreeFactory
         {
             Multimesh = mm,
             MaterialOverride = material,
-            CastShadow = near ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off,
+            CastShadow = near && shadows ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off,
             VisibilityRangeBegin = near ? 0 : DetailRange - FadeMargin,
             VisibilityRangeBeginMargin = near ? 0 : FadeMargin,
             VisibilityRangeEnd = near ? DetailRange + FadeMargin : 0,
@@ -139,8 +168,11 @@ public static class TreeFactory
 
     // ---- meshes (one unit tall, base at the origin) ----------------------------------------------
 
-    /// <summary>Tiers of needles: each a skirt from a point on the stem out to a jagged, drooping rim.</summary>
-    private static ArrayMesh Conifer(int tiers, int spokes, int seed)
+    /// <summary>
+    /// Tiers of needles: each a skirt from a point on the stem out to a jagged, drooping rim. Each spoke of a tier also
+    /// gets a branch of needle cards in <paramref name="cards"/>: one lying along the skirt, one across it.
+    /// </summary>
+    private static ArrayMesh Conifer(int tiers, int spokes, int seed, LeafCards.Builder cards)
     {
         var b = new MeshBuilder();
         var rng = new RandomNumberGenerator { Seed = (ulong)seed };
@@ -170,6 +202,17 @@ public static class TreeFactory
                 b.Tri(apex, mid[s], mid[n], N(apex), N(mid[s]), N(mid[n]), Shade(0.55f * light), Shade(0.8f * light), Shade(0.8f * light));
                 b.Tri(mid[s], rim[s], rim[n], N(mid[s]), N(rim[s]), N(rim[n]), Shade(0.8f * light), Shade(light), Shade(light));
                 b.Tri(mid[s], rim[n], mid[n], N(mid[s]), N(rim[n]), N(mid[n]), Shade(0.8f * light), Shade(light), Shade(0.8f * light));
+
+                // The branch: from near the stem out past the rim, so its needles fringe the tier.
+                var from = new Vector3(rim[s].X * 0.2f, Mathf.Lerp(top, bottom, 0.3f), rim[s].Z * 0.2f);
+                var tip = rim[s] + (rim[s] - mid[s]) * 0.3f;
+                var outward = (tip - from).Normalized();
+                var flat = outward.Cross(Vector3.Up).Normalized();
+                var upright = flat.Cross(outward).Normalized();
+                float spread = radius * 0.32f;
+                var shade = Shade(0.9f * light);
+                cards.Card(from, tip, flat * spread, N(tip), shade);
+                cards.Card(from, tip, upright * spread * 0.7f, N(tip), shade);
             }
         }
         return b.Build();
@@ -193,8 +236,11 @@ public static class TreeFactory
         return b.Build();
     }
 
-    /// <summary>A crown of lumpy leaf clumps around an egg-shaped centre.</summary>
-    private static ArrayMesh Broadleaf(int seed)
+    /// <summary>
+    /// A crown of lumpy leaf clumps around an egg-shaped centre, and in <paramref name="cards"/> leaf sprays set over
+    /// the clumps' surfaces, each tilted its own way so some stand out from the outline.
+    /// </summary>
+    private static ArrayMesh Broadleaf(int seed, LeafCards.Builder cards)
     {
         var b = new MeshBuilder();
         var rng = new RandomNumberGenerator { Seed = (ulong)seed };
@@ -225,6 +271,22 @@ public static class TreeFactory
                     return Shade(0.45f + 0.35f * outward + 0.2f * high);
                 }
                 b.Tri(pts[i0], pts[i1], pts[i2], N(i0), N(i1), N(i2), S(i0), S(i1), S(i2));
+            }
+            for (int i = 0; i < pts.Length; i++)
+            {
+                if (rng.Randf() > 0.85f) continue;
+                var n = ((pts[i] - at).Normalized() * 0.4f + (pts[i] - crown).Normalized() * 0.6f).Normalized();
+                // Facing out of the crown, tilted up to about 45° about a random axis across it, then turned on itself.
+                var tiltAxis = n.Cross(new Vector3(rng.RandfRange(-1, 1), rng.RandfRange(-1, 1), rng.RandfRange(-1, 1))).Normalized();
+                var facing = n.Rotated(tiltAxis, rng.RandfRange(-0.8f, 0.8f));
+                var e1 = facing.Cross(Mathf.Abs(facing.Y) > 0.9f ? Vector3.Right : Vector3.Up).Normalized();
+                var e2 = facing.Cross(e1);
+                float roll = rng.RandfRange(0, Mathf.Tau), half = r * rng.RandfRange(0.4f, 0.52f);
+                var along = (e1 * Mathf.Cos(roll) + e2 * Mathf.Sin(roll)) * half;
+                var centre = pts[i] + (pts[i] - at).Normalized() * r * 0.06f;
+                var off = (pts[i] - crown);
+                float outward = Mathf.Clamp(off.Length() / 0.42f, 0, 1), high = Mathf.Clamp((pts[i].Y - 0.4f) / 0.55f, 0, 1);
+                cards.Card(centre - along, centre + along, facing.Cross(along), n, Shade(0.55f + 0.35f * outward + 0.2f * high));
             }
         }
         return b.Build();

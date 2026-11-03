@@ -18,6 +18,8 @@ public partial class GrassPatch : MultiMeshInstance3D
         render_mode cull_disabled;
         varying vec3 tint;
         varying float tip;
+        varying vec3 world_pos;
+        """ + Scenery.CloudGlsl + """
         void vertex() {
             tip = UV.y;
             tint = INSTANCE_CUSTOM.rgb;
@@ -28,11 +30,12 @@ public partial class GrassPatch : MultiMeshInstance3D
             VERTEX.z += gust * 0.04 * tip * tip;
             // Lit mostly like the ground they grow from, so tufts don't flash as their faces turn.
             NORMAL = normalize(mix(NORMAL, vec3(0.0, 1.0, 0.0), 0.7));
+            world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
         }
         void fragment() {
             // Both sides of a blade face up-ish (the back face's normal would otherwise point into the ground).
             if (!FRONT_FACING) NORMAL = -NORMAL;
-            ALBEDO = tint * mix(0.65, 1.3, tip * tip);
+            ALBEDO = tint * mix(0.65, 1.3, tip * tip) * cloud_light(world_pos, TIME, PROJECTION_MATRIX);
             BACKLIGHT = tint * 0.3;
             ROUGHNESS = 0.95;
             SPECULAR = 0.15;
@@ -117,12 +120,11 @@ public partial class GrassPatch : MultiMeshInstance3D
     }
 
     /// <summary>
-    /// One tuft, 1 unit tall: a few tapering, curving blades of three segments each around its root. UV.y runs
-    /// from 0 at the root to 1 at the tip.
+    /// One tuft, 1 unit tall: a few tapering, curving blades around its root (five of three segments each here;
+    /// <see cref="GrassField"/> uses a cheaper one). UV.y runs from 0 at the root to 1 at the tip.
     /// </summary>
-    private static ArrayMesh BuildTuft()
+    public static ArrayMesh BuildTuft(int blades = 5, int segments = 3)
     {
-        const int blades = 5, segments = 3;
         var rng = new Random(11);
         var st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);

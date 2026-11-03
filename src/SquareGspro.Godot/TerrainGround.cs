@@ -32,7 +32,7 @@ public static class TerrainGround
         global uniform vec4 cup_hole;
         varying float steep;   // 0 on level ground, rising with the slope
         varying vec3 world_pos;
-        """ + Scenery.TurfGlsl + Scenery.WaterGlsl + """
+        """ + Scenery.TurfGlsl + Scenery.WaterGlsl + Scenery.CloudGlsl + """
         void vertex() {
             world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
             steep = 1.0 - normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz).y;
@@ -77,7 +77,7 @@ public static class TerrainGround
             // Bridges carry the path over the water.
             c = mix(c, concrete * (0.9 + 0.14 * n), bridge);
             w *= 1.0 - bridge;
-            ALBEDO = c;
+            ALBEDO = c * cloud_light(world_pos, TIME, PROJECTION_MATRIX);
             // Only the finest grass that's showing is sampled for bumps: rough, then fairway, then green, then sand.
             vec3 bump = photo_bump(grass_normal, p, mix(mix(rough_look.x, fair_look.x, f), green_look.x, g));
             bump = mix(bump, photo_bump(sand_normal, p, sand_tile), s);
@@ -93,7 +93,8 @@ public static class TerrainGround
     private const double Texel = 1.0;       // metres per coverage texel
     private const float Apron = 4000;       // flat ground beyond the modelled area
 
-    public static void Build(Node3D parent, Course course, Terrain terrain)
+    /// <summary>Adds the ground meshes and ponds; returns the ground material (its coverage textures serve <see cref="GrassField"/>).</summary>
+    public static ShaderMaterial Build(Node3D parent, Course course, Terrain terrain)
     {
         var material = new ShaderMaterial { Shader = new Shader { Code = Shader } };
         var area = terrain.Area;
@@ -132,6 +133,7 @@ public static class TerrainGround
         foreach (var w in course.Holes[0].Water)
             if (terrain.WaterLevel(w) is { } level && Outline(w) is { } outline)
                 parent.AddChild(Scenery.Flat(outline, (float)level, water));
+        return material;
     }
 
     private static IReadOnlyList<P2>? Outline(Shape s) => s switch { Polygon p => p.Points, Ellipse e => e.Outline(48), _ => null };

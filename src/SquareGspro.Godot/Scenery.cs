@@ -30,6 +30,23 @@ public static class Scenery
         }
         """;
 
+    /// <summary>
+    /// Shared GLSL for cloud shadows: soft patches of shade a few hundred metres across, drifting with the wind, so
+    /// the course isn't evenly lit. <c>cloud_light(world_pos, TIME, PROJECTION_MATRIX)</c> is 1 in sun and lower under a cloud; things
+    /// multiply their albedo by it (the sun is most of the light, so that's close to taking the sun away there).
+    /// </summary>
+    public const string CloudGlsl = """
+        global uniform sampler2D cloud_noise : filter_linear_mipmap, repeat_enable;
+        global uniform vec4 cloud_shadow;   // drift x, z (m/s), noise tile size (m), darkening under a cloud (0 = off)
+        float cloud_light(vec3 world, float time, mat4 projection) {
+            // Not from the overhead map camera (orthographic): shade there would read as features of the hole.
+            if (cloud_shadow.w <= 0.0 || projection[3][3] > 0.5) return 1.0;
+            vec2 p = (world.xz - cloud_shadow.xy * time) / cloud_shadow.z;
+            float n = texture(cloud_noise, p).r;
+            return 1.0 - cloud_shadow.w * smoothstep(0.5, 0.66, n);
+        }
+        """;
+
     /// <summary>Vertex-shader lines giving ground meshes tangents along world x and z (the photo detail's UVs).</summary>
     public const string TurfVertex = """
         TANGENT = normalize(cross(NORMAL, vec3(0.0, 0.0, 1.0)));
@@ -77,7 +94,7 @@ public static class Scenery
         // The open cup on the current green: x, z (world) and radius; radius 0 = none. Ground inside it isn't drawn.
         global uniform vec4 cup_hole;
         varying vec3 world_pos;
-        """ + TurfGlsl + """
+        """ + TurfGlsl + CloudGlsl + """
         void vertex() {
             world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
         """ + TurfVertex + """
@@ -95,7 +112,7 @@ public static class Scenery
                 float s = step(0.5, fract(world_pos.z / (2.0 * stripe_width)));
                 c *= mix(0.9, 1.07, s);
             }
-            ALBEDO = c * photo_detail(grass_albedo, world_pos.xz, turf_tile, turf_detail);
+            ALBEDO = c * photo_detail(grass_albedo, world_pos.xz, turf_tile, turf_detail) * cloud_light(world_pos, TIME, PROJECTION_MATRIX);
             NORMAL_MAP = photo_bump(grass_normal, world_pos.xz, turf_tile);
             NORMAL_MAP_DEPTH = turf_bump;
             ROUGHNESS = 0.9;
@@ -143,6 +160,7 @@ public static class Scenery
     /// <summary>Adds the sky, its lighting and the sun; <see cref="Graphics"/> sets their quality.</summary>
     public static (WorldEnvironment World, DirectionalLight3D Sun) AddSkyAndSun(Node3D parent)
     {
+        EnsureGlobals();
         var sky = new PanoramaSkyMaterial { Panorama = GD.Load<Texture2D>(SkyPanorama), EnergyMultiplier = 1.0f };
         var world = new WorldEnvironment
         {
@@ -192,25 +210,34 @@ public static class Scenery
     /// <summary>Height of the green surface (greens are layered just above the other ground).</summary>
     public const float GreenTop = 0.09f;
 
-    private static bool _cupParamAdded;
+    private static bool _globalsAdded;
 
     /// <summary>Opens the cup at <paramref name="at"/> (Godot coordinates) in every grass surface, or closes it (null).</summary>
     public static void SetCupHole(Vector3? at)
     {
-        EnsureCupParam();
+        EnsureGlobals();
         RenderingServer.GlobalShaderParameterSet("cup_hole", at is { } p ? new Vector4(p.X, p.Z, 0, CupRadius) : Vector4.Zero);
     }
 
-    private static void EnsureCupParam()
+    /// <summary>Shader globals every grass surface reads: the open cup and the cloud shadows.</summary>
+    private static void EnsureGlobals()
     {
-        if (_cupParamAdded) return;
-        _cupParamAdded = true;
+        if (_globalsAdded) return;
+        _globalsAdded = true;
         RenderingServer.GlobalShaderParameterAdd("cup_hole", RenderingServer.GlobalShaderParameterType.Vec4, Vector4.Zero);
+        // Big soft blobs (a tileable noise, thresholded in CloudGlsl) drifting at 4 m/s, about a third of the ground shaded.
+        var noise = new NoiseTexture2D
+        {
+            Width = 256, Height = 256, Seamless = true, GenerateMipmaps = true,
+            Noise = new FastNoiseLite { NoiseType = FastNoiseLite.NoiseTypeEnum.Simplex, Frequency = 0.012f, FractalOctaves = 3 },
+        };
+        RenderingServer.GlobalShaderParameterAdd("cloud_noise", RenderingServer.GlobalShaderParameterType.Sampler2D, noise);
+        RenderingServer.GlobalShaderParameterAdd("cloud_shadow", RenderingServer.GlobalShaderParameterType.Vec4, new Vector4(3.2f, -2.4f, 700, 0.38f));
     }
 
     public static ShaderMaterial Grass(Color baseColor, Color alt, float stripeWidth, Turf turf = Turf.Rough)
     {
-        EnsureCupParam();
+        EnsureGlobals();
         var m = new ShaderMaterial { Shader = new Shader { Code = GrassShader } };
         m.SetShaderParameter("base_color", baseColor);
         m.SetShaderParameter("alt_color", alt);
@@ -240,7 +267,7 @@ public static class Scenery
     /// <summary>Unshaded, see-through, vertex-coloured: for read-outs laid on the ground (kept out of the open cup).</summary>
     public static ShaderMaterial Overlay(float opacity)
     {
-        EnsureCupParam();
+        EnsureGlobals();
         var m = new ShaderMaterial { Shader = new Shader { Code = OverlayShader } };
         m.SetShaderParameter("opacity", opacity);
         return m;

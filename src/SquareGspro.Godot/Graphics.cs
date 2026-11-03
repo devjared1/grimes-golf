@@ -37,9 +37,13 @@ public static class Graphics
             Sky.RadianceSizeEnum.Size1024, true, true, true),
     };
 
+    /// <summary>The preset last applied; things that scale with it themselves (<see cref="GrassField"/>) follow it.</summary>
+    public static GraphicsQuality Current { get; private set; } = GraphicsQuality.High;
+
     /// <summary>Applies <paramref name="q"/> to the main view, the sky's lighting and the sun.</summary>
     public static void Apply(GraphicsQuality q, Viewport view, WorldEnvironment world, DirectionalLight3D sun)
     {
+        Current = q;
         var p = For(q);
         view.Msaa3D = p.Msaa;
         view.UseTaa = p.Taa;

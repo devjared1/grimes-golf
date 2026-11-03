@@ -19,6 +19,7 @@ public partial class CourseWorld : Node3D
     private MeshInstance3D _mapPin = null!;
     private readonly Dictionary<Hole, (MeshInstance3D Disc, Node3D Cup, Flagstick Flag)> _pins = new();
     private GrassPatch _grass = null!;
+    private GrassField? _field;
     private P2? _grassAt;
 
     public CourseWorld(Course course, Hole hole)
@@ -47,7 +48,11 @@ public partial class CourseWorld : Node3D
     public override void _Ready()
     {
         var h = _hole;
-        if (Ground != null) TerrainGround.Build(this, _courseDef, Ground);
+        if (Ground != null)
+        {
+            _field = new GrassField(Ground, TerrainGround.Build(this, _courseDef, Ground));
+            AddChild(_field);
+        }
         else BuildFlatGround(h);
 
         foreach (var hole in Shared ? _courseDef.Holes : new[] { h })
@@ -138,6 +143,7 @@ public partial class CourseWorld : Node3D
         if (h.Boundary != null && h.Boundary.Any(b => b.DistanceTo(ball) < -GrassPatch.Radius - 1))
             local = local with { Boundary = new[] { new Ellipse(ball, reach, reach) } };
         _grass.Grow(ball, local.LieAt, SurfaceAt);
+        _field?.SetBallPatch(ball);
     }
 
     /// <summary>
