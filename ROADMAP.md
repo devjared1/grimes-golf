@@ -74,9 +74,36 @@ balls or play a round with me, and never see a console, a command-line flag or a
 
 ## 0.9.3
 
-- [ ] Fix holed ball location (see screenshot)
+- [-] (moved to 0.9.4) Fix holed ball location (see screenshot)
 - [x] Left/right aim in smaller increments
 - [x] Zoom to landing refactor: should be a pre-shot option that zooms down to where current aim is not an in-flight thing
+
+## 0.9.4
+
+- [x] Fix holed ball location (see screenshot, "C:\Users\devja\Pictures\Screenshot 2026-11-02 225646.png")
+- [x] Redesign in-game UI (attached)
+- [x] Loading screen while course loads on New/Resume game
+- [x] What is best way to get accurate tree (single tree, tree group (2-5), or dense tree area) location data
+      Answer: lidar. OpenStreetMap has almost nothing here (2 wood polygons, no single trees). The same USGS 3DEP
+      lidar the elevation comes from has first returns (tops of trees) as well as bare earth: canopy height =
+      first-return surface minus ground. Local maxima in the canopy height give single trees with their height and
+      crown size; trees whose crowns touch are grouped: 2-5 a group, 6+ dense woods. Done in
+      `tools/fetch-canopy.ps1` (USGS EPT point tiles, 2020 survey); Deer Run has 62,555 trees in
+      `deer-run.trees.csv.gz`, and the ~9,900 in and around the course are planted from it at their measured
+      height and crown size (needed before "Trees that balls actually hit", 1.6)
+- [x] Animated text when hole is completed for score on hole
+- [x] Wind physics
+
+## 0.9.5
+
+- [x] Put some space between the top black navigation bar and display elements at the top of the screen
+- [x] Gameplay Settings Config Screen (New Game > Game Setup)
+      - Ability to adjust settings:
+            - Game type: Stroke, Scramble, Best Ball, Match Play
+            - # of holes to play: Full 18, Front 9, Back 9, Par 3s
+            - Environment Settings: Wind, Altitude, Weather
+            - Course Settings: Fairway Speed, Green Firmness, Green Stimp
+- [x] Smooth the outer edge lines between surface types (see attached screenshot)
 
 ## 1.0 — Release checklist
 
@@ -92,11 +119,16 @@ balls or play a round with me, and never see a console, a command-line flag or a
 ## 1.1 — Party games
 
 - [ ] Closest to the pin, long drive (with a fairway grid), target challenges, HORSE
-- [ ] 9-hole and "par 3s only" rounds
-- [ ] Scramble, best ball and match-play scoring
-- [ ] **Live scoreboard on phones:** a local web page friends open to see scores and their shot stats
+- [x] 9-hole and "par 3s only" rounds (0.9.5)
+- [x] Scramble, best ball and match-play scoring (0.9.5)
 
-## 1.2 — AI caddie and commentary
+## 1.2 - Online Play
+
+- [ ] Play with friends from different locations across network. Generate lobby to join. Creator of lobby picks course, sets game settings, and clicks to start game once everyone is connected
+- [ ] Only for users with Square launch monitor. Future: support other launch monitors natively (no 3rd party connector access)
+
+
+## 1.3 — AI caddie and commentary
 
 Hooks into the "shot finished" event through one `Commentator` service; the game doesn't know an AI exists.
 
@@ -109,7 +141,7 @@ Hooks into the "shot finished" event through one `Commentator` service; the game
 - [ ] Speed: start the request at impact, stream the speech, target it landing while the ball is still in the
       air or rolling (about 3-6 s). Fast, small model.
 
-## 1.3 — Practice tools and AI coach
+## 1.4 — Practice tools and AI coach
 
 - [ ] Report of each club's average carry and total, with the gaps between clubs
 - [ ] Dispersion ellipses on the range, a combine-style test, comparing sessions
@@ -120,19 +152,19 @@ Hooks into the "shot finished" event through one `Commentator` service; the game
 - [ ] **Asking questions about stats:** "average 8-iron carry this month?", "who's won more closest-to-pin games,
       me or Mike?" The model turns the question into a query over the saved data.
 
-## 1.4 — Hands-free voice control
+## 1.5 — Hands-free voice control
 
 - [ ] Local speech-to-text (Whisper), push-to-talk or a wake word
 - [ ] A model with tool use maps speech onto a fixed list of actions: `SetClub`, `NudgeAim`, `NextPlayer`,
       `Mulligan`, `ShowScorecard`, `NextHole`, ... It can only call actions from that list.
 - [ ] Spoken confirmation of what it did ("9-iron, aiming 3° left")
 
-## 1.5 — Courses and the world
+## 1.6 — Courses and the world
 
 - [ ] Pick and import any OpenStreetMap course from inside the app (no script + rebuild)
 - [x] Trace Deer Run's fairways for holes 5-18 on OpenStreetMap
 - [ ] Trees that balls actually hit
-- [ ] Weather presets (calm, breezy, wet); green speed and firmness on the setup screen
+- [x] Weather presets (calm, breezy, wet); green speed and firmness on the setup screen (0.9.5, Game Setup)
 - [ ] Sound: impact, cup, crowd
 - [ ] **AI import check:** compare the OpenStreetMap import log with the course's published scorecard and flag
       mismatched pars or yardages, or holes that are probably out of order
@@ -143,6 +175,7 @@ Hooks into the "shot finished" event through one `Commentator` service; the game
 - Merge the GSPro connector into Range 3D as a "GSPro mode" (one app to launch)
 - Shot replays and a highlight camera ("shot of the day")
 - Support for the original (non-Omni) Square
+- **Live scoreboard on phones:** a local web page friends open to see scores and their shot stats
 
 ## Rules for every AI feature
 

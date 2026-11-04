@@ -111,6 +111,35 @@ public sealed record Polygon(IReadOnlyList<P2> Points) : Shape
 
     public P2 Centroid => new(Points.Average(p => p.X), Points.Average(p => p.Z));
 
+    /// <summary>
+    /// The outline with its corners rounded off (Chaikin corner cutting, <paramref name="passes"/> times), the way a
+    /// mower turns: each corner sharper than a few degrees is cut at most <paramref name="maxCut"/> metres back along
+    /// both edges, and never more than a quarter of an edge, so straight runs and the shape's size stay as mapped.
+    /// </summary>
+    public Polygon Rounded(double maxCut = 2.5, int passes = 3)
+    {
+        var pts = Points.ToList();
+        for (int pass = 0; pass < passes && pts.Count >= 3; pass++)
+        {
+            var next = new List<P2>(pts.Count * 2);
+            for (int i = 0; i < pts.Count; i++)
+            {
+                P2 prev = pts[(i + pts.Count - 1) % pts.Count], cur = pts[i], after = pts[(i + 1) % pts.Count];
+                P2 a = prev - cur, b = after - cur;
+                double la = a.Length, lb = b.Length;
+                if (la < 1e-6 || lb < 1e-6) { next.Add(cur); continue; }
+                double cos = (a.X * b.X + a.Z * b.Z) / (la * lb);
+                if (cos < -0.995) { next.Add(cur); continue; }   // nearly straight on: nothing to round
+                double cut = Math.Min(maxCut, Math.Min(la, lb) * 0.25);
+                next.Add(cur + a * (cut / la));
+                next.Add(cur + b * (cut / lb));
+            }
+            pts = next;
+            maxCut /= 2;   // each pass cuts the new, gentler corners by less
+        }
+        return new Polygon(pts);
+    }
+
     /// <summary>Enclosed area in m².</summary>
     public double Area
     {
@@ -219,5 +248,5 @@ public sealed record Hole(
 
 public static class Units
 {
-    public const double MetresToYards = 1.0936133, YardsToMetres = 0.9144;
+    public const double MetresToYards = 1.0936133, YardsToMetres = 0.9144, FeetToMetres = 0.3048;
 }

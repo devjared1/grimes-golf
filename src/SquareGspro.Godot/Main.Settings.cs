@@ -24,13 +24,13 @@ public partial class Main
         if (s.AutoConnect != old.AutoConnect) _autoConnect = s.AutoConnect;
         _rangePlayer %= s.Golfers.Count;
         if (!_courseMode) ShowRangePlayer();
-        if (_hud.MainMenu.IsOpen) _hud.MainMenu.SetPlayers(PlayersText());
+        if (_hud.MainMenu.IsOpen) _hud.MainMenu.SetPlayers(PlayersText(), s.Golfers);
 
         if (newRound)
         {
             NewRound();
             if (_courseMode) _hud.Toast("New round started", UiTheme.Accent);
-            else if (_hud.MainMenu.IsOpen) StartNewGame(_courseIndex);   // from the main menu: straight to the first tee
+            else if (_hud.MainMenu.IsOpen) StartNewGame(_courseIndex, _settings.Setup);   // from the main menu: straight to the first tee
             else _hud.Toast("Saved. New Game on the main menu starts the round.", UiTheme.Accent);
         }
         else if (_match != null && (!s.Golfers.SequenceEqual(_match.Players) || s.Rules != _match.Rules))

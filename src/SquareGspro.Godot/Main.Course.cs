@@ -18,6 +18,8 @@ public partial class Main
     private Course? _courseDef;
     /// <summary>The round being played: 1-4 players, each with their own ball.</summary>
     private Match? _match;
+    /// <summary>How the round is played: the game, the holes and the conditions (Game Setup).</summary>
+    private GameSetup _game = GameSetup.Default;
     /// <summary>The player whose shot it is (their round: ball, lie, strokes).</summary>
     private HoleRound? _round => _match?.Current;
     private CourseWorld? _course;
@@ -41,6 +43,9 @@ public partial class Main
         EndLandingView();
         _courseMode = false;
         _autoNextIn = -1;
+        // The range plays the physics as tuned, in fine weather.
+        ActivePhysics.SetConditions(null);
+        _weather?.Set(Weather.Mild);
         if (wasCourse) ForgetLastShot();
         _hud.SetCourseMode(false);
         _hud.SetWhere("Driving range");
@@ -68,8 +73,10 @@ public partial class Main
         if (_match == null || _courseDef == null) return;
         if (!_courseMode) ForgetLastShot();
         _courseMode = true;
+        ApplyConditions();
         _hud.SetCourseMode(true);
         _hud.SetWhere(_courseDef.Name);
+        _hud.SetCourseLogo(Brand.CourseLogo(_courseDef.Name));
         UpdateInsets();
         _rangeWorld.Visible = false;
         StartHole(_match.HoleIndex, fresh: false);
@@ -78,6 +85,19 @@ public partial class Main
     }
 
     private string CourseName => CourseLibrary.All[_courseIndex].Name;
+
+    /// <summary>The course's height above sea level (m), from its elevation data (sea level without).</summary>
+    private static double CourseAltitudeMetres(Course c) => c.Terrain?.Datum ?? 0;
+
+    /// <summary>The round's altitude, weather, fairways and greens on top of the physics tuning, and the weather's look.</summary>
+    private void ApplyConditions()
+    {
+        var game = _game;
+        double altitude = _courseDef == null ? 0 : CourseAltitudeMetres(_courseDef);
+        ActivePhysics.SetConditions(t => game.ApplyTo(t, altitude));
+        _weather?.Set(game.Weather);
+        Log($"Conditions: {game.Summary(_match?.Players.Count ?? 1)}; air at {game.AltitudeMetres(altitude) / Units.FeetToMetres:#,0} ft.");
+    }
 
     /// <summary>
     /// Loads the selected course and gets a round ready on it (false if it couldn't be loaded). With
@@ -102,9 +122,10 @@ public partial class Main
         Log($"{_courseDef.Name}: {_courseDef.Holes.Count} holes, par {_courseDef.Holes.Sum(h => h.Par)}, {_courseDef.Holes.Sum(h => h.LengthYards):0} yd.");
         foreach (var note in _courseDef.Notes) Log("  " + note);
 
-        if (resume && _data?.LoadCurrentRound() is { } saved && saved.Course == entry.Name && saved.Fits(_courseDef.Holes))
+        if (resume && _data?.LoadCurrentRound() is { } saved && saved.Course == entry.Name && saved.HolesOf(_courseDef.Holes) is var holes && saved.Fits(holes))
         {
-            _match = new Match(_courseDef.Holes, _courseDef.Terrain, saved.Golfers, saved.Rules);
+            _game = saved.Game;
+            _match = new Match(holes, _courseDef.Terrain, saved.Golfers, saved.Rules, _game.Type);
             saved.ApplyTo(_match);
             _roundStarted = saved.Started;
             int played = saved.Players[0].Scores.Count(s => s != null);
@@ -115,15 +136,15 @@ public partial class Main
         return true;
     }
 
-    /// <summary>A new round on the loaded course with the players and house rules from the settings.</summary>
+    /// <summary>A new round on the loaded course with the players and house rules from the settings, set up as <see cref="_game"/>.</summary>
     private void NewMatchState()
     {
-        _match = new Match(_courseDef!.Holes, _courseDef.Terrain, _settings.Golfers, _settings.Rules);
+        _match = new Match(_game.Pick(_courseDef!.Holes), _courseDef.Terrain, _settings.Golfers, _settings.Rules, _game.Type);
         _match.StartHole(0);
         _roundStarted = DateTime.Now;
         _lastRecord = null;
         var r = _settings.Rules;
-        Log($"New round: {string.Join(", ", _match.Players.Select(p => p.Name + (p.LeftHanded ? " (LH)" : "")))}. " +
+        Log($"New round ({_game.Summary(_match.Players.Count)}): {string.Join(", ", _match.Players.Select(p => p.Name + (p.LeftHanded ? " (LH)" : "")))}. " +
             $"House rules: {(r.Mulligans > 0 ? $"{r.Mulligans} mulligan{(r.Mulligans == 1 ? "" : "s")} each" : "no mulligans")}, " +
             $"{(r.GimmeMetres > 0 ? $"gimmes inside {r.GimmeMetres * 3.281:0.#} ft" : "hole everything out")}" +
             $"{(r.PickUpAtDoublePar ? ", pick up at double par" : "")}.");
@@ -147,20 +168,62 @@ public partial class Main
         StartHole(0, fresh: false);
     }
 
-    /// <summary>New Game: a new round on course <paramref name="index"/> with the players in the settings.</summary>
-    private void StartNewGame(int index)
+    /// <summary>New Game: a new round on course <paramref name="index"/> with the players in the settings, set up as <paramref name="setup"/>.</summary>
+    private async void StartNewGame(int index, GameSetup setup)
     {
+        if (_loading) return;
         int previous = _courseIndex;
+        var previousGame = _game;
         _courseIndex = index;
-        if (!LoadCourse(resume: false))
+        _game = setup;
+        await WithLoadingScreen(index, () =>
         {
-            _courseIndex = previous;
-            _hud.Toast("Couldn't load that course (see the log)", UiTheme.Danger);
-            return;
+            if (!LoadCourse(resume: false))
+            {
+                _courseIndex = previous;
+                _game = previousGame;
+                _hud.Toast("Couldn't load that course (see the log)", UiTheme.Danger);
+                return;
+            }
+            SaveSettings(_settings with { Course = CourseName, Game = setup });
+            _hud.ShowMainMenu(false);
+            EnterCourse();
+        });
+    }
+
+    /// <summary>A course is being loaded behind the loading screen: input waits until it's done.</summary>
+    private bool _loading;
+
+    /// <summary>
+    /// Puts the loading screen up for course <paramref name="index"/>, reads its map and elevation on a worker thread
+    /// (so the screen stays live), then runs <paramref name="build"/> (the round and the 3D world, which must be made
+    /// on the main thread) and fades the screen away.
+    /// </summary>
+    private async Task WithLoadingScreen(int index, Action build)
+    {
+        var entry = CourseLibrary.All[index];
+        _loading = true;
+        _hud.Loading.Open(entry.Name, Brand.CourseLogo(entry.Name.Split(" (")[0]), "Loading the course map and elevation…");
+        try
+        {
+            await NextFrames(2);   // the screen is drawn before the work starts
+            try { await Task.Run(entry.Load); }
+            catch (Exception) { /* LoadCourse tries again and reports it */ }
+            _hud.Loading.SetStep("Building the course…");
+            await NextFrames(2);
+            build();
+            await NextFrames(1);   // the first frame of the course is drawn under the screen
         }
-        SaveSettings(_settings with { Course = CourseName });
-        _hud.ShowMainMenu(false);
-        EnterCourse();
+        finally
+        {
+            _loading = false;
+            _hud.Loading.Close();
+        }
+    }
+
+    private async Task NextFrames(int frames)
+    {
+        for (int i = 0; i < frames; i++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
     }
 
     /// <summary>
@@ -173,11 +236,12 @@ public partial class Main
         if (match == null || _outcome != null) return;
         var named = golfers.Select((g, i) => string.IsNullOrWhiteSpace(g.Name) ? g with { Name = $"Player {i + 1}" } : g).ToList();
         _match = match.Regroup(named, from);
+        _match.SetWind(match.Wind);
         SaveSettingsAlways(_settings with { Players = named });
         _lastRecord = null;
         ForgetLastShot();
         _hud.HideResult();
-        _player.PlaceBall(BallAt(_match.Current.Ball));
+        _player.PlaceBall(RestingBall(_match.Current));
         PrepareNextShot(snapCamera: true);
         int joined = from.Count(f => f == null), left = match.Players.Count - from.Count(f => f != null);
         _hud.Toast(joined + left == 0 ? "Players updated"
@@ -191,6 +255,7 @@ public partial class Main
         var match = _match!;
         var course = _courseDef!;
         if (fresh) match.StartHole(index);
+        ApplyHoleWind();
         var round = match.Current;
         _outcome = null;
         _autoNextIn = -1;
@@ -206,13 +271,14 @@ public partial class Main
             AddChild(_course);
         }
         SetGreenOverlay(_heatMap, _grid);
+        _course?.SetFlagWind(match.Wind.IsCalm ? null : match.Wind.FromHeading + Math.PI);
         // With real ground the ball sits on it; on a flat course it sits on the raised green layer.
         var terrain = course.Terrain;
         _player.GroundTop = terrain != null ? 0f : Scenery.GreenTop;
         _camera.GroundAt = terrain == null ? null : v => (float)terrain.HeightAt(new P2(-v.Z, v.X));
         _player.CupAt = BallAt(round.Hole.Pin);
         _player.LieAt = v => round.Hole.LieAt(new P2(-v.Z, v.X));
-        _player.Clear(BallAt(round.Ball));
+        _player.Clear(RestingBall(round));
         FrameMinimap(round.Hole);
         _hud.HideResult();
         _hud.ShowScorecard(false);
@@ -310,6 +376,8 @@ public partial class Main
             Match = Core.Course.ShotFinished.Standings(match),
         });
         SaveRound();   // where it finished, in case the app doesn't make it to the end of the animation
+        // A scramble's pick moved the whole team: replaying one player's shot would put them out of step.
+        if (match.LastPick != null) { ForgetLastShot(); return; }
         Remember(new LastShot(s, _hud.ClubCode, match, player, before, heading),
                  $"{(match.Players.Count > 1 ? golfer.Name[..1] : "")}{round.Hole.Number}.{strokesBefore + 1}{(replay ? "R" : "")}", o.Flight);
     }
@@ -325,20 +393,22 @@ public partial class Main
         var match = _match!;
         var round = match.Current;
         string who = match.Players.Count > 1 ? match.Golfer.Name + ": " : "";
+        var pick = match.LastPick;
         _player.HideCarryLabel();
         if (o.Penalty > 0 || (!o.Holed && o.NextBall != o.Rest)) _player.PlaceBall(BallAt(o.NextBall));   // penalty or cart-path relief
-        // A holed ball's path already ends in the cup; a tapped-in one is picked up and dropped in.
-        else if (o.Holed && o.Flight.Points[^1].Y > round.GroundAt(round.Hole.Pin) - HoleRound.CupDepth / 2)
-            _player.PlaceBall(BallAt(round.Hole.Pin) - new Vector3(0, (float)HoleRound.CupDepth, 0));
-
+        // Holed (or tapped in): the ball rests at the bottom of the cup, against the flagstick.
+        else if (o.Holed) _player.PlaceBall(CupBall(round.Hole));
+        if (o.Holed) CelebrateScore(match, round, o);
         string headline = who + o.Message, note = LieEffectNote(o);
+        if (pick is { Message.Length: > 0 } p && !o.HoleOver) note = note.Length == 0 ? p.Message : $"{p.Message}   ·   {note}";
         if (match.HoleComplete && match.RoundComplete)
         {
-            note = "Round complete: " + string.Join("   ", match.Players.Select((g, i) =>
-            {
-                var (total, toPar, _) = match.Standing(i);
-                return $"{(match.Players.Count > 1 ? g.Name + " " : "")}{total} ({Hud.ToPar(toPar)})";
-            })) + ". NEXT HOLE plays again; Menu > End Game to finish.";
+            note = $"Round complete: {match.Summary()}. NEXT HOLE plays again; Menu > End Game to finish.";
+        }
+        else if (match.HoleComplete && match.Type == GameType.MatchPlay)
+        {
+            note = $"{HoleResult(match)}  ·  {match.MatchText()}.  Next hole in {AutoNextSeconds:0} seconds (Space to go now).";
+            _autoNextIn = AutoNextSeconds;
         }
         else if (match.HoleComplete)
         {
@@ -364,16 +434,23 @@ public partial class Main
         // Next player up (the same one if they're still farthest away).
         int hitter = match.Turn;
         match.AdvanceTurn();
-        if (match.Turn != hitter)
+        if (match.Turn != hitter || pick != null)
         {
-            _player.PlaceBall(BallAt(match.Current.Ball));
-            string up = $"{match.Golfer.Name} to play" + (match.Current.Strokes == 0 ? "" : ", farthest from the hole");
+            _player.PlaceBall(RestingBall(match.Current));
+            string up = $"{match.Golfer.Name} to play" + (match.Current.Strokes == 0 || match.Type == GameType.Scramble ? "" : ", farthest from the hole");
             note = note.Length == 0 ? up : $"{note}   ·   {up}";
         }
         _hud.ShowResult(headline, stats, note);
         Log(headline + (note.Length > 0 ? "  " + note : ""));
         PrepareNextShot(snapCamera: match.Turn != hitter);
-        if (match.HoleComplete) _hud.ShowScorecard(true);
+        if (!match.HoleComplete) return;
+        // The scorecard comes up once the score announcement has had its moment (if nothing has moved on since).
+        if (!o.Holed) { _hud.ShowScorecard(true); return; }
+        int holeIndex = match.HoleIndex;
+        GetTree().CreateTimer(2.6).Timeout += () =>
+        {
+            if (_courseMode && _match == match && match.HoleIndex == holeIndex && match.HoleComplete && _outcome == null) _hud.ShowScorecard(true);
+        };
     }
 
     /// <summary>
@@ -397,7 +474,7 @@ public partial class Main
         ForgetLastShot();   // a replay would restore the round to before the shot that was taken back
         _hud.HideResult();
         _hud.ShowScorecard(false);
-        _player.PlaceBall(BallAt(round.Ball));
+        _player.PlaceBall(RestingBall(round));
         PrepareNextShot(snapCamera: true);
         string who = match.Players.Count > 1 ? match.Golfer.Name + ", play" : "Play";
         _hud.Toast($"Mulligan! {who} it again ({round.MulligansLeft} left)", UiTheme.Warn);
@@ -408,7 +485,7 @@ public partial class Main
     private void SaveRound()
     {
         if (_data == null || _match == null) return;
-        _data.SaveRound(SavedRound.From(_match, CourseName, _roundStarted));
+        _data.SaveRound(SavedRound.From(_match, CourseName, _roundStarted, _game));
     }
 
     /// <summary>"From the rough: −5% speed, −30% spin" when the lie or stance changed the shot.</summary>
@@ -452,26 +529,90 @@ public partial class Main
 
         var hole = round.Hole;
         bool several = match.Players.Count > 1;
-        var (_, toPar, thru) = match.Standing(match.Turn);
+        int side = match.SideOf(match.Turn);
         string stroke = round.PickedUp ? $"Picked up ({round.Strokes})" : round.Holed ? $"In {round.Strokes}" : $"{round.Strokes + 1}";
-        string score = thru == 0 ? "E" : Hud.ToPar(toPar);
-        string scoreNote = round.Holed && !round.PickedUp ? HoleRound.ScoreName(round.Strokes, hole.Par) : thru == 0 ? "" : $"thru {thru}";
+        string score, scoreNote;
+        if (match.Type == GameType.MatchPlay)
+        {
+            // The match from the side of whoever's up: "2 UP", "AS", "1 DN".
+            var status = match.MatchStatus();
+            score = match.MatchTextFor(side);
+            scoreNote = status.Decided ? "match over" : status.Played == 0 ? "" : $"thru {status.Played}";
+        }
+        else
+        {
+            var (_, toPar, thru) = match.Teams ? match.SideStanding(side) : match.Standing(match.Turn);
+            score = thru == 0 ? "E" : Hud.ToPar(toPar);
+            scoreNote = round.Holed && !round.PickedUp ? HoleRound.ScoreName(round.Strokes, hole.Par) : thru == 0 ? "" : $"thru {thru}";
+            if (match.Teams) scoreNote = scoreNote.Length == 0 ? "team" : $"team, {scoreNote}";
+        }
         _hud.SetHoleCard(hole.Number, hole.Name, hole.Par, hole.LengthYards, stroke, score, scoreNote);
         _hud.SetActivePlayer(golfer.Name, UiTheme.PlayerColor(match.Turn), several);
-        _hud.SetTurn(several && !match.HoleComplete ? golfer.Name : null, UiTheme.PlayerColor(match.Turn),
-            several ? string.Join("  ·  ", match.Players.Select((g, i) =>
-            {
-                var (_, tp, th) = match.Standing(i);
-                var r = match.Rounds[i];
-                string now = r.Holed ? $", in {r.Strokes}" : r.Strokes > 0 ? $", {r.Strokes} so far" : "";
-                return $"{g.Name} {(th == 0 ? "E" : Hud.ToPar(tp))}{now}";
-            })) : "");
+        _hud.SetTurn(several && !match.HoleComplete ? golfer.Name : null, UiTheme.PlayerColor(match.Turn), several ? Standings(match) : "");
         var mulliganFor = match.LastToPlay is { } lp ? match.Rounds[lp] : round;
         _hud.SetMulligans(match.Rules.Mulligans, mulliganFor.MulligansLeft, match.CanMulligan && _outcome == null);
-        _hud.SetScorecard(_courseDef!.Name, match.Holes.Select(h => h.Par).ToList(),
-            match.Players.Select((g, i) => new ScorecardRow(g.Name, match.Rounds[i].Scores, UiTheme.PlayerColor(i))).ToList(), match.HoleIndex);
+        _hud.SetScorecard($"{_courseDef!.Name}  ·  {GameSetup.Name(match.Type)}", match.Holes.Select(h => h.Number).ToList(),
+            match.Holes.Select(h => h.Par).ToList(), ScorecardRows(match), match.HoleIndex);
         SaveRound();
     }
+
+    /// <summary>Everyone's standing under the hole badge: per player, per team, or the match, with this hole so far.</summary>
+    private static string Standings(Match match)
+    {
+        string Now(HoleRound r) => r.Holed ? $", in {r.Strokes}" : r.Strokes > 0 ? $", {r.Strokes} so far" : "";
+        if (match.Type == GameType.Scramble && match.Teams)
+            return string.Join("  ·  ", Enumerable.Range(0, match.Sides.Count).Select(s =>
+            {
+                var (_, tp, th) = match.SideStanding(s);
+                return $"{match.SideName(s)} {(th == 0 ? "E" : Hud.ToPar(tp))}{Now(match.Rounds[match.Sides[s][0]])}";
+            }));
+        string players = string.Join("  ·  ", match.Players.Select((g, i) =>
+        {
+            var (_, tp, th) = match.Standing(i);
+            return $"{g.Name} {(th == 0 ? "E" : Hud.ToPar(tp))}{Now(match.Rounds[i])}";
+        }));
+        if (match.Type == GameType.MatchPlay) return $"{match.MatchText()}  ·  {players}";
+        if (match.Teams)
+            return string.Join("  ·  ", Enumerable.Range(0, match.Sides.Count).Select(s =>
+            {
+                var (_, tp, th) = match.SideStanding(s);
+                return $"{match.SideName(s)} {(th == 0 ? "E" : Hud.ToPar(tp))}";
+            })) + "  ·  " + players;
+        return players;
+    }
+
+    /// <summary>
+    /// The scorecard's rows: a row per player; per team for a scramble (its players share one ball), and a team's
+    /// best ball under its players; for match play, a row showing who won each hole.
+    /// </summary>
+    private static List<ScorecardRow> ScorecardRows(Match match)
+    {
+        var sides = Enumerable.Range(0, match.Sides.Count).ToList();
+        ScorecardRow Team(int s) => new(match.SideName(s), Enumerable.Range(0, match.Holes.Count).Select(i => match.SideScore(s, i)).ToList(),
+                                        UiTheme.PlayerColor(match.Sides[s][0])) { Team = true };
+        if (match.Type == GameType.Scramble && match.Teams) return sides.Select(Team).ToList();
+        var rows = match.Players.Select((g, i) => new ScorecardRow(g.Name, match.Rounds[i].Scores, UiTheme.PlayerColor(i))).ToList();
+        if (match.Teams) rows.AddRange(sides.Where(s => match.Sides[s].Count > 1).Select(Team));
+        if (match.Type == GameType.MatchPlay)
+        {
+            string Initials(int s) => match.Sides[s].Count == 1 ? match.Players[match.Sides[s][0]].Name[..1] : string.Concat(match.Sides[s].Select(p => match.Players[p].Name[..1]));
+            var marks = Enumerable.Range(0, match.Holes.Count).Select(i => match.HoleWinner(i) switch
+            {
+                null => ((string, Color)?)null,
+                -1 => ("½", UiTheme.Muted),
+                var w => (Initials(w.Value), UiTheme.PlayerColor(match.Sides[w.Value][0])),
+            }).ToList();
+            rows.Add(new ScorecardRow("Match", match.Holes.Select(_ => (int?)null).ToList(), UiTheme.Ink) { Marks = marks, TotalText = match.MatchText() });
+        }
+        return rows;
+    }
+
+    /// <summary>Match play: "Ann wins the hole", "Hole halved".</summary>
+    private static string HoleResult(Match match) => match.HoleWinner(match.HoleIndex) switch
+    {
+        int w and >= 0 => $"{match.SideName(w)} {(match.Sides[w].Count > 1 ? "win" : "wins")} the hole",
+        _ => "Hole halved",
+    };
 
     /// <summary>The other players' balls on the course, in their colours.</summary>
     private void ShowOtherBalls()
@@ -511,8 +652,10 @@ public partial class Main
             double feet = rise * 3.281;
             if (green) elevation = Math.Abs(feet) < 1.0 / 12 ? "" : Math.Abs(feet) < 1 ? $"{(rise > 0 ? "up" : "down")} {Math.Abs(feet) * 12:0}\"" : $"{(rise > 0 ? "up" : "down")} {Math.Abs(feet):0}'";
             else if (Math.Abs(feet) >= 1) elevation = $"{(rise > 0 ? "up" : "down")} {Math.Abs(feet):0}'";
-            if (!green && Math.Abs(rise) >= 1) playsLike = $"Plays {round.PlaysLike(pin) * Units.MetresToYards:0} yds";
         }
+        // What it plays, with the rise and the wind, when that's a couple of yards or more off the distance.
+        if (!round.Holed && !green && !putting && Math.Abs(round.PlaysLike(pin) - toPinM) * Units.MetresToYards >= 2)
+            playsLike = $"Plays {round.PlaysLike(pin) * Units.MetresToYards:0} yds";
 
         var stance = round.StanceAt(round.Ball, _aimHeading, _hud.LeftHanded);
         var preset = ClubPresets.Find(_hud.ClubCode) ?? ClubPresets.All[ClubPresets.IndexOf("I7")];
@@ -574,6 +717,46 @@ public partial class Main
 
     /// <summary>Where the ball sits at a course point (on the ground; the player adds the surface layer).</summary>
     private Vector3 BallAt(P2 p) => Scenery.ToGodot(p, (float)(_round?.GroundAt(p) ?? 0));
+
+    /// <summary>Where a player's ball is shown at rest: in the bottom of the cup once they've holed out, else where it lies.</summary>
+    private Vector3 RestingBall(HoleRound r) => r.Holed && !r.PickedUp ? CupBall(r.Hole) : BallAt(r.Ball);
+
+    /// <summary>
+    /// A holed ball: on the bottom of the cup, resting against the flagstick on the side facing the tee (so it isn't
+    /// inside the pole, and shows from the fairway). The player adds the surface layer and the ball's radius.
+    /// </summary>
+    private Vector3 CupBall(Hole hole)
+    {
+        var towardTee = hole.Tee - hole.Pin;
+        double len = Math.Max(towardTee.Length, 1e-6);
+        const double againstPole = 0.012 + ShotPlayer.BallRadius;   // the pole's radius and the ball's
+        var at = hole.Pin + towardTee * (againstPole / len);
+        return Scenery.ToGodot(at, (float)((_round?.GroundAt(hole.Pin) ?? 0) - HoleRound.CupDepth));
+    }
+
+    /// <summary>The wind on the hole being played, from the setting and the round (the same round always has the same wind).</summary>
+    private void ApplyHoleWind()
+    {
+        if (_match == null) return;
+        int seed = unchecked((int)(_roundStarted.Ticks / TimeSpan.TicksPerSecond));
+        // By the hole's number: a front or back nine gets the same wind on a hole as a full round started then would.
+        _match.SetWind(CourseWind.ForHole(_game.Wind, seed, _match.Hole.Number - 1));
+    }
+
+    /// <summary>"BIRDIE!" across the screen when a player holes out, in a colour for how good it was.</summary>
+    private void CelebrateScore(Match match, HoleRound round, ShotOutcome o)
+    {
+        int strokes = o.Strokes, par = round.Hole.Par, diff = strokes - par;
+        string name = HoleRound.ScoreName(strokes, par).ToUpperInvariant();
+        string text = strokes == 1 ? "HOLE IN ONE!" : diff < 0 ? name + "!" : name;
+        var color = strokes == 1 || diff <= -2 ? new Color(1.0f, 0.82f, 0.25f)
+                  : diff == -1 ? UiTheme.Accent
+                  : diff == 0 ? UiTheme.Ink
+                  : diff == 1 ? UiTheme.Warn : UiTheme.Danger;
+        string who = match.Players.Count == 1 ? "" : match.Type == GameType.Scramble ? match.SideName(match.SideOf(match.Turn)) + "  ·  " : match.Golfer.Name + "  ·  ";
+        string sub =$"{who}{strokes} stroke{(strokes == 1 ? "" : "s")} on hole {round.Hole.Number}";
+        _hud.CelebrateScore(text, sub, color, sparks: diff < 0 || strokes == 1);
+    }
 
     /// <summary>Flag in or out while putting (it's pulled by default once the ball is on the green).</summary>
     private void ToggleFlag()
@@ -637,6 +820,11 @@ public partial class Main
         // Pull the flag once on the green (unless it's wanted in); it goes back in when the hole is finished.
         bool onGreen = round.Lie == Lie.Green && !round.Holed;
         _course.SetFlagIn(!onGreen || _flagWhenPutting, Scenery.ToGodot(round.Hole.Pin) - Scenery.ToGodot(round.Ball));
+        var wind = _match!.Wind;
+        // Putts roll in still air: no wind shown on the green.
+        if (wind.IsCalm || round.Holed || putting) _hud.SetWind(0, 0, 0, "");
+        else _hud.SetWind(wind.SpeedMph, wind.GustMph, Math.IEEERemainder(wind.FromHeading + Math.PI - _aimHeading, 2 * Math.PI),
+                          wind.Describe(_aimHeading).Split(", ", 2) is { Length: 2 } parts ? parts[1] : "");
         RefreshPlan();
         UpdateMapMarkers(aimPoint, length);
     }

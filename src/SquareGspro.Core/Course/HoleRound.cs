@@ -80,6 +80,11 @@ public sealed class HoleRound
     public int FirstHole { get; private set; }
     public bool RoundComplete => _scores.Skip(FirstHole).All(s => s != null);
     public double DistanceToPin => Ball.DistanceTo(Hole.Pin);
+    /// <summary>
+    /// The wind on this hole for full shots (calm: the physics tuning's wind, if any). Putts roll in still air, as
+    /// their read assumes.
+    /// </summary>
+    public CourseWind Wind { get; set; } = CourseWind.Calm;
 
     public void StartHole(int index)
     {
@@ -154,9 +159,13 @@ public sealed class HoleRound
 
     /// <summary>
     /// Distance the shot to <paramref name="target"/> plays: its length plus the rise (uphill plays longer, downhill
-    /// shorter; a metre of height is roughly a metre of carry).
+    /// shorter; a metre of height is roughly a metre of carry), then longer into the wind and shorter with it.
     /// </summary>
-    public double PlaysLike(P2 target) => Ball.DistanceTo(target) + (GroundAt(target) - GroundAt(Ball));
+    public double PlaysLike(P2 target)
+    {
+        double d = Ball.DistanceTo(target) + (GroundAt(target) - GroundAt(Ball));
+        return Wind.IsCalm ? d : d * Wind.PlaysLikeFactor(Heading(Ball, target));
+    }
 
     public static double Heading(P2 from, P2 to) => Math.Atan2(to.Z - from.Z, to.X - from.X);
 
@@ -219,7 +228,7 @@ public sealed class HoleRound
                     Launch = lieEffect.Launch,
                     Terrain = Ground,
                     Ball = ActivePhysics.Ball,
-                    Environment = ActivePhysics.Environment,
+                    Environment = Wind.IsCalm ? ActivePhysics.Environment : ActivePhysics.Environment with { Wind = Wind.Field() },
                     Options = SimulationOptions.Default with
                     {
                         StartX = start.Z, StartY = start.X, AimHeadingDegrees = headingRad * 180 / Math.PI,

@@ -189,18 +189,25 @@ public sealed class PhysicsTuning
 }
 
 /// <summary>
-/// The physics settings in play, built from the current <see cref="PhysicsTuning"/>. Everything in the app that
-/// simulates a shot reads its ball, air, wind, surfaces and lie model from here, so a new tuning applies from the
-/// next shot (a ball already moving keeps the numbers it was struck with). Main thread only.
+/// The physics settings in play, built from the current <see cref="PhysicsTuning"/> with the round's conditions
+/// (<see cref="SetConditions"/>) on top. Everything in the app that simulates a shot reads its ball, air, wind,
+/// surfaces and lie model from here, so a change applies from the next shot (a ball already moving keeps the numbers
+/// it was struck with). Main thread only.
 /// </summary>
 public static class ActivePhysics
 {
+    private static PhysicsTuning _tuning = PhysicsTuning.Defaults;
+    private static Func<PhysicsTuning, PhysicsTuning>? _conditions;
     private static PhysicsSettings _settings = PhysicsSettings.From(PhysicsTuning.Defaults);
 
-    /// <summary>Raised after <see cref="Apply"/> changes the tuning.</summary>
+    /// <summary>Raised after <see cref="Apply"/> or <see cref="SetConditions"/> changes the physics.</summary>
     public static event Action? Changed;
 
-    public static PhysicsTuning Tuning => _settings.Tuning;
+    /// <summary>The tuning as set in the tuner (without the round's conditions: those aren't tuned, or saved with it).</summary>
+    public static PhysicsTuning Tuning => _tuning;
+
+    /// <summary>The tuning actually played: <see cref="Tuning"/> with the round's conditions applied.</summary>
+    public static PhysicsTuning InPlay => _settings.Tuning;
     /// <summary>Increases with every change (for caches of results that depend on the physics).</summary>
     public static int Version { get; private set; }
 
@@ -214,8 +221,25 @@ public static class ActivePhysics
 
     public static void Apply(PhysicsTuning tuning)
     {
-        if (ReferenceEquals(tuning, _settings.Tuning)) return;
-        _settings = PhysicsSettings.From(tuning);
+        if (ReferenceEquals(tuning, _tuning)) return;
+        _tuning = tuning;
+        Rebuild();
+    }
+
+    /// <summary>
+    /// The conditions a course round is played in (altitude, weather, fairways and greens; see
+    /// <see cref="Course.GameSetup.ApplyTo"/>), applied on top of the tuning from now on; null (the range) plays the tuning as it is.
+    /// </summary>
+    public static void SetConditions(Func<PhysicsTuning, PhysicsTuning>? conditions)
+    {
+        if (conditions == null && _conditions == null) return;
+        _conditions = conditions;
+        Rebuild();
+    }
+
+    private static void Rebuild()
+    {
+        _settings = PhysicsSettings.From(_conditions?.Invoke(_tuning) ?? _tuning);
         Version++;
         Changed?.Invoke();
     }

@@ -24,7 +24,9 @@ namespace SquareGspro.Range3D;
 /// Development: <c>--demo-shots=N</c> hits N demo shots after start-up,
 /// and <c>--screenshot=file.png</c> saves the window to a PNG (after <c>--screenshot-delay=seconds</c>, default 4, or
 /// once the demo shots have finished) and quits; <c>--monitor-drawer</c> opens the launch monitor drawer;
-/// <c>--settings</c> opens the settings; <c>--menu</c> opens the in-game menu; <c>--green-read</c> turns on the green
+/// <c>--settings</c> opens the settings; <c>--menu</c> opens the in-game menu; <c>--setup-page</c> opens New Game's
+/// Game Setup page; <c>--game=Scramble</c>, <c>--holes=Back9</c>, <c>--wind=Breezy</c> and <c>--weather=Wet</c> set up
+/// the round for this run; <c>--green-read</c> turns on the green
 /// heat map and grid; <c>--hit-at=t1,t2,…</c> presses HIT SHOT at those times (seconds after start); <c>--tuner</c>
 /// opens the physics tuner (and the screenshot saves it too, as <c>file-tuner.png</c>); <c>--tune=key=value</c>
 /// changes one tuning value after the demo shots and replays the last one.
@@ -58,6 +60,8 @@ public partial class Main : Node3D
         CrashLog.Install(_dataFolder);
 
         (_world, _sun) = Scenery.AddSkyAndSun(this);
+        _weather = new WeatherLook(_world, _sun);
+        AddChild(_weather);
         _rangeWorld = new RangeWorld();
         AddChild(_rangeWorld);
         _player = new ShotPlayer();
@@ -101,6 +105,7 @@ public partial class Main : Node3D
         ApplyDisplaySettings();
         ApplyGraphics();
         SetupSettings();
+        _game = _settings.Setup;
         SetupDevTools(args);
         // Runs that play shots by themselves (or jump holes) don't save, or resume, anything.
         bool devRun = args.Any(a => a.StartsWith("--demo-shots") || a.StartsWith("--hole=") || a.StartsWith("--hit-at") || a.StartsWith("--tune="));
@@ -124,7 +129,8 @@ public partial class Main : Node3D
         EnterRange();
         // The main menu, unless a switch says where to go (development runs stay on the range unless told otherwise).
         if (args.Contains("--course")) { if (LoadCourse(resume: true)) EnterCourse(); }
-        else if (!args.Contains("--range") && !devRun) ShowMainMenu();
+        else if (!args.Contains("--range") && (!devRun || _openSetupAtStart)) ShowMainMenu();
+        if (_openSetupAtStart) _hud.MainMenu.OpenSetupPage();
         if (_match != null && _courseMode && args.FirstOrDefault(a => a.StartsWith("--hole=")) is { } h && int.TryParse(h[7..], out int n) && n >= 2 && n <= _match.Holes.Count)
             StartHole(n - 1);
         UpdateInsets();
@@ -195,6 +201,8 @@ public partial class Main : Node3D
 
     private WorldEnvironment _world = null!;
     private DirectionalLight3D _sun = null!;
+    /// <summary>The round's weather on the sky, light and haze (rain when it's wet).</summary>
+    private WeatherLook? _weather;
 
     /// <summary>3D quality (anti-aliasing, shadows, lighting effects): see <see cref="Graphics"/>.</summary>
     private void ApplyGraphics() => Graphics.Apply(_settings.Graphics, GetViewport(), _world, _sun);

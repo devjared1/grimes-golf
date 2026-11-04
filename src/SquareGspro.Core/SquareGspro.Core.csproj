@@ -20,6 +20,8 @@
     <EmbeddedResource Include="Course\Data\*.osm" LogicalName="SquareGspro.Core.Course.Data.%(Filename)%(Extension)" />
     <!-- Ground elevation (USGS 3DEP, public domain), refreshed with tools/fetch-elevation.ps1. -->
     <EmbeddedResource Include="Course\Data\*.dem" LogicalName="SquareGspro.Core.Course.Data.%(Filename)%(Extension)" />
+    <!-- Trees (USGS 3DEP lidar, public domain), refreshed with tools/fetch-canopy.ps1. -->
+    <EmbeddedResource Include="Course\Data\*.trees.csv.gz" LogicalName="SquareGspro.Core.Course.Data.%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

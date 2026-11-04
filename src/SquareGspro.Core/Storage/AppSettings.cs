@@ -24,10 +24,12 @@ public enum GraphicsQuality { Low, Medium, High, Ultra }
 /// <param name="FullScreen">Fill the screen (a TV or projector) rather than a window.</param>
 /// <param name="HoleFlyover">Fly the camera down each hole before the first tee shot.</param>
 /// <param name="Graphics">3D quality: anti-aliasing, shadows and lighting effects.</param>
+/// <param name="Game">The game, holes, weather and course conditions picked on the Game Setup screen last time.</param>
 public sealed record AppSettings(
     IReadOnlyList<Golfer>? Players = null, HouseRules? HouseRules = null, bool AutoConnect = true, ulong? LastMonitor = null,
     TextSize TextSize = TextSize.Normal, string? Course = null, bool CameraFollow = true,
-    bool FullScreen = false, bool HoleFlyover = true, GraphicsQuality Graphics = GraphicsQuality.High)
+    bool FullScreen = false, bool HoleFlyover = true, GraphicsQuality Graphics = GraphicsQuality.High,
+    GameSetup? Game = null)
 {
     public const string FileName = "settings.json";
 
@@ -35,6 +37,7 @@ public sealed record AppSettings(
     public static readonly HouseRules GarageRules = new(Mulligans: 2, PickUpAtDoublePar: true);
 
     [JsonIgnore] public HouseRules Rules => HouseRules ?? GarageRules;
+    [JsonIgnore] public GameSetup Setup => Game ?? GameSetup.Default;
 
     /// <summary>The players, never empty and at most <see cref="Match.MaxPlayers"/>, with blank names filled in.</summary>
     [JsonIgnore]

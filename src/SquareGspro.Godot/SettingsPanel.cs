@@ -69,6 +69,9 @@ public partial class SettingsPanel : Control
         v.AddChild(Row("Gimme distance (0 = hole everything out)", _gimme));
         _doublePar = new CheckBox { Text = "Pick up at double par (a hole never costs more than twice its par)" };
         v.AddChild(_doublePar);
+        var setupNote = UiTheme.Text("The game, holes, wind, weather and course conditions are picked for each round on New Game > Game Setup.", 13, UiTheme.Muted);
+        setupNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        v.AddChild(setupNote);
         v.AddChild(new HSeparator());
 
         // Monitor, display, start-up

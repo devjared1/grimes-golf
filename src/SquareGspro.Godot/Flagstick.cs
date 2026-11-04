@@ -40,7 +40,7 @@ public partial class Flagstick : Node3D
         };
         AddChild(_pole);
         // The flag hangs from the top of the pole; its node is scaled with distance around that point.
-        _flag = new Node3D { Position = new Vector3(0, h, 0) };
+        _flag = new Node3D { Position = new Vector3(0, h, 0), Rotation = new Vector3(0, _pendingYaw, 0) };
         _flag.AddChild(new MeshInstance3D
         {
             Mesh = new BoxMesh { Size = new Vector3(0.75f * _scale, 0.5f * _scale, 0.01f) },
@@ -61,6 +61,17 @@ public partial class Flagstick : Node3D
         _pole.Scale = new Vector3(widen, 1, widen);
         if (GrowFlag) _flag.Scale = Vector3.One * Mathf.Max(1f, d / 90f);
     }
+
+    /// <summary>Turns the flag to stream along <paramref name="downwind"/> (a horizontal world direction; null = the way it was built).</summary>
+    public void SetWind(Vector3? downwind)
+    {
+        // The flag hangs along the pole's local +X; turning it about the pole by θ points it at (cos θ, 0, −sin θ).
+        float yaw = downwind is { } d ? Mathf.Atan2(-d.Z, d.X) : 0;
+        if (_flag != null) _flag.Rotation = new Vector3(0, yaw, 0);
+        else _pendingYaw = yaw;
+    }
+
+    private float _pendingYaw;
 
     /// <summary>Back in the hole.</summary>
     public void Stand()

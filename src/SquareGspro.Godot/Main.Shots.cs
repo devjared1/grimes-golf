@@ -188,6 +188,7 @@ public partial class Main
     /// <summary>Every shot (from the monitor, the screen, a demo or a replay) comes through here.</summary>
     private void ShowShot(RangeShot s, bool replay = false)
     {
+        if (_loading) { Log("Shot ignored: a course is loading."); return; }
         _camera.SkipFlyover();
         EndLandingView();
         _hud.Shot.ResetShape();   // a draw, fade or spin choice is for one shot

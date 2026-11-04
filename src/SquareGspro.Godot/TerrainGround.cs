@@ -50,15 +50,36 @@ public static class TerrainGround
             return 0.985 + 0.085 * mix(s, s * look.x * 1.4, 0.65);
         }
         float edge(float coverage) { float w = max(fwidth(coverage), 0.02); return smoothstep(0.5 - w, 0.5 + w, coverage); }
+        // Coverage for the edges. Near the camera: the full-resolution texture through a cubic B-spline (four bilinear
+        // taps), so an edge follows a smooth curve instead of kinking at every 1 m texel. Further off: the mip level for
+        // the screen direction that shows the most detail (the usual choice, the coarser one, smears a band of soft
+        // edge across the ground seen at a low angle, ending in a straight seam where the level changes).
+        vec4 coverage(sampler2D t, vec2 uv) {
+            vec2 size = vec2(textureSize(t, 0));
+            vec2 px = uv * size;
+            float lod = log2(max(min(length(dFdx(px)), length(dFdy(px))), 1e-6));
+            vec4 far = textureLod(t, uv, max(lod, 0.0));
+            if (lod >= 1.0) return far;
+            vec2 i = floor(px - 0.5), f = px - 0.5 - i;
+            vec2 w0 = (1.0 - f) * (1.0 - f) * (1.0 - f) / 6.0;
+            vec2 w1 = (4.0 - 6.0 * f * f + 3.0 * f * f * f) / 6.0;
+            vec2 w2 = (1.0 + 3.0 * f + 3.0 * f * f - 3.0 * f * f * f) / 6.0;
+            vec2 w3 = f * f * f / 6.0;
+            vec2 g0 = w0 + w1, g1 = w2 + w3;
+            vec2 h0 = (i - 0.5 + w1 / g0) / size, h1 = (i + 1.5 + w3 / g1) / size;
+            vec4 cubic = g0.y * (g0.x * textureLod(t, vec2(h0.x, h0.y), 0.0) + g1.x * textureLod(t, vec2(h1.x, h0.y), 0.0))
+                       + g1.y * (g0.x * textureLod(t, vec2(h0.x, h1.y), 0.0) + g1.x * textureLod(t, vec2(h1.x, h1.y), 0.0));
+            return mix(cubic, far, clamp(lod, 0.0, 1.0));
+        }
         void fragment() {
             if (cup_hole.w > 0.0 && distance(world_pos.xz, cup_hole.xy) < cup_hole.w) discard;
             vec2 course = vec2(-world_pos.z, world_pos.x);
             vec2 uv = vec2((course.y - mask_origin.y) / mask_size.y, (course.x - mask_origin.x) / mask_size.x);
-            vec4 m = texture(mask, uv);
+            vec4 m = coverage(mask, uv);
             float n = noise(world_pos.xz * 0.12) * 0.6 + noise(world_pos.xz * 0.6) * 0.4;
             vec2 p = world_pos.xz;
             float f = edge(m.r), g = edge(m.g), s = edge(m.b), w = edge(m.a);
-            vec4 cm = texture(cut, uv);
+            vec4 cm = coverage(cut, uv);
             float pond = edge(cm.g), bridge = edge(cm.a), path = max(edge(cm.b), bridge);
             // Blurred coverage (a few metres) for what happens just outside sand and water.
             vec4 near = textureLod(mask, uv, 2.0);

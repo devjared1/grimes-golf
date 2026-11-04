@@ -27,6 +27,8 @@ public static class OsmCourse
     private const double EarthRadius = 6371008.8;
     /// <summary>How far the modelled ground extends past the course (beyond it the ground continues flat).</summary>
     private const double TerrainMargin = 200;
+    /// <summary>How far past the course surveyed trees are kept (inside the modelled ground).</summary>
+    private const double TreeMargin = 150;
 
     private sealed record Way(long Id, List<long> Nodes, Dictionary<string, string> Tags)
     {
@@ -39,19 +41,24 @@ public static class OsmCourse
     private sealed record HoleLine(long WayId, int? Ref, int? Par, string Name, List<P2> Route);
 
     /// <param name="elevationFile">Optional embedded .dem with the course's ground heights.</param>
-    public static Course FromResource(string file, string name, string? elevationFile = null) => FromResource(file, name, elevationFile, shapeWater: true);
+    /// <param name="treesFile">Optional embedded trees CSV (<see cref="TreeSurvey"/>) with the course's real trees.</param>
+    public static Course FromResource(string file, string name, string? elevationFile = null, string? treesFile = null) =>
+        FromResource(file, name, elevationFile, shapeWater: true, treesFile);
 
     /// <param name="shapeWater">False leaves ponds as the elevation data has them (tests check the map against them).</param>
-    internal static Course FromResource(string file, string name, string? elevationFile, bool shapeWater)
+    internal static Course FromResource(string file, string name, string? elevationFile, bool shapeWater, string? treesFile = null)
     {
         using var s = typeof(OsmCourse).Assembly.GetManifestResourceStream("SquareGspro.Core.Course.Data." + file)
             ?? throw new FileNotFoundException($"Course data '{file}' is not embedded in SquareGspro.Core.");
-        return Load(s, name, elevationFile == null ? null : ElevationGrid.FromResource(elevationFile), shapeWater);
+        return Load(s, name, elevationFile == null ? null : ElevationGrid.FromResource(elevationFile), shapeWater,
+            treesFile == null ? null : TreeSurvey.FromResource(treesFile));
     }
 
-    public static Course Load(Stream osm, string? name = null, ElevationGrid? elevation = null) => Load(osm, name, elevation, shapeWater: true);
+    /// <param name="trees">Surveyed trees (any that are far outside the course are left out).</param>
+    public static Course Load(Stream osm, string? name = null, ElevationGrid? elevation = null, IReadOnlyList<TreeSurvey.Tree>? trees = null) =>
+        Load(osm, name, elevation, shapeWater: true, trees);
 
-    private static Course Load(Stream osm, string? name, ElevationGrid? elevation, bool shapeWater)
+    private static Course Load(Stream osm, string? name, ElevationGrid? elevation, bool shapeWater, IReadOnlyList<TreeSurvey.Tree>? survey)
     {
         XDocument doc;
         using (var reader = XmlReader.Create(osm, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null }))
@@ -108,10 +115,12 @@ public static class OsmCourse
 
         List<Polygon> AreasWhere(Func<Dictionary<string, string>, bool> pick) =>
             areas.Where(a => pick(a.Tags)).Select(a => Poly(a.Ring)).Where(p => p.Points.Count >= 3 && Near(p)).ToList();
-        var greens = AreasWhere(t => t.GetValueOrDefault("golf") == "green");
-        var tees = AreasWhere(t => t.GetValueOrDefault("golf") == "tee");
-        var bunkers = AreasWhere(t => t.GetValueOrDefault("golf") == "bunker");
-        var mappedFairways = AreasWhere(t => t.GetValueOrDefault("golf") == "fairway");
+        // Mown areas and bunkers have soft, curved edges: the mapped outlines' corners are rounded off.
+        List<Polygon> Mown(string golf) => AreasWhere(t => t.GetValueOrDefault("golf") == golf).Select(p => p.Rounded()).ToList();
+        var greens = Mown("green");
+        var tees = Mown("tee");
+        var bunkers = Mown("bunker");
+        var mappedFairways = Mown("fairway");
         var water = AreasWhere(t => t.GetValueOrDefault("golf") is "water_hazard" or "lateral_water_hazard"
                                     || t.GetValueOrDefault("natural") == "water");
         var woods = AreasWhere(t => t.GetValueOrDefault("natural") == "wood" || t.GetValueOrDefault("landuse") == "forest");
@@ -223,6 +232,17 @@ public static class OsmCourse
             else notes.Add("The elevation data doesn't cover the whole course; playing it flat.");
         }
 
+        // Surveyed trees, in the same frame; those far outside the course can't be seen from it.
+        List<CourseTree>? trees = null;
+        if (survey != null)
+        {
+            var keep = extent.Expand(TreeMargin);
+            trees = survey.Select(t => new CourseTree(new P2((t.Lat - lat0) * k, (t.Lon - lon0) * kLon), t.Height, t.Crown, t.Kind))
+                .Where(t => keep.Contains(t.At))
+                .ToList();
+            if (trees.Count == 0) { notes.Add("The tree survey doesn't cover the course; planting trees instead."); trees = null; }
+        }
+
         string courseName = name ?? outlines.Select(a => a.Tags.GetValueOrDefault("name")).FirstOrDefault(n => n != null) ?? "OpenStreetMap course";
         return new Course(courseName, holes)
         {
@@ -232,6 +252,7 @@ public static class OsmCourse
             Credit = Credit,
             Notes = notes,
             Terrain = terrain,
+            Trees = trees,
         };
     }
 

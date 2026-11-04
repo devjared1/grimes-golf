@@ -89,7 +89,7 @@ public partial class Hud
         column.SetAnchorsPreset(LayoutPreset.RightWide);
         column.OffsetLeft = -16 - RightColumnWidth;
         column.OffsetRight = -16;
-        column.OffsetTop = TopBarHeight + 12 + 230 + 12 + 12;
+        column.OffsetTop = TopBarHeight + TopGap + 230 + 12 + 12;
         column.OffsetBottom = -RangeBarHeight - 12;
         _rangeView.AddChild(column);
         var cv = new VBoxContainer();

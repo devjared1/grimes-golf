@@ -106,6 +106,8 @@ public partial class Main
     // Handled in _Input (before the GUI) so focused buttons/lists don't swallow the arrow keys and gamepad buttons.
     public override void _Input(InputEvent e)
     {
+        // A course is loading: nothing to do until it's ready.
+        if (_loading) { GetViewport().SetInputAsHandled(); return; }
         // Settings open, or typing in a text box: let the UI have everything (gamepad and arrows move between fields).
         if (_hud.SettingsOpen)
         {
@@ -131,7 +133,7 @@ public partial class Main
         if (_hud.DrawerOpen) _hud.ToggleDrawer();
         else if (_hud.Players.IsOpen) _hud.Players.Close();
         else if (_hud.Overlay.IsOpen) _hud.Overlay.Close();
-        else if (_hud.MainMenu.OnCoursePage) _hud.MainMenu.ShowHome();
+        else if (_hud.MainMenu.OnSubPage) _hud.MainMenu.Back();
         else return false;
         return true;
     }

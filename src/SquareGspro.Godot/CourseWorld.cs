@@ -260,6 +260,16 @@ public partial class CourseWorld : Node3D
         flag.LayDown(at, tip - at);
     }
 
+    /// <summary>
+    /// The flag on the hole being played streams the way the wind blows (course heading it blows toward; null: calm,
+    /// it hangs the usual way). Flags on the other greens are left alone.
+    /// </summary>
+    public void SetFlagWind(double? blowsToward)
+    {
+        foreach (var (hole, pin) in _pins)
+            pin.Flag.SetWind(hole == _hole && blowsToward is { } h ? new Vector3((float)Math.Sin(h), 0, (float)-Math.Cos(h)) : null);
+    }
+
     public override void _ExitTree()
     {
         if (_cupOwner != this) return;
@@ -455,13 +465,23 @@ public partial class CourseWorld : Node3D
     }
 
     /// <summary>
-    /// Dense trees beyond out of bounds and in mapped woods, scattered ones in the rough well away from the playing
-    /// areas. The view from every tee is kept clear.
+    /// The course's real trees where they were surveyed (each as tall and as wide as measured). Otherwise dense trees
+    /// beyond out of bounds and in mapped woods, scattered ones in the rough well away from the playing areas. Either
+    /// way the view from every tee is kept clear.
     /// </summary>
     private void AddTrees()
     {
         var h = _hole;
         var holes = Shared ? _courseDef.Holes : new[] { h };
+        if (_courseDef.Trees is { } surveyed)
+        {
+            var measured = surveyed
+                .Where(t => !holes.Any(hole => BehindTee(hole, t.At)))
+                .Select(t => (Scenery.ToGodot(t.At, GroundAt(t.At)), (float)t.Height, (float)t.Crown))
+                .ToList();
+            TreeFactory.AddMeasured(this, measured, 7);
+            return;
+        }
         var area = Shared ? _courseDef.Extent : h.Bounds;
         var rng = new Random(Shared ? 7 : h.Number * 31);
         // Keep the line of play open on mapped holes (par 3s have no fairway between tee and green).

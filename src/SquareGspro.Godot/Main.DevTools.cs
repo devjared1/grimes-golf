@@ -32,6 +32,12 @@ public partial class Main
         _showScorecardForScreenshot = args.Contains("--scorecard");
         // --reconnecting: show the banner a dropped monitor gets (to check how it looks without a monitor).
         if (args.Contains("--reconnecting")) _hud.SetBanner("Launch monitor disconnected — reconnecting…");
+        // --loading-screen and --celebrate=Birdie: show the loading screen, or a hole's score announcement (to check how they look).
+        if (args.Contains("--loading-screen"))
+            _hud.Loading.Open(CourseLibrary.All[0].Name, Brand.CourseLogo(CourseLibrary.All[0].Name.Split(" (")[0]), "Building the course…");
+        if (Arg("--celebrate") is { } score)
+            GetTree().CreateTimer(Math.Max(0.1, _screenshotAt - 1.3)).Timeout += () =>
+                _hud.CelebrateScore(score.ToUpperInvariant() + "!", "Ann  ·  3 strokes on hole 7", UiTheme.Accent, sparks: true);
         // --players=Ann,Bob,Cat:L  and  --text-size=Large: for this run only (not saved).
         if (Arg("--players") is { } players)
             _settings = _settings with
@@ -49,6 +55,14 @@ public partial class Main
             _settings = _settings with { Graphics = quality };
             ApplyGraphics();
         }
+        // --game=Scramble, --holes=Back9, --wind=Breezy, --weather=Wet: the game setup for this run only (not saved).
+        if (Enum.TryParse<GameType>(Arg("--game"), true, out var game)) _game = _game with { Type = game };
+        if (Enum.TryParse<HoleSet>(Arg("--holes"), true, out var holes)) _game = _game with { Holes = holes };
+        if (Enum.TryParse<WindStrength>(Arg("--wind"), true, out var wind)) _game = _game with { Wind = wind };
+        if (Enum.TryParse<Weather>(Arg("--weather"), true, out var weather)) _game = _game with { Weather = weather };
+        _settings = _settings with { Game = _game };
+        // --setup-page: the main menu's Game Setup page (to check how it looks).
+        _openSetupAtStart = args.Contains("--setup-page");
         // --hit-at=2,8.5: press HIT SHOT at these times (seconds after start).
         if (Arg("--hit-at") is { } at)
             _hitPresses = new Queue<double>(at.Split(',').Select(t => double.Parse(t, System.Globalization.CultureInfo.InvariantCulture)));
@@ -61,7 +75,7 @@ public partial class Main
 
     private (string Key, double Value)? _devTune;
     /// <summary>--scorecard: open the scorecard just before the screenshot.</summary>
-    private bool _showScorecardForScreenshot, _openMenuAtStart;
+    private bool _showScorecardForScreenshot, _openMenuAtStart, _openSetupAtStart;
     private Queue<double>? _hitPresses;
 
     /// <summary>Hits the requested demo shots one after another, then takes the screenshot and quits.</summary>

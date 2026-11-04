@@ -19,13 +19,18 @@ several monitors, club-data timeout, advanced vs standard spin, default club).
 
 `src/SquareGspro.Godot` is a standalone practice app built in **Godot 4.7 (.NET edition)** that doesn't need GSPro.
 
-- **Main menu** (where the app opens): **New Game** (a list of courses with their holes, par, length and a short
-  description, and who's playing; **Start Round**), **Resume Game** (shown when a round is unfinished, with its
-  course, hole and players), **Driving Range**, **Settings** and **Quit**, plus the launch monitor's status (with a
-  button for the monitor drawer) and the version.
-- **Top bar** (in play): where you are (Driving range or the course), the player chip (with 2+ players: whose turn
-  it is, or on the range who the shots are saved under; click it there for the next player), the launch monitor
-  status (ready state and battery; click it for the monitor drawer) and **Menu** (`M`, `Esc` or gamepad Start).
+- **Main menu** (where the app opens, under the Grimes Golf Simulator logo): **New Game** (a list of courses with
+  their holes, par, length and a short description, and who's playing; then **Game Setup**, below, and **Start
+  Round**), **Resume Game** (shown when a round is unfinished, with its course, game, hole and players), **Driving
+  Range**, **Settings** and **Quit**, plus the
+  launch monitor's status (with a button for the monitor drawer) and the version. New Game and Resume Game show a
+  **loading screen** (the logo, the course's logo and what's being loaded) while the course map, elevation and 3D
+  world are built.
+- **Top bar** (in play): the logo and version, "Driving range" on the range, the **Ready / Not ready** light in the
+  middle (green once the last shot has finished and, with a monitor connected, the monitor sees a ball ready to hit),
+  the player chip (with 2+ players: whose turn it is, or on the range who the shots are saved under; click it there
+  for the next player), the launch monitor status (ready state and battery; click it for the monitor drawer) and
+  **Menu** (`M`, `Esc` or gamepad Start).
 - **In-game menu**: on a course, Scorecard, Settings, Previous Hole, Next Hole, Restart Hole, Add / Remove Players
   (players can join on the current hole, where they start from the tee and earlier holes don't count for them, or
   leave), Restart Game and End Game (keep the round for Resume Game, or discard it); on the range, Settings, Clear
@@ -34,9 +39,8 @@ several monitors, club-data timeout, advanced vs standard spin, default club).
   putter, of the roll shown beside it), **shape** (Draw / Straight / Fade: starts right and curves back left for a
   right-hander, or the opposite) and **spin** (Low / Medium / High: lower flight with more roll, or higher with more
   stopping), then **HIT SHOT** (`Space`). On a course the power is set for each new shot (the distance it plays, from
-  that lie; putts get the pace from the green read) and can be changed (`↑ / ↓`, Shift = 5%). A **Ready / Not
-  ready** light beside HIT SHOT is green once the last shot has finished and, with a monitor connected, the monitor
-  sees a ball ready to hit. Shape and spin go back to Straight and Medium after every shot.
+  that lie; putts get the pace from the green read) and can be changed (`↑ / ↓`, Shift = 5%). Shape and spin go
+  back to Straight and Medium after every shot.
 - **Camera**: in Follow mode (`C`) it chases the ball until it stops. Before a shot, **Zoom** (`Z`) takes it down
   the aim line to look at where the ball will land with the aim and power set; it follows aim and power changes,
   and comes back behind the ball when pressed again or when the shot is hit. Before the first tee
@@ -60,22 +64,51 @@ several monitors, club-data timeout, advanced vs standard spin, default club).
 - **Course**: pick a course with New Game:
   - **Deer Run (Moulton, AL)**, all 18 holes imported from OpenStreetMap: real routing, hole lengths and pars,
     dog-legs, tee, green and bunker shapes, with the course property line as out of bounds. Fairways are mapped for
-    holes 1-4; on the others 35-yd fairways are generated along each hole line. Trees are placed between holes,
-    not mapped.
+    holes 1-4; on the others 35-yd fairways are generated along each hole line. The trees are the real ones, where
+    they stand and as tall and wide as they are, measured from lidar.
 
-  The course screen is laid out round the ball. Top left, the hole card: hole number, par and length, whose turn it
-  is, the stroke being played and the score (to par, "thru 4"), and the Mulligan button. Top right, the hole
-  overview: the hole from above with the ball ringed in the player's colour, a line from it to where the shot is
-  aimed (it swings with the aim and stretches or shrinks with the power) with that distance, and the flag with its
-  distance (click or drag on the map to aim). Bottom left, the lie window: a picture of the ball in its lie (teed up,
-  sitting down in the rough, settled in sand, ...) on ground tilted with the slope, the left / right and up / down
-  slope angles, and the shot penalty (how much shorter the club carries from there than from a clean, level lie);
-  on the green, the green read with the flag, heat map and grid buttons instead. Bottom right, the shot bar:
-  distance to the pin with the rise or fall to it ("153 yds", "up 2'", and what it plays), the club with its carry
-  from here, the aim, and the shot controls with the Ready light and HIT SHOT. A result card after each shot gives
-  where it finished and carry / total / offline / distance left; the scorecard opens with `S`, from the menu, and
-  after each hole. Once everyone has finished a hole the next one starts by itself after 5 seconds (counting down
-  on the NEXT HOLE button; `Space` goes straight away, and the count pauses while a menu is open).
+  The course screen is laid out round the ball, with the panels kept to the edges. Top left, the hole badge: the
+  course logo, hole number, par and length, the stroke being played and the score (to par, "thru 4"); under it whose
+  turn it is and the Mulligan button. Top right, the hole overview: the hole from above with the ball ringed in the
+  player's colour, a line from it to where the shot is aimed (it swings with the aim and stretches or shrinks with
+  the power) with that distance, and the flag with its distance (click or drag on the map to aim); under it, the
+  wind. Down the left, the last shot's carry, total, offline and distance left (until the next shot). Bottom left,
+  the lie card: the lie, the side and up / down slope angles, and the shot penalty (how much shorter the club
+  carries from there than from a clean, level lie); on the green, the green read with the flag, heat map and grid
+  buttons instead. Bottom right, the shot panel: distance to the pin with the rise or fall to it ("153 yds", "up 2'",
+  and what it plays), the club (its tooltip gives the carry from here), the aim, power, shape, spin and HIT SHOT.
+  A line across the top after each shot says where it finished and what happens next; holing out announces the
+  score ("BIRDIE!") across the screen; the scorecard opens with `S`, from the menu, and after each hole. Once
+  everyone has finished a hole the next one starts by itself after 5 seconds (counting down on the NEXT HOLE button;
+  `Space` goes straight away, and the count pauses while a menu is open).
+
+  **Game Setup** (New Game's second page; every choice is a row of buttons, so a gamepad picks each with one press,
+  and the last setup is remembered):
+  - **Game type**: **Stroke Play**; **Scramble** (everyone in a team hits from the same spot, the best shot is picked
+    for them: holed first, then fewest strokes, then nearest the pin from the better lie, and the whole team plays
+    the next one from there; the result line says whose ball they're playing); **Best Ball** (everyone plays their
+    own ball, each hole counts the team's best score); **Match Play** (hole by hole: the lower score wins the hole,
+    the badge reads "2 UP" / "AS" / "1 DN" for whoever's up, the scorecard adds a row of who won each hole and the
+    match's standing, "Ann wins 3 & 2"). With four players the teams are players 1 and 2 against 3 and 4; with two
+    or three, a scramble or best ball is everyone together against par. Match play needs two players (or four, best
+    ball two against two); a game that doesn't suit the players is greyed out, and plays as stroke play if picked.
+  - **Holes**: Full 18, Front 9 (holes 1-9), Back 9 (10-18) or Par 3s (just the par-3 holes), with the count, par and
+    length shown. The badge and scorecard show the real hole numbers.
+  - **Environment**: wind (below); altitude (the course's own height from its elevation data, sea level, or 2,500 /
+    5,000 / 7,500 ft: thinner air carries further); weather (Mild as tuned; Hot 95 °F; Cold 45 °F; Wet: rain falling
+    round the camera under an overcast sky, and soft, wet ground).
+  - **Course**: fairway speed (Slow / Medium / Fast: how far the ball runs out), green firmness (Soft / Medium / Firm:
+    approach shots check or release) and green speed (stimp 8-13).
+
+  The conditions are applied on top of the physics tuning while a round is played (the tuner still shows and saves
+  its own values; the range plays them as tuned), and are saved with the round, so Resume Game carries on with the
+  same game, holes and weather. The in-game menu shows them under its title.
+
+  **Wind** (Game Setup: Calm, Light 2-7 mph, Breezy 7-13 mph or Windy 13-21 mph, with gusts on top): each round has a
+  prevailing wind that shifts a little from hole to hole. It blows full shots in the air (stronger higher up, as over
+  open grass); putts roll in still air. The wind panel shows its speed and an arrow for which way it blows across the
+  shot ("into, from the left"), the flag on the green streams with it, and the plays-like distance and club
+  suggestion allow for it (about 1% longer per mph into the wind, half that downwind).
 
   Each shot is played from where the last one stopped. The app suggests a club for the distance and lie (and switches
   the monitor to it). Lies are tee, fairway, fringe (the collar around greens), rough (a first cut beside the
@@ -92,7 +125,7 @@ several monitors, club-data timeout, advanced vs standard spin, default club).
   then whoever is farthest from the hole plays next. The hole card says "ANN TO PLAY" in her colour with everyone's
   score, the other balls sit on the course with their names over them (and as dots on the minimap), and the result
   card says who's up next. When the turn changes the monitor switches to that player's hand and suggested club. The
-  scorecard has a row per player.
+  scorecard has a row per player (and per team in the team games).
 
   **House rules** (Settings): mulligans per player per round (**Mulligan** on the hole card, `U`, numpad 0 or
   gamepad X takes back the last shot of the round, penalty included, once the ball has stopped and before anyone
@@ -150,8 +183,12 @@ skips it for the course (the unfinished round, if there is one), `-- --hole=N` s
 (these runs skip the main menu and start on the range unless `--course` is given), `--demo-shots=N` hits N demo
 shots, `--hit-at=2,8.5` presses HIT SHOT at those times (seconds after start), `--screenshot=file.png` saves the
 window and quits (after `--screenshot-delay=seconds`, default 4, or once the demo shots finish), `--monitor-drawer`
-opens the drawer, `--settings` the settings, `--menu` the in-game menu, `--scorecard` the scorecard just before the
-screenshot, and `--reconnecting` shows the reconnecting banner. `--players=Ann,Bob,Cat:L` (`:L` = left-handed), `--text-size=Large` and `--graphics=Ultra` apply to that run only.
+opens the drawer, `--settings` the settings, `--menu` the in-game menu, `--setup-page` New Game's Game Setup page,
+`--scorecard` the scorecard just before the screenshot, `--reconnecting` shows the reconnecting banner,
+`--loading-screen` the course loading screen and `--celebrate=Birdie` a hole's score announcement.
+`--players=Ann,Bob,Cat:L` (`:L` = left-handed), `--text-size=Large`, `--graphics=Ultra`, and the game setup
+`--game=Scramble` (Stroke, Scramble, BestBall, MatchPlay), `--holes=Back9`, `--wind=Breezy` and `--weather=Wet` apply
+to that run only.
 `--tuner` opens the physics tuner (the screenshot then also saves it as `file-tuner.png`), `--tuner-tab=Lies` (or
 `Flight`, or a surface such as `Green`) picks its tab, and `--tune=key=value` (e.g. `--tune=flight.drag=1.2`) changes
 one value after the demo shots and replays the last one.
@@ -227,6 +264,16 @@ Ground elevation comes from the USGS 3D Elevation Program (1 m lidar DEM, public
 `src/SquareGspro.Core/Course/Data/deer-run.dem`; re-download it with `./tools/fetch-elevation.ps1` (same bounding box
 as the map). It's resampled to a 2 m grid (`Terrain`), lightly smoothed, and each green is reshaped as a built
 surface (its overall tilt capped at 3.5%, a little of its contour kept) so lidar noise doesn't read as bumps.
+
+The trees come from the same lidar, embedded as `src/SquareGspro.Core/Course/Data/deer-run.trees.csv.gz` and read
+by `TreeSurvey.cs`; the course keeps the ~9,900 within 150 m of it, and the scenery plants each one at its height
+and crown width (tall, narrow ones mostly as conifers, wide ones as broadleaf), leaving only the camera spot behind
+each tee clear. A course without tree data still gets trees planted at random between the holes. Re-make the file
+with `./tools/fetch-canopy.ps1` (Python 3 with numpy and `laspy[lazrs]`; `-Install` installs them): it downloads
+the 3DEP point cloud over the box from the public USGS Entwine point tiles on AWS (newest survey, cached in
+`%LOCALAPPDATA%\SquareRange\ept-cache`), makes a canopy height grid (highest return minus ground), and finds the
+tree tops with their height and crown radius, grouped as single trees, groups of 2-5 and dense woods (one row per
+tree; `-Preview` also draws a PNG, in the cache folder, to check it by eye). Rebuild afterwards.
 
 With elevation, Deer Run plays on real ground:
 

@@ -435,7 +435,10 @@ public static class Scenery
         return new MeshInstance3D { Mesh = st.Commit(), MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
     }
 
-    /// <summary>The outline pushed out by <paramref name="d"/> metres (for fringes around mapped greens).</summary>
+    /// <summary>
+    /// The outline pushed out by <paramref name="d"/> metres (fringes, the first cut): rounded round the corners that
+    /// point out, mitred into the ones that point in, so it matches the "within d" the lie rules use.
+    /// </summary>
     public static List<P2> Grow(IReadOnlyList<P2> pts, double d)
     {
         double area = 0;
@@ -450,7 +453,22 @@ public static class Scenery
         for (int i = 0; i < pts.Count; i++)
         {
             P2 prev = pts[(i + pts.Count - 1) % pts.Count], cur = pts[i], next = pts[(i + 1) % pts.Count];
-            var n = Normal(prev, cur) + Normal(cur, next);
+            P2 n1 = Normal(prev, cur), n2 = Normal(cur, next);
+            // Growing outward round a corner that points out: an arc, as everything within d of the corner is (the
+            // lie rules measure distance, so this is where they put the edge too).
+            bool convex = (next - cur).X * n1.X + (next - cur).Z * n1.Z < 0;
+            if (d > 0 && convex)
+            {
+                double a1 = Math.Atan2(n1.Z, n1.X), turn = Math.IEEERemainder(Math.Atan2(n2.Z, n2.X) - a1, 2 * Math.PI);
+                int steps = Math.Max(1, (int)Math.Ceiling(Math.Abs(turn) / (Math.PI / 12)));   // every 15°
+                for (int k = 0; k <= steps; k++)
+                {
+                    double a = a1 + turn * k / steps;
+                    result.Add(cur + new P2(Math.Cos(a), Math.Sin(a)) * d);
+                }
+                continue;
+            }
+            var n = n1 + n2;
             double len = n.Length;
             // Mitre (|n1 + n2| = 2 cos(half angle)), limited to 3× the offset so sharp corners don't spike.
             double scale = len < 1e-9 ? 0 : d * Math.Min(2 / (len * len), 3 / len);

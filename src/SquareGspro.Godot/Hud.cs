@@ -7,8 +7,15 @@ namespace SquareGspro.Range3D;
 
 public sealed record DeviceEntry(ulong Address, string Name, string AddressText, int Rssi, DateTime SeenAt);
 
-/// <summary>One player's line on the scorecard.</summary>
-public sealed record ScorecardRow(string Name, IReadOnlyList<int?> Scores, Color Color);
+/// <summary>One player's (or team's) line on the scorecard.</summary>
+public sealed record ScorecardRow(string Name, IReadOnlyList<int?> Scores, Color Color)
+{
+    /// <summary>A team's line (its best ball, or a scramble team's one ball): shown in bold.</summary>
+    public bool Team { get; init; }
+    /// <summary>Text per hole instead of scores (match play: who won it), and the text for the total.</summary>
+    public IReadOnlyList<(string Text, Color Color)?>? Marks { get; init; }
+    public string? TotalText { get; init; }
+}
 
 /// <summary>A figure shown in a stat block: caption, value and unit.</summary>
 public readonly record struct Stat(string Caption, string Value, string Unit = "");
@@ -38,7 +45,12 @@ public sealed record ShotPlan(
 /// </summary>
 public partial class Hud : Control
 {
-    public const int TopBarHeight = 56, RangeBarHeight = 196, RightColumnWidth = 360, ShotPanelHeight = 178;
+    /// <summary>
+    /// Height of the top bar (its contents are sized to fit: 8 px padding top and bottom), and the space kept clear
+    /// between it and the panels under it.
+    /// </summary>
+    public const int TopBarHeight = 64, TopGap = 16;
+    public const int RangeBarHeight = 196, RightColumnWidth = 360, ShotPanelHeight = 178;
     public static readonly string[] StatKeys =
         { "Name", "Address", "Signal", "Serial", "Hardware", "Firmware (LM)", "Firmware (MMI)", "Firmware (launcher)", "Uptime", "State", "Ball", "Shots" };
 
@@ -142,20 +154,22 @@ public partial class Hud : Control
     private Control _courseView = null!;
     private Label _holeNumber = null!, _holeName = null!, _holeFacts = null!, _stroke = null!, _score = null!, _scoreNote = null!, _credit = null!;
     private Label _toPin = null!, _elevation = null!, _playsLike = null!, _lieName = null!, _lieNote = null!, _upSlope = null!, _sideSlope = null!, _penalty = null!;
-    private Label _greenRead = null!, _greenReadNote = null!, _clubNote = null!, _aim = null!, _resultHeadline = null!, _resultNote = null!;
-    private PanelContainer _lieChip = null!, _result = null!, _scorecardPanel = null!, _shotPanel = null!, _liePanel = null!;
-    private LieView _lieView = null!;
+    private Label _greenRead = null!, _greenReadNote = null!, _aim = null!, _resultHeadline = null!, _resultNote = null!;
+    private PanelContainer _lieChip = null!, _result = null!, _scorecardPanel = null!, _shotPanel = null!, _liePanel = null!, _lastShot = null!;
+    private TextureRect _courseLogo = null!;
+    private WindIndicator _wind = null!;
     private Control _stanceRows = null!, _greenRows = null!;
-    private HBoxContainer _resultStats = null!, _courseShotSlot = null!;
+    private VBoxContainer _resultStats = null!;
+    private HBoxContainer _courseShotSlot = null!;
     private OptionButton _courseClub = null!;
     private Button _flag = null!, _heatMap = null!, _grid = null!, _mulligan = null!;
     private GridContainer _scorecard = null!;
-    private Label _scorecardTitle = null!;
+    private Label _scorecardTitle = null!, _scorecardNote = null!;
 
     public SubViewport Minimap { get; private set; } = null!;
 
     /// <summary>Minimap size in the current mode: portrait beside a hole, wider at the top of the range's right column.</summary>
-    public Vector2I MinimapSize => _courseMode ? new Vector2I(260, 360) : new Vector2I(RightColumnWidth - 12, 230);
+    public Vector2I MinimapSize => _courseMode ? new Vector2I(230, 320) : new Vector2I(RightColumnWidth - 12, 230);
 
     public string ClubCode => ClubPresets.All[Math.Max(0, _rangeClub.Selected)].Code;
     public ClubPreset Club => ClubPresets.All[Math.Max(0, _rangeClub.Selected)];
@@ -181,6 +195,8 @@ public partial class Hud : Control
         // The scorecard opens over everything else in the course view, drawer included.
         _courseView.RemoveChild(_scorecardPanel);
         AddChild(_scorecardPanel);
+        _scoreBurst = new ScoreBurst();
+        AddChild(_scoreBurst);
         MainMenu = new MainMenu();
         AddChild(MainMenu);
         MainMenu.SetMonitorStatus(ChipText(), _chipColor);
@@ -192,38 +208,59 @@ public partial class Hud : Control
         _settings = new SettingsPanel();
         _settings.Applied += (s, newRound) => SettingsApplied?.Invoke(s, newRound);
         AddChild(_settings);
+        Loading = new LoadingScreen();
+        AddChild(Loading);
         SetCourseMode(false);
     }
+
+    private ScoreBurst _scoreBurst = null!;
+
+    /// <summary>The course loading screen (over everything).</summary>
+    public LoadingScreen Loading { get; private set; } = null!;
+
+    /// <summary>Announces a player's score on the hole across the middle of the screen ("BIRDIE!").</summary>
+    public void CelebrateScore(string text, string sub, Color color, bool sparks) => _scoreBurst.Play(text, sub, color, sparks);
 
     // ---- shared chrome -----------------------------------------------------------------------
 
     private void BuildTopBar()
     {
         var bar = _topBar = new PanelContainer();
-        bar.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 0, 0, 10));
+        bar.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 0, 0, 8, 10));
         bar.SetAnchorsAndOffsetsPreset(LayoutPreset.TopWide);
-        bar.OffsetBottom = TopBarHeight;
-        AddChild(bar);
+        bar.OffsetBottom = TopBarHeight;        AddChild(bar);
 
         var h = _topRow = new HBoxContainer();
         h.AddThemeConstantOverride("separation", 10);
         bar.AddChild(h);
 
         var brand = new HBoxContainer();
-        brand.AddThemeConstantOverride("separation", 0);
-        brand.AddChild(UiTheme.Text("SQUARE", 20, UiTheme.Accent, bold: true));
-        brand.AddChild(UiTheme.Text(" RANGE", 20, UiTheme.Ink, bold: true));
-        var version = UiTheme.Text(" " + Version, 12, UiTheme.Muted);
+        brand.AddThemeConstantOverride("separation", 6);
+        if (Brand.Logo is { } logo)
+            brand.AddChild(new TextureRect
+            {
+                Texture = logo, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                CustomMinimumSize = new Vector2(66, TopBarHeight - 16), TooltipText = $"{Brand.Name} Simulator {Version}",
+            });
+        else brand.AddChild(UiTheme.Text(Brand.Name.ToUpperInvariant(), 20, UiTheme.Accent, bold: true));
+        var version = UiTheme.Text(Version, 11, UiTheme.Muted);
         version.SizeFlagsVertical = SizeFlags.ShrinkEnd;
         brand.AddChild(version);
-        h.AddChild(UiTheme.Pad(brand, 10, 0));
+        h.AddChild(UiTheme.Pad(brand, 6, 0));
 
-        // Where you are: "Driving range" or the course.
-        _where = UiTheme.Text("", 17, UiTheme.Muted, bold: true);
+        // Where you are: "Driving range" (on a course the hole badge shows it).
+        _where = UiTheme.Text("", 16, UiTheme.Muted, bold: true);
         _where.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         _where.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         _where.ClipText = true;
         h.AddChild(_where);
+
+        // Ready / Not ready, in the middle of the bar whatever is either side of it.
+        var middle = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
+        middle.SetAnchorsAndOffsetsPreset(LayoutPreset.TopWide);
+        middle.OffsetBottom = TopBarHeight;
+        middle.AddChild(Shot.BuildReadyLight());
+        bar.AddChild(middle);
 
         // Who is playing (course: whose turn; range: who the shots are saved under, click for the next player).
         _playerChip = new Button { Visible = false, CustomMinimumSize = new Vector2(130, 0), Alignment = HorizontalAlignment.Left };
@@ -244,8 +281,8 @@ public partial class Hud : Control
         h.AddChild(new Control { CustomMinimumSize = new Vector2(4, 0), MouseFilter = MouseFilterEnum.Ignore });
     }
 
-    /// <summary>What the top bar says about where you are ("Driving range", the course name).</summary>
-    public void SetWhere(string text) => _where.Text = text;
+    /// <summary>What the top bar says about where you are ("Driving range"; nothing on a course, where the hole badge shows it).</summary>
+    public void SetWhere(string text) => _where.Text = _courseMode ? "" : text;
 
     /// <summary>
     /// The player chip in the top bar: who's up (course) or who range shots are saved under (range; clicking picks the
@@ -275,7 +312,7 @@ public partial class Hud : Control
         _banner.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(0.55f, 0.36f, 0.05f, 0.97f), 12, 1, 14, 28));
         _banner.SetAnchorsPreset(LayoutPreset.CenterTop);
         _banner.GrowHorizontal = GrowDirection.Both;
-        _banner.OffsetTop = TopBarHeight + 8;
+        _banner.OffsetTop = TopBarHeight + TopGap;
         _bannerText = UiTheme.Text("", 26, Colors.White, bold: true);
         _bannerText.HorizontalAlignment = HorizontalAlignment.Center;
         _banner.AddChild(_bannerText);
@@ -385,8 +422,11 @@ public partial class Hud : Control
         _minimapFrame.SetAnchorsPreset(LayoutPreset.TopRight);
         _minimapFrame.OffsetRight = -16;
         _minimapFrame.OffsetLeft = -16 - size.X - 12;
-        _minimapFrame.OffsetTop = TopBarHeight + 12;
-        _minimapFrame.OffsetBottom = TopBarHeight + 12 + size.Y + 12;
+        _minimapFrame.OffsetTop = TopBarHeight + TopGap;
+        _minimapFrame.OffsetBottom = TopBarHeight + TopGap + size.Y + 12;
+        // The wind sits under the map, at the same right edge.
+        _wind.OffsetRight = _wind.OffsetLeft = -16;
+        _wind.OffsetTop = _wind.OffsetBottom = _minimapFrame.OffsetBottom + 8;
     }
 
     private const string HitTip = "Hit the shot with this power, shape and spin  [Space]\nD: a random demo shot instead";
@@ -398,7 +438,9 @@ public partial class Hud : Control
         _shotBox.AddThemeConstantOverride("separation", 16);
         Shot = new ShotControls();
         _shotBox.AddChild(Shot);
-        _shotBox.AddChild(Shot.BuildHitColumn(HitTip));
+        var hit = Shot.BuildHitButton(HitTip);
+        hit.SizeFlagsVertical = SizeFlags.ShrinkEnd;
+        _shotBox.AddChild(hit);
         Shot.HitPressed += () => { if (_holeDone) NextHolePressed?.Invoke(); else HitPressed?.Invoke(); };
 
         _rangeShotSlot = new PanelContainer();

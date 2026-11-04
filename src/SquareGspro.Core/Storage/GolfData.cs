@@ -56,11 +56,21 @@ public sealed record SavedRound(
         [JsonIgnore] public int Total => Scores.Sum(s => s ?? 0);
     }
 
+    /// <summary>The game, holes and conditions it's played with (null in rounds saved before there was a choice: stroke play, all the holes).</summary>
+    public GameSetup? Setup { get; init; }
+    /// <summary>The numbers of the holes played, in order (null: all of them).</summary>
+    public int[]? HoleNumbers { get; init; }
+
     [JsonIgnore] public bool Complete => Players.All(p => p.Scores.Skip(p.FirstHole).All(s => s != null));
     [JsonIgnore] public IReadOnlyList<Golfer> Golfers => Players.Select(p => new Golfer(p.Name, p.LeftHanded)).ToList();
+    [JsonIgnore] public GameSetup Game => Setup ?? GameSetup.Default;
 
-    public static SavedRound From(Match match, string course, DateTime started) =>
-        new(course, started, DateTime.Now, match.Rules, match.Holes.Select(h => h.Par).ToArray(),
+    /// <summary>The holes of <paramref name="course"/> this round plays.</summary>
+    public IReadOnlyList<Hole> HolesOf(IReadOnlyList<Hole> course) =>
+        HoleNumbers == null ? course : HoleNumbers.Select(n => course.FirstOrDefault(h => h.Number == n)).OfType<Hole>().ToList();
+
+    public static SavedRound From(Match match, string course, DateTime started, GameSetup? setup = null) =>
+        new SavedRound(course, started, DateTime.Now, match.Rules, match.Holes.Select(h => h.Par).ToArray(),
             match.Players.Select((g, i) =>
             {
                 var r = match.Rounds[i];
@@ -68,7 +78,11 @@ public sealed record SavedRound(
                 return new Card(g.Name, g.LeftHanded, r.Scores.ToArray(),
                     new Position(s.HoleIndex, s.Ball.X, s.Ball.Z, s.Lie, s.Strokes, s.Holed, s.Score, s.PickedUp), r.MulligansLeft, r.FirstHole);
             }).ToArray(),
-            match.Turn);
+            match.Turn)
+        {
+            Setup = setup,
+            HoleNumbers = match.Holes.Select(h => h.Number).ToArray(),
+        };
 
     /// <summary>Puts <paramref name="match"/> (a new match on the same course with <see cref="Golfers"/>) back where this one was.</summary>
     public void ApplyTo(Match match) =>

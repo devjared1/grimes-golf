@@ -78,10 +78,46 @@ public static class TreeFactory
     }
     private static StandardMaterial3D Bark => _bark ??= new StandardMaterial3D { AlbedoColor = new Color(0.27f, 0.20f, 0.14f), Roughness = 1 };
 
+    /// <summary>How far a crown reaches from the trunk, as a share of the mesh's width.</summary>
+    private const float ConiferReach = 0.35f, BroadleafReach = 0.43f;
+
     /// <summary>Plants a tree at each spot (ground level), mixed kinds and sizes, the same every time for <paramref name="seed"/>.</summary>
     public static void AddForest(Node3D parent, IReadOnlyList<Vector3> spots, ulong seed)
     {
-        if (spots.Count == 0) return;
+        var rng = new RandomNumberGenerator { Seed = seed };
+        var plants = new List<(Vector3 At, float Height, float Width, bool Conifer)>(spots.Count);
+        foreach (var at in spots)
+        {
+            bool conifer = rng.Randf() < 0.55f;
+            float height = conifer ? rng.RandfRange(12, 21) : rng.RandfRange(9, 15);
+            float width = height * rng.RandfRange(0.85f, 1.2f) * (conifer ? 0.95f : 1.1f);
+            plants.Add((at, height, width, conifer));
+        }
+        Plant(parent, plants, rng);
+    }
+
+    /// <summary>
+    /// Plants measured trees: each at its spot (ground level), as tall as given and with its crown reaching
+    /// <c>Crown</c> metres from the trunk. Tall, narrow trees are mostly conifers, wide ones mostly broadleaf.
+    /// The same every time for <paramref name="seed"/>.
+    /// </summary>
+    public static void AddMeasured(Node3D parent, IReadOnlyList<(Vector3 At, float Height, float Crown)> trees, ulong seed)
+    {
+        var rng = new RandomNumberGenerator { Seed = seed };
+        var plants = new List<(Vector3 At, float Height, float Width, bool Conifer)>(trees.Count);
+        foreach (var (at, height, crown) in trees)
+        {
+            float slender = crown / height;   // pines are about 0.15-0.3, oaks 0.35 and more
+            bool conifer = rng.Randf() < Mathf.Clamp((0.42f - slender) / 0.22f, 0.1f, 0.9f);
+            float width = Mathf.Clamp(crown / (conifer ? ConiferReach : BroadleafReach), height * 0.45f, height * 1.2f);
+            plants.Add((at, height, width, conifer));
+        }
+        Plant(parent, plants, rng);
+    }
+
+    private static void Plant(Node3D parent, List<(Vector3 At, float Height, float Width, bool Conifer)> plants, RandomNumberGenerator rng)
+    {
+        if (plants.Count == 0) return;
         if (_coniferNear == null)
         {
             var cards = new LeafCards.Builder();
@@ -99,13 +135,9 @@ public static class TreeFactory
         _trunkNear ??= Trunk(sides: 7, branches: true);
         _trunkFar ??= Trunk(sides: 6, branches: false);
 
-        var rng = new RandomNumberGenerator { Seed = seed };
         var chunks = new Dictionary<(int, int), List<(Transform3D Xform, Color Tint, bool Conifer)>>();
-        foreach (var at in spots)
+        foreach (var (at, height, width, conifer) in plants)
         {
-            bool conifer = rng.Randf() < 0.55f;
-            float height = conifer ? rng.RandfRange(12, 21) : rng.RandfRange(9, 15);
-            float width = height * rng.RandfRange(0.85f, 1.2f) * (conifer ? 0.95f : 1.1f);
             // Turned at random and leaning up to about 3° (about a horizontal axis at a random bearing).
             float bearing = rng.RandfRange(0, Mathf.Tau);
             var leanAxis = new Vector3(Mathf.Cos(bearing), 0, Mathf.Sin(bearing));

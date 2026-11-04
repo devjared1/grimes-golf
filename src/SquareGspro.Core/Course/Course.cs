@@ -15,6 +15,12 @@ public sealed record Course(string Name, IReadOnlyList<Hole> Holes)
     /// <summary>Areas mapped as woods (shared layouts); trees are planted there.</summary>
     public IReadOnlyList<Shape> Woods { get; init; } = Array.Empty<Shape>();
 
+    /// <summary>
+    /// The real trees, if they were surveyed (shared layouts): every tree in and around the course. Null = not
+    /// surveyed; the scenery plants its own.
+    /// </summary>
+    public IReadOnlyList<CourseTree>? Trees { get; init; }
+
     /// <summary>Ground heights, if elevation data was loaded (null = flat).</summary>
     public Terrain? Terrain { get; init; }
 
@@ -45,6 +51,6 @@ public static class CourseLibrary
     {
         new Entry("Deer Run (Moulton, AL)",
             "18 holes mapped from OpenStreetMap with real elevation: rolling fairways, bunkers, water hazards and woods.",
-            () => OsmCourse.FromResource("deer-run.osm", "Deer Run", "deer-run.dem")),
+            () => OsmCourse.FromResource("deer-run.osm", "Deer Run", "deer-run.dem", "deer-run.trees.csv.gz")),
     };
 }

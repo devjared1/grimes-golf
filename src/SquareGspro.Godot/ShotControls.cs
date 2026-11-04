@@ -57,42 +57,44 @@ public partial class ShotControls : VBoxContainer
         _power.ValueChanged += _ => { ShowPower(); PowerChanged?.Invoke(); };
         AddChild(_power);
 
-        _shapeRow = Segmented("Shape", new[] { "Draw", "Straight", "Fade" }, _shape, 1,
-            new[] { "Starts right, curves left (right-hander)", "Straight at the aim", "Starts left, curves right (right-hander)" });
-        AddChild(_shapeRow);
-        _spinRow = Segmented("Spin", new[] { "Low", "Medium", "High" }, _spin, 1,
-            new[] { "Lower flight, less backspin, more roll", "The club's normal spin", "Higher flight, more backspin, stops quicker" });
-        AddChild(_spinRow);
+        // Shape and spin side by side, each a row of three (the labels say what they are).
+        var segments = new HBoxContainer();
+        segments.AddThemeConstantOverride("separation", 10);
+        _shapeRow = Segmented(new[] { "Draw", "Straight", "Fade" }, _shape, 1,
+            new[] { "Shape: starts right, curves left (right-hander)", "Shape: straight at the aim", "Shape: starts left, curves right (right-hander)" });
+        segments.AddChild(_shapeRow);
+        _spinRow = Segmented(new[] { "Low", "Medium", "High" }, _spin, 1,
+            new[] { "Spin: lower flight, less backspin, more roll", "Spin: the club's normal spin", "Spin: higher flight, more backspin, stops quicker" });
+        segments.AddChild(_spinRow);
+        AddChild(segments);
         ShowPower();
     }
 
-    /// <summary>The Ready light and HIT SHOT button, laid out by whoever places this (they sit beside the controls).</summary>
-    public Control BuildHitColumn(string tooltip)
+    /// <summary>The Ready / Not ready light (placed in the top bar).</summary>
+    public Control BuildReadyLight()
     {
-        var v = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
-        v.AddThemeConstantOverride("separation", 8);
-        _readyLight = new PanelContainer();
-        var row = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-        _readyText = UiTheme.Text("", 15, Colors.White, bold: true);
-        row.AddChild(_readyText);
-        _readyLight.AddChild(row);
-        v.AddChild(_readyLight);
-        Hit = new Button { Text = "HIT SHOT", ThemeTypeVariation = "PrimaryButton", CustomMinimumSize = new Vector2(180, 60), TooltipText = tooltip };
-        Hit.AddThemeFontSizeOverride("font_size", 20);
-        Hit.Pressed += () => HitPressed?.Invoke();
-        v.AddChild(Hit);
+        _readyLight = new PanelContainer { CustomMinimumSize = new Vector2(200, 34), MouseFilter = MouseFilterEnum.Ignore };
+        _readyText = UiTheme.Text("", 16, Colors.White, bold: true);
+        _readyText.HorizontalAlignment = HorizontalAlignment.Center;
+        _readyText.VerticalAlignment = VerticalAlignment.Center;
+        _readyLight.AddChild(_readyText);
         SetReady(false, "Not ready");
-        return v;
+        return _readyLight;
     }
 
-    private HBoxContainer Segmented(string caption, string[] labels, Button[] buttons, int selected, string[] tips)
+    /// <summary>The HIT SHOT button, laid out by whoever places this (beside the controls).</summary>
+    public Button BuildHitButton(string tooltip)
+    {
+        Hit = new Button { Text = "HIT SHOT", ThemeTypeVariation = "PrimaryButton", CustomMinimumSize = new Vector2(150, 56), TooltipText = tooltip };
+        Hit.AddThemeFontSizeOverride("font_size", 19);
+        Hit.Pressed += () => HitPressed?.Invoke();
+        return Hit;
+    }
+
+    private static HBoxContainer Segmented(string[] labels, Button[] buttons, int selected, string[] tips)
     {
         var h = new HBoxContainer();
-        h.AddThemeConstantOverride("separation", 4);
-        var cap = UiTheme.Caption(caption);
-        cap.CustomMinimumSize = new Vector2(46, 0);
-        cap.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-        h.AddChild(cap);
+        h.AddThemeConstantOverride("separation", 2);
         var group = new ButtonGroup();
         for (int i = 0; i < labels.Length; i++)
         {
@@ -148,6 +150,6 @@ public partial class ShotControls : VBoxContainer
         _readyShown = text;
         _readyText.Text = text.ToUpperInvariant();
         _readyText.AddThemeColorOverride("font_color", ready ? new Color(0.03f, 0.08f, 0.05f) : UiTheme.Ink);
-        _readyLight.AddThemeStyleboxOverride("panel", UiTheme.Box(ready ? UiTheme.Accent : new Color(0.55f, 0.22f, 0.2f, 0.9f), 8, 0, 4, 10));
+        _readyLight.AddThemeStyleboxOverride("panel", UiTheme.Box(ready ? UiTheme.Accent : new Color(0.55f, 0.22f, 0.2f, 0.9f), 8, 0, 4, 16));
     }
 }
