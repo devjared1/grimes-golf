@@ -44,11 +44,11 @@ The one snapshot type also covers rejoin, resync, mulligans and host resume, so 
 
 | Location | Contents |
 |---|---|
-| `SquareGspro.Core` (no networking) | `Course/MatchSnapshot.cs`, `Match.Capture/Restore/SetAway`, `HoleRound.PickUpHole`, `CourseFingerprint`, `RangeShot.Source`, separate online round save path |
-| New `src/SquareGspro.Online` (net8.0, no Godot) | `Protocol/`, `Transport/RelayClient.cs`, `Session/HostSession.cs`, `Session/ClientSession.cs`, `IOnlineGame` |
-| New `src/SquareGspro.Relay` (net10.0, no project refs) | About 300 lines of minimal ASP.NET, Dockerfile |
-| `SquareGspro.Godot` | New `Main.Online.cs`, `MainMenu.Online.cs`; guards in existing `Main.*` |
-| New `tests/SquareGspro.Online.Tests` | Sessions over an in-memory transport, relay via TestServer |
+| `GrimesGolf.Core` (no networking) | `Course/MatchSnapshot.cs`, `Match.Capture/Restore/SetAway`, `HoleRound.PickUpHole`, `CourseFingerprint`, `RangeShot.Source`, separate online round save path |
+| New `src/GrimesGolf.Online` (net8.0, no Godot) | `Protocol/`, `Transport/RelayClient.cs`, `Session/HostSession.cs`, `Session/ClientSession.cs`, `IOnlineGame` |
+| New `src/GrimesGolf.Relay` (net10.0, no project refs) | About 300 lines of minimal ASP.NET, Dockerfile |
+| `GrimesGolf.Godot` | New `Main.Online.cs`, `MainMenu.Online.cs`; guards in existing `Main.*` |
+| New `tests/GrimesGolf.Online.Tests` | Sessions over an in-memory transport, relay via TestServer |
 
 ## Key design
 
@@ -122,7 +122,7 @@ No online UI is visible until M7. Sizes are relative.
 |---|---|---|---|
 | M0 | Commit the 62 uncommitted entries in logical commits, confirm tests pass, branch `online-play`, choose a relay host | None new | 1 |
 | M1 | Snapshot, away, pickup, fingerprint, shot source, save path, tuner freeze | `Match.cs`, `HoleRound.cs`, `MatchSnapshot.cs`, `RangeShot.cs`, `GolfData.cs`, `TunerWindow.cs` | 2 |
-| M2 | Relay and transport, deployed | `SquareGspro.Relay/*`, `Transport/*`, `SquareGsproConnector.sln` | 3 |
+| M2 | Relay and transport, deployed | `GrimesGolf.Relay/*`, `Transport/*`, `GrimesGolf.sln` | 3 |
 | M3 | Protocol and sessions, no Godot | `Protocol/*`, `Session/*`, `IOnlineGame` | 5 |
 | M4 | Lobby through to everyone on the first tee | `MainMenu.Online.cs`, `MainMenu.cs`, `MainMenu.Setup.cs`, `Main.Online.cs`, `Main.Menus.cs`, `AppSettings.cs` | 3 |
 | M5 | Real play on a fake monitor | `Main.Course.cs`, `Main.Shots.cs`, `Main.Monitor.cs`, `Main.Controls.cs`, `Main.cs`, `Main.DevTools.cs`, `Hud*` | 5 |

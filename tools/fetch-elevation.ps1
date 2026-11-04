@@ -11,11 +11,11 @@
 
 .EXAMPLE
   ./tools/fetch-elevation.ps1                          # Deer Run, Moulton AL (the default)
-  ./tools/fetch-elevation.ps1 -Bbox "-87.335,34.415,-87.298,34.442" -Out src/SquareGspro.Core/Course/Data/deer-run.dem
+  ./tools/fetch-elevation.ps1 -Bbox "-87.335,34.415,-87.298,34.442" -Out src/GrimesGolf.Core/Course/Data/deer-run.dem
 #>
 param(
     [string]$Bbox = "-87.335,34.415,-87.298,34.442",   # west,south,east,north (same box as fetch-osm-course.ps1)
-    [string]$Out = "$PSScriptRoot/../src/SquareGspro.Core/Course/Data/deer-run.dem",
+    [string]$Out = "$PSScriptRoot/../src/GrimesGolf.Core/Course/Data/deer-run.dem",
     [double]$Metres = 1.0                              # target cell size
 )
 $ErrorActionPreference = "Stop"

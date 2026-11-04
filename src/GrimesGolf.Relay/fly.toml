@@ -1,0 +1,22 @@
+# Fly.io: one small machine is plenty for a few friends. See docs/deploying-the-relay.md: from this folder,
+# `fly launch --copy-config --no-deploy --name <your-app>`, then `fly deploy --ha=false`. Lobbies live in memory, so
+# keep it to one machine and don't let it scale to zero mid-round.
+app = "grimes-golf-relay"
+primary_region = "ord"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  Relay__TrustFlyClientIp = "true"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

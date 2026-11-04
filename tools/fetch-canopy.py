@@ -2,7 +2,7 @@
 Finds the trees on a golf course from USGS 3DEP lidar: single trees, small groups and dense woods, each tree with its
 position, height and crown size. Run it through tools/fetch-canopy.ps1 (which checks the Python packages), or directly:
 
-    python tools/fetch-canopy.py --bbox=-87.335,34.415,-87.298,34.442 --out=src/SquareGspro.Core/Course/Data/deer-run.trees.csv.gz
+    python tools/fetch-canopy.py --bbox=-87.335,34.415,-87.298,34.442 --out=src/GrimesGolf.Core/Course/Data/deer-run.trees.csv.gz
 
 How it works
 ------------
@@ -404,7 +404,7 @@ def write_preview(path, chm, rows, cols, radii, size, metres):
 def main():
     p = argparse.ArgumentParser(description="Tree positions, heights and crowns from USGS 3DEP lidar.")
     p.add_argument("--bbox", default="-87.335,34.415,-87.298,34.442", help="west,south,east,north (degrees)")
-    p.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "..", "src", "SquareGspro.Core", "Course", "Data", "deer-run.trees.csv.gz"))
+    p.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "..", "src", "GrimesGolf.Core", "Course", "Data", "deer-run.trees.csv.gz"))
     p.add_argument("--project", default="", help="EPT survey name (default: the newest over the box)")
     p.add_argument("--metres", type=float, default=1.0, help="canopy grid cell size")
     p.add_argument("--density", type=float, default=6.0, help="lidar points per square metre to download")
