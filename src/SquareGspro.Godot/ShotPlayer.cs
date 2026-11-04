@@ -1,5 +1,6 @@
 using Godot;
 using SquareGspro.Core;
+using SquareGspro.Core.Course;
 
 namespace SquareGspro.Range3D;
 
@@ -53,6 +54,9 @@ public partial class ShotPlayer : Node3D
 
     /// <summary>Draw the previous shot's flight faintly (physics tuning comparisons).</summary>
     public bool ShowGhost { get; set; }
+
+    /// <summary>What the ground is at a point (null: grass everywhere, as on the range); picks what flies up where the ball lands.</summary>
+    public Func<Vector3, Lie>? LieAt { get; set; }
 
     public bool IsPlaying { get; private set; }
     /// <summary>Seconds since the current shot finished rolling (0 while playing).</summary>
@@ -127,6 +131,15 @@ public partial class ShotPlayer : Node3D
         _carryLabel.Visible = false;
     }
 
+    /// <summary>The burst where a flight first comes down (not for putts, which never leave the ground).</summary>
+    private void Splash(IReadOnlyList<FlightPoint> pts, int landing, Vector3 land)
+    {
+        var a = pts[landing - 1]; var b = pts[landing];
+        float fall = (float)((a.Y - b.Y) / Math.Max(b.T - a.T, 1e-3));
+        var ground = land - new Vector3(0, Lift - GroundTop, 0);
+        Impacts.Land(this, ground, LieAt?.Invoke(ground) ?? Lie.Fairway, ShotDirection, fall);
+    }
+
     /// <summary>Removes all shots and puts the ball at <paramref name="ballAt"/> (the range tee by default).</summary>
     public void Clear(Vector3? ballAt = null)
     {
@@ -139,6 +152,48 @@ public partial class ShotPlayer : Node3D
     }
 
     public void HideCarryLabel() => _carryLabel.Visible = false;
+
+    /// <summary>Another player's ball at rest: where it sits on the ground, their colour and name.</summary>
+    public readonly record struct OtherBall(Vector3 Ground, Color Color, string Name);
+
+    private Node3D? _others;
+
+    /// <summary>
+    /// Shows the other players' balls (multiplayer): a ball in their colour, drawn a little larger so it can be found
+    /// from a distance, with their name above it, and a dot in their colour on the minimap.
+    /// </summary>
+    public void SetOtherBalls(IReadOnlyList<OtherBall> balls)
+    {
+        _others?.QueueFree();
+        _others = null;
+        if (balls.Count == 0) return;
+        _others = new Node3D();
+        AddChild(_others);
+        foreach (var b in balls)
+        {
+            const float r = BallRadius * 2.5f;
+            _others.AddChild(new MeshInstance3D
+            {
+                Mesh = new SphereMesh { Radius = r, Height = r * 2, RadialSegments = 16, Rings = 8 },
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = b.Color, Roughness = 0.4f, EmissionEnabled = true, Emission = b.Color * 0.35f },
+                Position = b.Ground + new Vector3(0, GroundTop + r, 0),
+            });
+            _others.AddChild(new Label3D
+            {
+                Text = b.Name, FontSize = 36, OutlineSize = 10, FixedSize = true, PixelSize = 0.0012f, NoDepthTest = true,
+                Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, Modulate = b.Color, OutlineModulate = new Color(0, 0, 0, 0.85f),
+                Position = b.Ground + new Vector3(0, GroundTop + 1.2f, 0), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                Layers = TrailLayer,   // the main view only, not the minimap
+            });
+            _others.AddChild(new MeshInstance3D
+            {
+                Mesh = new SphereMesh { Radius = 3, Height = 6 },
+                Layers = MapLayer,
+                MaterialOverride = new StandardMaterial3D { AlbedoColor = b.Color, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded },
+                Position = b.Ground + new Vector3(0, 5, 0),
+            });
+        }
+    }
 
     /// <summary>Moves the resting ball, e.g. back to the previous spot after a penalty, or into the cup.</summary>
     public void PlaceBall(Vector3 groundPoint)
@@ -178,6 +233,7 @@ public partial class ShotPlayer : Node3D
                 // Beside the landing spot, off the descending trail.
                 _carryLabel.Position = land + new Vector3(0, 0.5f, 0) + ShotDirection.Cross(Vector3.Up) * 3.5f;
                 _carryLabel.Visible = true;
+                if (cur.Flight.LandingIndex > 0) Splash(pts, cur.Flight.LandingIndex, land);
             }
 
             for (int s = 0; s < _shots.Count; s++)

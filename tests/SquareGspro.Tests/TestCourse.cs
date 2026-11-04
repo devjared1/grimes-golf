@@ -1,6 +1,11 @@
-namespace SquareGspro.Core.Course;
+using SquareGspro.Core.Course;
 
-/// <summary>Three short test holes: a straight par 4, a par 3 over water, and a dog-leg-left par 5 with a creek.</summary>
+namespace SquareGspro.Tests;
+
+/// <summary>
+/// Three short hand-made holes the rules tests are written against: a straight par 4, a par 3 over water, and a
+/// dog-leg-left par 5 with a creek.
+/// </summary>
 public static class TestCourse
 {
     // Holes are laid out in yards for readability and converted to metres.
@@ -35,6 +40,4 @@ public static class TestCourse
             Water: new Shape[] { S(9, (330, -170), (365, -100), (385, -45), (395, 10)) },
             Bounds: new Bounds(Y(-20, -220), Y(510, 60))),
     };
-
-    public static readonly Course Course = new("Test holes", Holes);
 }

@@ -2,9 +2,10 @@ namespace SquareGspro.Core.Course;
 
 /// <summary>
 /// What the ball is sitting on. <see cref="Fringe"/> is the collar around a green; <see cref="Rough"/> is the first
-/// cut beside the fairways, tees and greens, and <see cref="DeepRough"/> everything further out.
+/// cut beside the fairways, tees and greens, and <see cref="DeepRough"/> everything further out. A ball that stops on
+/// a <see cref="CartPath"/> gets free relief (<see cref="HoleRound"/>), so it's never played from there.
 /// </summary>
-public enum Lie { Tee, Fairway, Fringe, Rough, DeepRough, Green, Bunker, Water, OutOfBounds }
+public enum Lie { Tee, Fairway, Fringe, Rough, DeepRough, Green, Bunker, Water, OutOfBounds, CartPath }
 
 /// <summary>A ground point in metres, in the same frame as <see cref="FlightPoint"/>: X forward from the tee, Z right.</summary>
 public readonly record struct P2(double X, double Z)
@@ -110,6 +111,35 @@ public sealed record Polygon(IReadOnlyList<P2> Points) : Shape
 
     public P2 Centroid => new(Points.Average(p => p.X), Points.Average(p => p.Z));
 
+    /// <summary>
+    /// The outline with its corners rounded off (Chaikin corner cutting, <paramref name="passes"/> times), the way a
+    /// mower turns: each corner sharper than a few degrees is cut at most <paramref name="maxCut"/> metres back along
+    /// both edges, and never more than a quarter of an edge, so straight runs and the shape's size stay as mapped.
+    /// </summary>
+    public Polygon Rounded(double maxCut = 2.5, int passes = 3)
+    {
+        var pts = Points.ToList();
+        for (int pass = 0; pass < passes && pts.Count >= 3; pass++)
+        {
+            var next = new List<P2>(pts.Count * 2);
+            for (int i = 0; i < pts.Count; i++)
+            {
+                P2 prev = pts[(i + pts.Count - 1) % pts.Count], cur = pts[i], after = pts[(i + 1) % pts.Count];
+                P2 a = prev - cur, b = after - cur;
+                double la = a.Length, lb = b.Length;
+                if (la < 1e-6 || lb < 1e-6) { next.Add(cur); continue; }
+                double cos = (a.X * b.X + a.Z * b.Z) / (la * lb);
+                if (cos < -0.995) { next.Add(cur); continue; }   // nearly straight on: nothing to round
+                double cut = Math.Min(maxCut, Math.Min(la, lb) * 0.25);
+                next.Add(cur + a * (cut / la));
+                next.Add(cur + b * (cut / lb));
+            }
+            pts = next;
+            maxCut /= 2;   // each pass cuts the new, gentler corners by less
+        }
+        return new Polygon(pts);
+    }
+
     /// <summary>Enclosed area in m².</summary>
     public double Area
     {
@@ -159,6 +189,12 @@ public sealed record Hole(
     /// <summary>Mapped tee boxes (count as the tee lie). Empty for the test holes, which use a radius around <see cref="Tee"/>.</summary>
     public IReadOnlyList<Shape> Tees { get; init; } = Array.Empty<Shape>();
 
+    /// <summary>Cart paths (concrete; free relief when the ball stops on one).</summary>
+    public IReadOnlyList<Shape> CartPaths { get; init; } = Array.Empty<Shape>();
+
+    /// <summary>The cart paths that bridge water (also in <see cref="CartPaths"/>): a ball on one is on the path, not in the water.</summary>
+    public IReadOnlyList<Shape> Bridges { get; init; } = Array.Empty<Shape>();
+
     /// <summary>The in-bounds areas (e.g. the course property). When null, out of bounds is outside <see cref="Bounds"/>.</summary>
     public IReadOnlyList<Shape>? Boundary { get; init; }
 
@@ -170,11 +206,13 @@ public sealed record Hole(
     public Lie LieAt(P2 p)
     {
         if (!InBounds(p)) return Lie.OutOfBounds;
+        if (Bridges.Count > 0 && Bridges.Any(b => b.Contains(p))) return Lie.CartPath;
         if (Water.Any(w => w.Contains(p))) return Lie.Water;
         if (Bunkers.Any(b => b.Contains(p))) return Lie.Bunker;
         if (Greens.Any(g => g.Contains(p))) return Lie.Green;
         if (Greens.Any(g => Within(g, p, FringeWidth))) return Lie.Fringe;
         if (p.DistanceTo(Tee) <= TeeBoxRadius || Tees.Any(t => t.Contains(p))) return Lie.Tee;
+        if (CartPaths.Any(c => c.Contains(p))) return Lie.CartPath;
         if (Fairways.Any(f => f.Contains(p))) return Lie.Fairway;
         return InFirstCut(p) ? Lie.Rough : Lie.DeepRough;
     }
@@ -197,7 +235,7 @@ public sealed record Hole(
     /// <summary>Playing length along the hole line, or via the tee aim point when there is none.</summary>
     public double LengthYards => (Route != null ? OsmCourse.Length(Route) : Tee.DistanceTo(TeeAim) + TeeAim.DistanceTo(Pin)) * Units.MetresToYards;
 
-    private IEnumerable<Shape> PlayAreas => Fairways.Concat(Greens).Concat(Bunkers).Concat(Water).Concat(Tees);
+    private IEnumerable<Shape> PlayAreas => Fairways.Concat(Greens).Concat(Bunkers).Concat(Water).Concat(Tees).Concat(CartPaths);
 
     /// <summary>Distance to the nearest mown/playing area (used to keep scenery off the hole).</summary>
     public double DistanceToPlayArea(P2 p) =>
@@ -210,5 +248,5 @@ public sealed record Hole(
 
 public static class Units
 {
-    public const double MetresToYards = 1.0936133, YardsToMetres = 0.9144;
+    public const double MetresToYards = 1.0936133, YardsToMetres = 0.9144, FeetToMetres = 0.3048;
 }

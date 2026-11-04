@@ -3,12 +3,16 @@ using SquareGspro.Physics;
 
 namespace SquareGspro.Core.Course;
 
+/// <summary>Shot shape for a shot hit from the screen: a draw curves toward the golfer's back foot side (left for a right-hander).</summary>
+public enum ShotShape { Draw, Straight, Fade }
+
+/// <summary>Spin for a shot hit from the screen: low flies lower with less backspin, high higher with more.</summary>
+public enum SpinLevel { Low, Medium, High }
+
 /// <summary>
-/// A swing from the game's swing meter. <see cref="Power"/> 0-1 (1 = full swing). <see cref="Accuracy"/> -1…1: where the
-/// meter was stopped against the impact line, 0 on it, negative early, positive late (±1 = the edge of its timing zone).
-/// <see cref="StrikeX"/>/<see cref="StrikeY"/>: the strike point on the ball, right and up from its centre, within the unit circle.
+/// A shot hit from the screen (no launch monitor): <see cref="Power"/> 0.01-1 (1 = full swing), a shape and a spin level.
 /// </summary>
-public sealed record Swing(double Power, double Accuracy, double StrikeX = 0, double StrikeY = 0);
+public sealed record Swing(double Power, ShotShape Shape = ShotShape.Straight, SpinLevel Spin = SpinLevel.Medium);
 
 /// <summary>Club suggestions and demo shots for course play.</summary>
 public static class Caddie
@@ -112,47 +116,50 @@ public static class Caddie
     }
 
     /// <summary>
-    /// A shot from the swing meter (no randomness: the player's timing decides it). <see cref="Swing.Power"/> 1 is a full
-    /// swing; less is a partial swing sized to carry that share of the club's distance (chips and pitches to finish
-    /// there). The timing miss starts the ball off line and curves it (late: pulled and hooked for a right-hander, early:
-    /// pushed and sliced; worse the harder the swing), and the strike point moves launch, spin and curve (below centre:
-    /// higher with more spin; above: lower with less; left or right: curves that way). Off-centre strikes lose a little
-    /// speed. The lie's effect is applied afterwards, as for any shot.
+    /// A shot hit from the screen (no randomness). <see cref="Swing.Power"/> 1 is a full swing; less is a partial swing
+    /// sized to carry that share of the club's distance (chips and pitches to finish there). A draw starts right of the
+    /// aim and curves back left (for a right-hander; mirrored for a left-hander), a fade the opposite, finishing near the
+    /// aim line. Low spin launches lower with less backspin (more roll), high spin higher with more (stops quicker).
+    /// The lie's effect is applied afterwards, as for any shot.
     /// </summary>
     public static RangeShot SwingShot(ClubPreset club, Swing swing, bool leftHanded = false)
     {
-        double p = Math.Clamp(swing.Power, 0.02, 1);
+        double p = Math.Clamp(swing.Power, 0.01, 1);
         double mph = club.BallMph, launch = club.LaunchDeg, spin = club.SpinRpm;
         if (p < FullSwingPower && Carry(club.Code) > 0)
             (mph, launch, spin) = PartialLaunch(club, PartialSwingFactor(club, p * Carry(club.Code)));
 
-        // Timing: a small window counts as perfect; beyond it the miss grows to full at the edge of the meter's zone.
-        double miss = Math.Sign(swing.Accuracy) * Math.Max(0, (Math.Abs(swing.Accuracy) - PerfectTiming) / (1 - PerfectTiming));
-        double hand = leftHanded ? -1 : 1, effort = 0.4 + 0.6 * p;
-        double direction = -hand * miss * MissStartDegrees * effort;
-        double axis = -hand * miss * MissCurveDegrees * effort;
-        mph *= 1 - 0.05 * Math.Abs(miss);
+        // Shape: positive = fade for a right-hander (starts left, curves right). Smaller swings curve less.
+        double shape = swing.Shape switch { ShotShape.Draw => -1, ShotShape.Fade => 1, _ => 0 } * (leftHanded ? -1 : 1);
+        double effort = 0.4 + 0.6 * p;
+        double direction = -shape * ShapeStartDegrees * effort, axis = shape * ShapeCurveDegrees * effort;
 
-        // Strike point on the ball (x right, y up, inside the unit circle).
-        double x = Math.Clamp(swing.StrikeX, -1, 1), y = Math.Clamp(swing.StrikeY, -1, 1);
-        launch = Math.Max(0, launch - StrikeLaunchDegrees * y);
-        spin *= 1 - StrikeSpinShare * y;
-        axis += StrikeCurveDegrees * x;
-        mph *= 1 - StrikeSpeedLoss * Math.Min(1, x * x + y * y);
+        double s = swing.Spin switch { SpinLevel.Low => -1, SpinLevel.High => 1, _ => 0 };
+        launch = Math.Max(0, launch + s * SpinLaunchDegrees);
+        spin *= 1 + s * SpinShare;
 
         return new RangeShot(mph, launch, direction, spin, axis, mph / club.Smash, club.Smash, IsDemo: true);
     }
 
     /// <summary>
-    /// A putt from the swing meter. <see cref="Swing.Power"/> 1 rolls <paramref name="fullScaleMetres"/> on flat ground of
-    /// <paramref name="lie"/>; the timing miss pushes or pulls it a little. The strike point is ignored.
+    /// A putt hit from the screen. <see cref="Swing.Power"/> 1 rolls <paramref name="fullScaleMetres"/> on flat ground of
+    /// <paramref name="lie"/>, straight along the aim. Shape and spin don't apply.
     /// </summary>
-    public static RangeShot SwingPutt(Swing swing, double fullScaleMetres, Lie lie, bool leftHanded = false)
+    public static RangeShot SwingPutt(Swing swing, double fullScaleMetres, Lie lie)
     {
         double distance = Math.Clamp(swing.Power, 0, 1) * fullScaleMetres;
         double mph = Math.Sqrt(2 * HoleRound.RollDecel(lie) * distance) * ShotMapper.MsToMph;
-        double miss = Math.Sign(swing.Accuracy) * Math.Max(0, (Math.Abs(swing.Accuracy) - PerfectTiming) / (1 - PerfectTiming));
-        return new RangeShot(mph, 1, -(leftHanded ? -1 : 1) * miss * MissPuttDegrees, 0, 0, mph, 1.0, IsDemo: true);
+        return new RangeShot(mph, 1, 0, 0, 0, mph, 1.0, IsDemo: true);
+    }
+
+    /// <summary>
+    /// The power (0.01-1) that carries <paramref name="targetMetres"/> with <paramref name="club"/> from
+    /// <paramref name="stance"/> (the inverse of <see cref="SwingShot"/>'s sizing; 1 if it's out of reach).
+    /// </summary>
+    public static double PowerFor(string club, double targetMetres, LieCondition? stance = null)
+    {
+        double full = CarryFrom(club, stance);
+        return full <= 0 ? 1 : Math.Clamp(targetMetres / full, 0.01, 1);
     }
 
     /// <summary>How far (m) a putt struck at <paramref name="speedMs"/> rolls on flat ground of <paramref name="lie"/>.</summary>
@@ -167,10 +174,10 @@ public static class Caddie
 
     /// <summary>Swings at or above this power are full swings.</summary>
     public const double FullSwingPower = 0.97;
-    /// <summary>Share of the meter's timing zone (either side of the line) that counts as perfectly timed.</summary>
-    public const double PerfectTiming = 0.2;
-    private const double MissStartDegrees = 5, MissCurveDegrees = 25, MissPuttDegrees = 2;
-    private const double StrikeLaunchDegrees = 4, StrikeSpinShare = 0.45, StrikeCurveDegrees = 18, StrikeSpeedLoss = 0.06;
+    /// <summary>A full draw or fade starts this far off the aim and curves back with this much spin-axis tilt.</summary>
+    private const double ShapeStartDegrees = 2, ShapeCurveDegrees = 7;
+    /// <summary>Low / high spin: launch change and share of the club's spin taken off or added.</summary>
+    private const double SpinLaunchDegrees = 1.5, SpinShare = 0.25;
 
     /// <summary>
     /// A less-than-full swing at <paramref name="f"/> of the club's full ball speed. Spin falls with the speed, but

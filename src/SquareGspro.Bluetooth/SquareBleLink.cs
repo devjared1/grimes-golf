@@ -73,7 +73,7 @@ public sealed class SquareBleLink : ISquareLink
         var cmd = _cmd ?? throw new InvalidOperationException("Not connected.");
         using var writer = new DataWriter();
         writer.WriteBytes(command);
-        var result = await cmd.WriteValueWithResultAsync(writer.DetachBuffer(), GattWriteOption.WriteWithResponse);
+        var result = await cmd.WriteValueWithResultAsync(writer.DetachBuffer(), GattWriteOption.WriteWithoutResponse);
         if (result.Status != GattCommunicationStatus.Success)
             throw new IOException($"BLE write failed ({result.Status}).");
     }

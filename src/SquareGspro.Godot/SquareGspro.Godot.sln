@@ -1,0 +1,40 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquareGspro.Godot", "SquareGspro.Godot.csproj", "{099BDF41-73DD-4F05-B96A-64E68B92C0ED}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquareGspro.Core", "..\SquareGspro.Core\SquareGspro.Core.csproj", "{55C41CB1-9D53-4928-BD08-F86D9CE6DD43}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquareGspro.Bluetooth", "..\SquareGspro.Bluetooth\SquareGspro.Bluetooth.csproj", "{CE9B455E-BD93-4614-A299-13CE41AD38BF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SquareGspro.Physics", "..\SquareGspro.Physics\SquareGspro.Physics.csproj", "{0491EFC0-8317-4E20-BF05-20FF86A40563}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{099BDF41-73DD-4F05-B96A-64E68B92C0ED}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{099BDF41-73DD-4F05-B96A-64E68B92C0ED}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{099BDF41-73DD-4F05-B96A-64E68B92C0ED}.Release|Any CPU.ActiveCfg = Debug|Any CPU
+		{099BDF41-73DD-4F05-B96A-64E68B92C0ED}.Release|Any CPU.Build.0 = Debug|Any CPU
+		{55C41CB1-9D53-4928-BD08-F86D9CE6DD43}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{55C41CB1-9D53-4928-BD08-F86D9CE6DD43}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{55C41CB1-9D53-4928-BD08-F86D9CE6DD43}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{55C41CB1-9D53-4928-BD08-F86D9CE6DD43}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CE9B455E-BD93-4614-A299-13CE41AD38BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CE9B455E-BD93-4614-A299-13CE41AD38BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CE9B455E-BD93-4614-A299-13CE41AD38BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CE9B455E-BD93-4614-A299-13CE41AD38BF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0491EFC0-8317-4E20-BF05-20FF86A40563}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0491EFC0-8317-4E20-BF05-20FF86A40563}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0491EFC0-8317-4E20-BF05-20FF86A40563}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0491EFC0-8317-4E20-BF05-20FF86A40563}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

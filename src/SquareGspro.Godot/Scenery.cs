@@ -30,6 +30,23 @@ public static class Scenery
         }
         """;
 
+    /// <summary>
+    /// Shared GLSL for cloud shadows: soft patches of shade a few hundred metres across, drifting with the wind, so
+    /// the course isn't evenly lit. <c>cloud_light(world_pos, TIME, PROJECTION_MATRIX)</c> is 1 in sun and lower under a cloud; things
+    /// multiply their albedo by it (the sun is most of the light, so that's close to taking the sun away there).
+    /// </summary>
+    public const string CloudGlsl = """
+        global uniform sampler2D cloud_noise : filter_linear_mipmap, repeat_enable;
+        global uniform vec4 cloud_shadow;   // drift x, z (m/s), noise tile size (m), darkening under a cloud (0 = off)
+        float cloud_light(vec3 world, float time, mat4 projection) {
+            // Not from the overhead map camera (orthographic): shade there would read as features of the hole.
+            if (cloud_shadow.w <= 0.0 || projection[3][3] > 0.5) return 1.0;
+            vec2 p = (world.xz - cloud_shadow.xy * time) / cloud_shadow.z;
+            float n = texture(cloud_noise, p).r;
+            return 1.0 - cloud_shadow.w * smoothstep(0.5, 0.66, n);
+        }
+        """;
+
     /// <summary>Vertex-shader lines giving ground meshes tangents along world x and z (the photo detail's UVs).</summary>
     public const string TurfVertex = """
         TANGENT = normalize(cross(NORMAL, vec3(0.0, 0.0, 1.0)));
@@ -77,7 +94,7 @@ public static class Scenery
         // The open cup on the current green: x, z (world) and radius; radius 0 = none. Ground inside it isn't drawn.
         global uniform vec4 cup_hole;
         varying vec3 world_pos;
-        """ + TurfGlsl + """
+        """ + TurfGlsl + CloudGlsl + """
         void vertex() {
             world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
         """ + TurfVertex + """
@@ -95,7 +112,7 @@ public static class Scenery
                 float s = step(0.5, fract(world_pos.z / (2.0 * stripe_width)));
                 c *= mix(0.9, 1.07, s);
             }
-            ALBEDO = c * photo_detail(grass_albedo, world_pos.xz, turf_tile, turf_detail);
+            ALBEDO = c * photo_detail(grass_albedo, world_pos.xz, turf_tile, turf_detail) * cloud_light(world_pos, TIME, PROJECTION_MATRIX);
             NORMAL_MAP = photo_bump(grass_normal, world_pos.xz, turf_tile);
             NORMAL_MAP_DEPTH = turf_bump;
             ROUGHNESS = 0.9;
@@ -140,10 +157,12 @@ public static class Scenery
     /// </summary>
     private static readonly Vector3 SkyRotation = new(0, Mathf.Pi, 0), SunRotationDegrees = new(-48, -34.2f, 0);
 
-    public static void AddSkyAndSun(Node3D parent)
+    /// <summary>Adds the sky, its lighting and the sun; <see cref="Graphics"/> sets their quality.</summary>
+    public static (WorldEnvironment World, DirectionalLight3D Sun) AddSkyAndSun(Node3D parent)
     {
+        EnsureGlobals();
         var sky = new PanoramaSkyMaterial { Panorama = GD.Load<Texture2D>(SkyPanorama), EnergyMultiplier = 1.0f };
-        parent.AddChild(new WorldEnvironment
+        var world = new WorldEnvironment
         {
             Environment = new Godot.Environment
             {
@@ -169,9 +188,10 @@ public static class Scenery
                 FogSkyAffect = 0.0f,
                 AdjustmentEnabled = true,
                 AdjustmentSaturation = 1.15f,
+                AdjustmentColorCorrection = Grade(),
             },
-        });
-        parent.AddChild(new DirectionalLight3D
+        };
+        var sun = new DirectionalLight3D
         {
             RotationDegrees = SunRotationDegrees,
             LightColor = new Color(1.0f, 0.96f, 0.90f),
@@ -180,7 +200,39 @@ public static class Scenery
             ShadowEnabled = true,
             ShadowBlur = 1.2f,
             DirectionalShadowMaxDistance = 250,
-        });
+        };
+        parent.AddChild(world);
+        parent.AddChild(sun);
+        return (world, sun);
+    }
+
+    /// <summary>
+    /// The colour grade (a 3D lookup applied after tone mapping): a touch of contrast, shadows a little cool and
+    /// highlights a little warm, the afternoon-broadcast look.
+    /// </summary>
+    private static ImageTexture3D Grade()
+    {
+        const int n = 32;
+        var slices = new Godot.Collections.Array<Image>();
+        for (int b = 0; b < n; b++)
+        {
+            var img = Image.CreateEmpty(n, n, false, Image.Format.Rgb8);
+            for (int g = 0; g < n; g++)
+                for (int r = 0; r < n; r++)
+                {
+                    var c = new Vector3(r, g, b) / (n - 1);
+                    float l = c.Dot(new Vector3(0.2126f, 0.7152f, 0.0722f));
+                    // Gentle S-curve on each channel.
+                    var s = c * c * (new Vector3(3, 3, 3) - 2 * c);
+                    c = c.Lerp(s, 0.18f);
+                    c += (1 - l) * (1 - l) * new Vector3(-0.012f, 0.0f, 0.018f) + l * l * new Vector3(0.022f, 0.008f, -0.02f);
+                    img.SetPixel(r, g, new Color(Mathf.Clamp(c.X, 0, 1), Mathf.Clamp(c.Y, 0, 1), Mathf.Clamp(c.Z, 0, 1)));
+                }
+            slices.Add(img);
+        }
+        var lut = new ImageTexture3D();
+        lut.Create(Image.Format.Rgb8, n, n, n, false, slices);
+        return lut;
     }
 
     /// <summary>Visual cup: larger than regulation so it reads on screen; the ball is drawn in real proportion to it.</summary>
@@ -188,25 +240,34 @@ public static class Scenery
     /// <summary>Height of the green surface (greens are layered just above the other ground).</summary>
     public const float GreenTop = 0.09f;
 
-    private static bool _cupParamAdded;
+    private static bool _globalsAdded;
 
     /// <summary>Opens the cup at <paramref name="at"/> (Godot coordinates) in every grass surface, or closes it (null).</summary>
     public static void SetCupHole(Vector3? at)
     {
-        EnsureCupParam();
+        EnsureGlobals();
         RenderingServer.GlobalShaderParameterSet("cup_hole", at is { } p ? new Vector4(p.X, p.Z, 0, CupRadius) : Vector4.Zero);
     }
 
-    private static void EnsureCupParam()
+    /// <summary>Shader globals every grass surface reads: the open cup and the cloud shadows.</summary>
+    private static void EnsureGlobals()
     {
-        if (_cupParamAdded) return;
-        _cupParamAdded = true;
+        if (_globalsAdded) return;
+        _globalsAdded = true;
         RenderingServer.GlobalShaderParameterAdd("cup_hole", RenderingServer.GlobalShaderParameterType.Vec4, Vector4.Zero);
+        // Big soft blobs (a tileable noise, thresholded in CloudGlsl) drifting at 4 m/s, about a third of the ground shaded.
+        var noise = new NoiseTexture2D
+        {
+            Width = 256, Height = 256, Seamless = true, GenerateMipmaps = true,
+            Noise = new FastNoiseLite { NoiseType = FastNoiseLite.NoiseTypeEnum.Simplex, Frequency = 0.012f, FractalOctaves = 3 },
+        };
+        RenderingServer.GlobalShaderParameterAdd("cloud_noise", RenderingServer.GlobalShaderParameterType.Sampler2D, noise);
+        RenderingServer.GlobalShaderParameterAdd("cloud_shadow", RenderingServer.GlobalShaderParameterType.Vec4, new Vector4(3.2f, -2.4f, 700, 0.38f));
     }
 
     public static ShaderMaterial Grass(Color baseColor, Color alt, float stripeWidth, Turf turf = Turf.Rough)
     {
-        EnsureCupParam();
+        EnsureGlobals();
         var m = new ShaderMaterial { Shader = new Shader { Code = GrassShader } };
         m.SetShaderParameter("base_color", baseColor);
         m.SetShaderParameter("alt_color", alt);
@@ -236,7 +297,7 @@ public static class Scenery
     /// <summary>Unshaded, see-through, vertex-coloured: for read-outs laid on the ground (kept out of the open cup).</summary>
     public static ShaderMaterial Overlay(float opacity)
     {
-        EnsureCupParam();
+        EnsureGlobals();
         var m = new ShaderMaterial { Shader = new Shader { Code = OverlayShader } };
         m.SetShaderParameter("opacity", opacity);
         return m;
@@ -259,11 +320,92 @@ public static class Scenery
         Roughness = 1, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
     };
 
-    public static StandardMaterial3D Water() => new()
+    /// <summary>Cart path concrete, weathered light grey.</summary>
+    public static readonly Color Concrete = new(0.66f, 0.65f, 0.61f);
+
+    /// <summary>Cart path concrete for the flat test holes (the terrain shader draws its own).</summary>
+    public static StandardMaterial3D CartPath() => new() { AlbedoColor = Concrete, Roughness = 0.85f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
+
+    /// <summary>Open water colours: deep and dark (the sky's reflection does most of the work), and the silty shallows.</summary>
+    public static readonly Color WaterDeep = new(0.035f, 0.11f, 0.13f), WaterShallow = new(0.20f, 0.30f, 0.24f);
+
+    /// <summary>
+    /// Shared GLSL for moving water: ripples as a normal map (tangent x = world x, y = world z; needs
+    /// <c>TURF_VERTEX</c>-style tangents) from a few travelling waves plus wind-blown noise, calmed with distance so
+    /// far water doesn't shimmer.
+    /// </summary>
+    public const string WaterGlsl = """
+        float water_hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float water_noise(vec2 p) {
+            vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(water_hash(i), water_hash(i + vec2(1, 0)), f.x), mix(water_hash(i + vec2(0, 1)), water_hash(i + vec2(1, 1)), f.x), f.y);
+        }
+        float water_height(vec2 p, float t) {
+            return sin(dot(p, vec2(0.82, 0.57)) * 1.7 + t * 1.3) * 0.5
+                 + sin(dot(p, vec2(-0.45, 0.89)) * 2.9 + t * 1.9) * 0.3
+                 + sin(dot(p, vec2(0.97, -0.24)) * 5.3 + t * 2.7) * 0.15
+                 + (water_noise(p * 3.0 + vec2(t * 0.4, t * 0.25)) - 0.5) * 0.4
+                 + (water_noise(p * 9.0 - vec2(t * 0.7, t * 0.3)) - 0.5) * 0.12;
+        }
+        vec3 water_normal(vec2 p, float t) {
+            const float e = 0.04;
+            float h = water_height(p, t);
+            vec2 slope = vec2(water_height(p + vec2(e, 0.0), t) - h, water_height(p + vec2(0.0, e), t) - h) / e;
+            float calm = 1.0 / (1.0 + length(fwidth(p)) * 6.0);
+            return normalize(vec3(-slope * 0.06 * calm, 1.0)) * 0.5 + 0.5;
+        }
+        """;
+
+    private const string WaterShader = """
+        shader_type spatial;
+        render_mode blend_mix, cull_disabled, depth_draw_always;
+        uniform vec3 deep_color : source_color;
+        uniform vec3 shallow_color : source_color;
+        // 1 = see the bed through shallow water (needs real ground under it); 0 = opaque (the flat test holes).
+        uniform float see_through = 1.0;
+        uniform sampler2D depth_tex : hint_depth_texture, filter_nearest;
+        varying vec3 world_pos;
+        """ + WaterGlsl + """
+        void vertex() {
+            world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+            TANGENT = vec3(1.0, 0.0, 0.0);
+            BINORMAL = vec3(0.0, 0.0, 1.0);
+        }
+        void fragment() {
+            float depth = 4.0;
+            if (see_through > 0.5) {
+                // Water depth under this point: the ground behind it along the view ray, turned to vertical.
+                vec4 bed = INV_PROJECTION_MATRIX * vec4(SCREEN_UV * 2.0 - 1.0, texture(depth_tex, SCREEN_UV).r, 1.0);
+                bed.xyz /= bed.w;
+                vec3 ray = normalize(VERTEX);
+                float along = (VERTEX.z - bed.z) / max(-ray.z, 0.05);
+                depth = max(along, 0.0) * abs(dot(ray, normalize((VIEW_MATRIX * vec4(0.0, 1.0, 0.0, 0.0)).xyz)));
+            }
+            float murk = 1.0 - exp(-depth * 1.8);
+            NORMAL_MAP = water_normal(world_pos.xz, TIME);
+            float facing = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+            float fresnel = pow(1.0 - facing, 4.0);
+            // A thin, broken line of foam where the water meets the bank.
+            float foam = (1.0 - smoothstep(0.0, 0.1, depth)) * smoothstep(0.35, 0.75, water_noise(world_pos.xz * 5.0 + vec2(TIME * 0.3, -TIME * 0.2)));
+            ALBEDO = mix(mix(shallow_color, deep_color, murk), vec3(0.75, 0.78, 0.74), foam * 0.6);
+            ALPHA = clamp(mix(0.3, 0.94, murk) + fresnel * 0.6 + foam * 0.4, 0.0, 1.0) * smoothstep(0.0, 0.03, depth);
+            ROUGHNESS = mix(0.03, 0.4, foam);
+            SPECULAR = 0.5;
+        }
+        """;
+
+    /// <summary>
+    /// Open water: rippling, reflecting the sky, darker with depth. <paramref name="seeThrough"/> shows the bed through
+    /// the shallows and a soft shoreline (for water surfaces over real ground).
+    /// </summary>
+    public static ShaderMaterial Water(bool seeThrough = false)
     {
-        AlbedoColor = new Color(0.10f, 0.32f, 0.50f), Roughness = 0.06f, Metallic = 0.35f,
-        CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-    };
+        var m = new ShaderMaterial { Shader = new Shader { Code = WaterShader } };
+        m.SetShaderParameter("deep_color", WaterDeep);
+        m.SetShaderParameter("shallow_color", WaterShallow);
+        m.SetShaderParameter("see_through", seeThrough ? 1f : 0f);
+        return m;
+    }
 
     /// <summary>Hole coordinates (X forward, Z right) to Godot (-Z forward, X right).</summary>
     public static Vector3 ToGodot(P2 p, float y = 0) => new((float)p.Z, y, (float)-p.X);
@@ -293,7 +435,10 @@ public static class Scenery
         return new MeshInstance3D { Mesh = st.Commit(), MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
     }
 
-    /// <summary>The outline pushed out by <paramref name="d"/> metres (for fringes around mapped greens).</summary>
+    /// <summary>
+    /// The outline pushed out by <paramref name="d"/> metres (fringes, the first cut): rounded round the corners that
+    /// point out, mitred into the ones that point in, so it matches the "within d" the lie rules use.
+    /// </summary>
     public static List<P2> Grow(IReadOnlyList<P2> pts, double d)
     {
         double area = 0;
@@ -308,7 +453,22 @@ public static class Scenery
         for (int i = 0; i < pts.Count; i++)
         {
             P2 prev = pts[(i + pts.Count - 1) % pts.Count], cur = pts[i], next = pts[(i + 1) % pts.Count];
-            var n = Normal(prev, cur) + Normal(cur, next);
+            P2 n1 = Normal(prev, cur), n2 = Normal(cur, next);
+            // Growing outward round a corner that points out: an arc, as everything within d of the corner is (the
+            // lie rules measure distance, so this is where they put the edge too).
+            bool convex = (next - cur).X * n1.X + (next - cur).Z * n1.Z < 0;
+            if (d > 0 && convex)
+            {
+                double a1 = Math.Atan2(n1.Z, n1.X), turn = Math.IEEERemainder(Math.Atan2(n2.Z, n2.X) - a1, 2 * Math.PI);
+                int steps = Math.Max(1, (int)Math.Ceiling(Math.Abs(turn) / (Math.PI / 12)));   // every 15°
+                for (int k = 0; k <= steps; k++)
+                {
+                    double a = a1 + turn * k / steps;
+                    result.Add(cur + new P2(Math.Cos(a), Math.Sin(a)) * d);
+                }
+                continue;
+            }
+            var n = n1 + n2;
             double len = n.Length;
             // Mitre (|n1 + n2| = 2 cos(half angle)), limited to 3× the offset so sharp corners don't spike.
             double scale = len < 1e-9 ? 0 : d * Math.Min(2 / (len * len), 3 / len);

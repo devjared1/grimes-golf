@@ -16,6 +16,7 @@ public sealed class MonitorSession
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
     private SquareBleLink? _link;
+    private volatile bool _detecting = true;
 
     public event Action<SquareDeviceInfo>? InfoRead;
     public event Action<BatteryEvent>? Battery;
@@ -36,11 +37,26 @@ public sealed class MonitorSession
         var ct = _cts.Token;
         var channel = Channel.CreateUnbounded<SquareEvent>(new UnboundedChannelOptions { SingleReader = true });
         byte[]? last = null;
+        string? lastSensor = null, lastClub = null;
         void OnData(byte[] data)
         {
             // Notifications can arrive twice, byte-identical; drop the repeat.
             if (last != null && data.AsSpan().SequenceEqual(last)) return;
             last = data;
+            // The sensor bytes aren't fully understood yet: log each change, ignoring the sequence byte.
+            if (data.Length >= 3 && data[0] == 0x11 && data[1] == 0x01)
+            {
+                string sensor = Convert.ToHexString(data, 3, data.Length - 3);
+                if (sensor != lastSensor) _log($"Sensor raw: {Convert.ToHexString(data)}{DescribeSensor(data)}");
+                lastSensor = sensor;
+            }
+            // The heartbeat reply reports the club the monitor is really using: sel 4-7 real club, 0-3 swing stick.
+            if (data.Length >= 9 && data[0] == 0x11 && data[1] == 0x03)
+            {
+                string club = $"sel={data[5]} number={data[6]} hand={data[7]} sensor={data[8]}";
+                if (club != lastClub) _log($"Monitor club: {club}");
+                lastClub = club;
+            }
             channel.Writer.TryWrite(SquarePacketParser.Parse(data));
         }
         void OnDisconnected() => channel.Writer.TryWrite(new DisconnectedEvent());
@@ -54,11 +70,16 @@ public sealed class MonitorSession
             await link.ConnectAsync(ct);
             _link = link;
             _log("Connected");
-            InfoRead?.Invoke(await link.ReadDeviceInfoAsync());
+            var info = await link.ReadDeviceInfoAsync();
+            _log($"Device: hardware {info.HardwareVersion ?? "?"}, firmware {info.FirmwareRaw ?? "?"}");
+            InfoRead?.Invoke(info);
 
+            // The order the official app uses on hardware 1.5.
             await WriteAsync(_cmd.Query(), ct);
+            await WriteAsync(_cmd.SessionInfo(), ct);
             await WriteAsync(_cmd.Heartbeat(), ct);
             await SelectClubAsync(club, leftHanded);
+            await WriteAsync(_cmd.Heartbeat(), ct);
             await WriteAsync(_cmd.DetectBall(on: true, advancedSpin: true), ct);
             _log($"Armed ({club}{(leftHanded ? ", LH" : "")}) - hit away");
 
@@ -80,6 +101,10 @@ public sealed class MonitorSession
 
     public void Stop() => _cts.Cancel();
 
+    /// <summary>Ready flag, ball flag and position for the log. The position fields are decoded, but their units aren't known.</summary>
+    private static string DescribeSensor(byte[] d) => d.Length < 17 ? "" :
+        $"  ready={d[3]} ball={d[4]} X={BitConverter.ToInt32(d, 5)} Y={BitConverter.ToInt32(d, 9)} Z={BitConverter.ToInt32(d, 13)}";
+
     public async Task SelectClubAsync(string club, bool leftHanded)
     {
         if (!SquareClubMap.TryGet(club, out var sq)) { _log($"No Square code for club {club}"); return; }
@@ -91,6 +116,7 @@ public sealed class MonitorSession
         BallMetricsEvent? pending = null;
         int pendingSeq = 0;
         SquareDeviceState? lastState = null;
+        int notDetecting = 0;
 
         await foreach (var ev in reader.ReadAllAsync(ct))
         {
@@ -101,9 +127,23 @@ public sealed class MonitorSession
                 case SensorEvent s:
                     Sensor?.Invoke(s);
                     break;
-                case HeartbeatAckEvent h when h.State != lastState:
-                    lastState = h.State;
-                    StateChanged?.Invoke(h.State);
+                case HeartbeatAckEvent h:
+                    if (h.State != lastState)
+                    {
+                        lastState = h.State;
+                        _log($"Monitor state: {h.State}");
+                        StateChanged?.Invoke(h.State);
+                    }
+                    // Armed, but the monitor has dropped out of detecting for two heartbeats running: arm it again.
+                    notDetecting = _detecting && h.State < SquareDeviceState.Detecting ? notDetecting + 1 : 0;
+                    if (notDetecting > 1)
+                    {
+                        notDetecting = 0;
+                        await WriteAsync(_cmd.DetectBall(on: true, advancedSpin: true), ct);
+                    }
+                    break;
+                case UnknownEvent u:
+                    _log($"Unknown packet: {Convert.ToHexString(u.Data)}");
                     break;
                 case BatteryEvent b:
                     Battery?.Invoke(b);
@@ -118,6 +158,8 @@ public sealed class MonitorSession
                     await WriteAsync(_cmd.RequestClubMetrics(), ct);
                     _ = Task.Delay(800, ct).ContinueWith(_ => events.TryWrite(new ClubTimeoutEvent(id)),
                         TaskContinuationOptions.OnlyOnRanToCompletion);
+                    _detecting = false;
+                    _ = RearmAfterShotAsync(ct);
                     break;
                 case ClubMetricsEvent c:
                     // The device replays the previous shot's club data on reconnect; only accept it as an answer.
@@ -131,6 +173,19 @@ public sealed class MonitorSession
             }
         }
         return "Disconnected";
+    }
+
+    /// <summary>A shot ends detection; arm again for the next one.</summary>
+    private async Task RearmAfterShotAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(1500, ct);
+            await WriteAsync(_cmd.DetectBall(on: true, advancedSpin: true), ct);
+            _detecting = true;
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { _log($"Re-arming failed: {ex.Message}"); }
     }
 
     private async Task HeartbeatLoopAsync(ChannelWriter<SquareEvent> events, CancellationToken ct)

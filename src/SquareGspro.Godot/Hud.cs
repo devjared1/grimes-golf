@@ -1,9 +1,21 @@
 using Godot;
 using SquareGspro.Core;
+using SquareGspro.Core.Course;
+using SquareGspro.Core.Storage;
 
 namespace SquareGspro.Range3D;
 
 public sealed record DeviceEntry(ulong Address, string Name, string AddressText, int Rssi, DateTime SeenAt);
+
+/// <summary>One player's (or team's) line on the scorecard.</summary>
+public sealed record ScorecardRow(string Name, IReadOnlyList<int?> Scores, Color Color)
+{
+    /// <summary>A team's line (its best ball, or a scramble team's one ball): shown in bold.</summary>
+    public bool Team { get; init; }
+    /// <summary>Text per hole instead of scores (match play: who won it), and the text for the total.</summary>
+    public IReadOnlyList<(string Text, Color Color)?>? Marks { get; init; }
+    public string? TotalText { get; init; }
+}
 
 /// <summary>A figure shown in a stat block: caption, value and unit.</summary>
 public readonly record struct Stat(string Caption, string Value, string Unit = "");
@@ -11,21 +23,34 @@ public readonly record struct Stat(string Caption, string Value, string Unit = "
 /// <summary>
 /// What the player needs to choose the next course shot. Text is pre-formatted by <see cref="Main"/>; empty notes are hidden.
 /// </summary>
+/// <param name="ToPin">"153 yds" (feet on and around the green), "Holed" or "Picked up".</param>
+/// <param name="Elevation">The rise to the pin, "up 2'" / "down 5'" (empty when level or unknown).</param>
+/// <param name="UpSlope">Uphill (+) / downhill (−) along the aim, degrees; <paramref name="SideSlope"/> ball above (+) / below (−) the feet.</param>
+/// <param name="Penalty">How much shorter the club carries from this lie and stance than from a clean, level one (0-1).</param>
 public sealed record ShotPlan(
-    string ToPin, string ToPinNote,
-    string Lie, Color LieColor, string LieNote,
-    string ReadTitle, string Read, string ReadNote,
-    string ClubNote, string Aim, bool OnGreen, bool FlagIn, bool CanHit, bool HoleDone);
+    string ToPin, string Elevation, string PlaysLike,
+    Lie Lie, string LieName, Color LieColor, double UpSlope, double SideSlope, double Penalty, string LieNote,
+    bool OnGreen, string GreenRead, string GreenReadNote,
+    string ClubNote, string Aim, bool FlagIn, bool CanHit, bool HoleDone);
 
 /// <summary>
-/// All 2D UI. A top bar (mode, monitor status, camera) is always shown; the launch monitor details and log live in a
-/// drawer opened from it. The range view shows full shot data and the session; the course view shows only what's
-/// needed to pick a club and shot (distance, lie, stance or green read, club carry, aim), a result card after each
-/// shot, the hole card and an on-demand scorecard.
+/// All 2D UI. The app opens on the <see cref="MainMenu"/>. In play, a slim top bar (where you are, whose turn it
+/// is, monitor status, Menu) is always shown; the Menu button opens the in-game menu (<see cref="MenuOverlay"/>),
+/// the launch monitor details and log live in a drawer opened from the status chip, and the settings in a panel
+/// over everything. Shots are hit from the screen with the <see cref="ShotControls"/> (power, shape, spin, Ready
+/// light). The range view shows full shot data and the session; the course view shows the hole card, the hole
+/// overview map (ball to flag), the lie window and a shot bar, a result card after each shot and an on-demand
+/// scorecard. A banner across the top says when the monitor is reconnecting; short toasts confirm actions.
+/// Split by area: <c>Hud.Drawer.cs</c>, <c>Hud.Range.cs</c>, <c>Hud.Course.cs</c>.
 /// </summary>
 public partial class Hud : Control
 {
-    public const int TopBarHeight = 56, RangeBarHeight = 196, RightColumnWidth = 360, ShotPanelHeight = 128;
+    /// <summary>
+    /// Height of the top bar (its contents are sized to fit: 8 px padding top and bottom), and the space kept clear
+    /// between it and the panels under it.
+    /// </summary>
+    public const int TopBarHeight = 64, TopGap = 16;
+    public const int RangeBarHeight = 196, RightColumnWidth = 360, ShotPanelHeight = 178;
     public static readonly string[] StatKeys =
         { "Name", "Address", "Signal", "Serial", "Hardware", "Firmware (LM)", "Firmware (MMI)", "Firmware (launcher)", "Uptime", "State", "Ball", "Shots" };
 
@@ -35,21 +60,56 @@ public partial class Hud : Control
         ("Spin", "rpm"), ("Spin axis", ""), ("Descent", ""), ("Offline", "yd"), ("Roll", "yd"), ("Hang time", "s"),
     };
 
-    public event Action? ScanPressed, DisconnectPressed, ClearPressed, CameraPressed;
-    /// <summary>HIT SHOT: the same as pressing Space on the swing meter.</summary>
-    public event Action? SwingPressed;
-
-    public SwingMeter Meter { get; private set; } = null!;
-    public StrikePad Strike { get; private set; } = null!;
-    private PanelContainer _swingPanel = null!, _shotPanel = null!;
-    public event Action? ModePressed, RestartHolePressed, NextHolePressed, FlagPressed, TunerPressed, HeatMapPressed, GridPressed;
+    public event Action? ScanPressed, DisconnectPressed;
+    /// <summary>HIT SHOT (or NEXT HOLE once the hole is finished).</summary>
+    public event Action? HitPressed;
+    public event Action? MenuPressed, NextHolePressed, FlagPressed, HeatMapPressed, GridPressed, MulliganPressed, NewRoundPressed, PlayerChipPressed;
+    /// <summary>Settings saved from the settings screen; true = start a new round with them now.</summary>
+    public event Action<AppSettings, bool>? SettingsApplied;
     public event Action<ulong>? ConnectPressed;
     public event Action? ClubChanged;
-    public event Action<int>? CourseSelected;
     /// <summary>Aim nudge in degrees (negative = left).</summary>
-    public event Action<int>? AimPressed;
+    public event Action<double>? AimPressed;
+    /// <summary>The landing view (look at where the shot set up lands) was switched on or off.</summary>
+    public event Action? LandingViewPressed;
+
+    /// <summary>Aim nudges in degrees: a press (and each repeat while held), and with Shift / numpad 7 9 / LB RB.</summary>
+    public const double AimStep = 0.25, AimStepBig = 2;
+
+    private readonly List<Button> _zoomButtons = new();
+
+    /// <summary>The aim buttons (‹ ›, Shift for big steps) and the landing-view toggle, for an aim row.</summary>
+    private void AddAimButtons(HBoxContainer row, float width)
+    {
+        var left = new Button { Text = "‹", CustomMinimumSize = new Vector2(width, 36), TooltipText = $"Aim left {AimStep}°  [←, Shift = {AimStepBig}°]" };
+        left.AddThemeFontSizeOverride("font_size", 22);
+        left.Pressed += () => AimPressed?.Invoke(-(Input.IsKeyPressed(Key.Shift) ? AimStepBig : AimStep));
+        var right = new Button { Text = "›", CustomMinimumSize = new Vector2(width, 36), TooltipText = $"Aim right {AimStep}°  [→, Shift = {AimStepBig}°]" };
+        right.AddThemeFontSizeOverride("font_size", 22);
+        right.Pressed += () => AimPressed?.Invoke(Input.IsKeyPressed(Key.Shift) ? AimStepBig : AimStep);
+        var zoom = new Button { Text = "Zoom", ToggleMode = true, CustomMinimumSize = new Vector2(0, 36),
+                                TooltipText = "Look at where the ball will land with this aim and power; again to come back  [Z, numpad 1, left stick click]" };
+        zoom.Pressed += () => LandingViewPressed?.Invoke();
+        _zoomButtons.Add(zoom);
+        row.AddChild(left);
+        row.AddChild(right);
+        row.AddChild(zoom);
+    }
+
+    /// <summary>Shows the landing view as on or off on the Zoom buttons.</summary>
+    public void SetLandingView(bool on)
+    {
+        foreach (var b in _zoomButtons) b.SetPressedNoSignal(on);
+    }
+    /// <summary>Range: aim at the next (+1) or previous (−1) flag.</summary>
+    public event Action<int>? RangeTargetPressed;
     /// <summary>The course map was clicked (or dragged on) at this point in the minimap viewport's pixels.</summary>
     public event Action<Vector2>? MinimapClicked;
+
+    public ShotControls Shot { get; private set; } = null!;
+    public MainMenu MainMenu { get; private set; } = null!;
+    public MenuOverlay Overlay { get; private set; } = null!;
+    public PlayersPanel Players { get; private set; } = null!;
 
     private readonly Dictionary<string, Label> _stats = new();
     private readonly Dictionary<string, Label> _rangeValues = new();
@@ -58,10 +118,20 @@ public partial class Hud : Control
     private bool _connected, _courseMode, _syncingClubs;
 
     // Shared chrome
-    private Button _rangeTab = null!, _courseTab = null!, _monitorChip = null!, _camera = null!, _drawerButton = null!;
-    private OptionButton _coursePicker = null!;
+    private PanelContainer _topBar = null!;
+    private HBoxContainer _topRow = null!;
+    private Label _where = null!;
+    private Button _monitorChip = null!, _playerChip = null!;
+    private PanelContainer _banner = null!, _toast = null!;
+    private Label _bannerText = null!, _toastText = null!;
+    private Tween? _toastTween;
+    private SettingsPanel _settings = null!;
     private PanelContainer _drawer = null!, _minimapFrame = null!;
     private SubViewportContainer _minimapContainer = null!;
+    private MapOverlay _mapOverlay = null!;
+    /// <summary>The shot controls with the Ready light and HIT SHOT: in the shot bar on a course, floating above the data bar on the range.</summary>
+    private HBoxContainer _shotBox = null!;
+    private PanelContainer _rangeShotSlot = null!;
 
     // Monitor drawer
     private Label _status = null!, _batteryText = null!;
@@ -82,20 +152,24 @@ public partial class Hud : Control
 
     // Course view
     private Control _courseView = null!;
-    private Label _holeNumber = null!, _holeName = null!, _holeFacts = null!, _holeProgress = null!, _credit = null!;
-    private Label _toPin = null!, _toPinNote = null!, _lie = null!, _lieNote = null!, _readTitle = null!, _read = null!, _readNote = null!;
-    private Label _clubNote = null!, _aim = null!, _resultHeadline = null!, _resultNote = null!;
-    private PanelContainer _lieChip = null!, _result = null!, _scorecardPanel = null!;
-    private HBoxContainer _resultStats = null!;
+    private Label _holeNumber = null!, _holeName = null!, _holeFacts = null!, _stroke = null!, _score = null!, _scoreNote = null!, _credit = null!;
+    private Label _toPin = null!, _elevation = null!, _playsLike = null!, _lieName = null!, _lieNote = null!, _upSlope = null!, _sideSlope = null!, _penalty = null!;
+    private Label _greenRead = null!, _greenReadNote = null!, _aim = null!, _resultHeadline = null!, _resultNote = null!;
+    private PanelContainer _lieChip = null!, _result = null!, _scorecardPanel = null!, _shotPanel = null!, _liePanel = null!, _lastShot = null!;
+    private TextureRect _courseLogo = null!;
+    private WindIndicator _wind = null!;
+    private Control _stanceRows = null!, _greenRows = null!;
+    private VBoxContainer _resultStats = null!;
+    private HBoxContainer _courseShotSlot = null!;
     private OptionButton _courseClub = null!;
-    private Button _hit = null!, _flag = null!, _heatMap = null!, _grid = null!;
+    private Button _flag = null!, _heatMap = null!, _grid = null!, _mulligan = null!;
     private GridContainer _scorecard = null!;
-    private Label _scorecardTitle = null!;
+    private Label _scorecardTitle = null!, _scorecardNote = null!;
 
     public SubViewport Minimap { get; private set; } = null!;
 
     /// <summary>Minimap size in the current mode: portrait beside a hole, wider at the top of the range's right column.</summary>
-    public Vector2I MinimapSize => _courseMode ? new Vector2I(236, 330) : new Vector2I(RightColumnWidth - 12, 230);
+    public Vector2I MinimapSize => _courseMode ? new Vector2I(230, 320) : new Vector2I(RightColumnWidth - 12, 230);
 
     public string ClubCode => ClubPresets.All[Math.Max(0, _rangeClub.Selected)].Code;
     public ClubPreset Club => ClubPresets.All[Math.Max(0, _rangeClub.Selected)];
@@ -112,51 +186,87 @@ public partial class Hud : Control
         MouseFilter = MouseFilterEnum.Ignore;
         Theme = UiTheme.Build();
 
+        BuildShotControls();
         BuildRangeView();
         BuildCourseView();
-        BuildSwingPanel();
         BuildMinimap();
         BuildTopBar();
         BuildDrawer();
+        // The scorecard opens over everything else in the course view, drawer included.
+        _courseView.RemoveChild(_scorecardPanel);
+        AddChild(_scorecardPanel);
+        _scoreBurst = new ScoreBurst();
+        AddChild(_scoreBurst);
+        MainMenu = new MainMenu();
+        AddChild(MainMenu);
+        MainMenu.SetMonitorStatus(ChipText(), _chipColor);
+        Overlay = new MenuOverlay();
+        AddChild(Overlay);
+        Players = new PlayersPanel();
+        AddChild(Players);
+        BuildBannerAndToast();
+        _settings = new SettingsPanel();
+        _settings.Applied += (s, newRound) => SettingsApplied?.Invoke(s, newRound);
+        AddChild(_settings);
+        Loading = new LoadingScreen();
+        AddChild(Loading);
         SetCourseMode(false);
     }
+
+    private ScoreBurst _scoreBurst = null!;
+
+    /// <summary>The course loading screen (over everything).</summary>
+    public LoadingScreen Loading { get; private set; } = null!;
+
+    /// <summary>Announces a player's score on the hole across the middle of the screen ("BIRDIE!").</summary>
+    public void CelebrateScore(string text, string sub, Color color, bool sparks) => _scoreBurst.Play(text, sub, color, sparks);
 
     // ---- shared chrome -----------------------------------------------------------------------
 
     private void BuildTopBar()
     {
-        var bar = new PanelContainer();
-        bar.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 0, 0, 10));
+        var bar = _topBar = new PanelContainer();
+        bar.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 0, 0, 8, 10));
         bar.SetAnchorsAndOffsetsPreset(LayoutPreset.TopWide);
-        bar.OffsetBottom = TopBarHeight;
-        AddChild(bar);
+        bar.OffsetBottom = TopBarHeight;        AddChild(bar);
 
-        var h = new HBoxContainer();
+        var h = _topRow = new HBoxContainer();
         h.AddThemeConstantOverride("separation", 10);
         bar.AddChild(h);
 
         var brand = new HBoxContainer();
-        brand.AddThemeConstantOverride("separation", 0);
-        brand.AddChild(UiTheme.Text("SQUARE", 20, UiTheme.Accent, bold: true));
-        brand.AddChild(UiTheme.Text(" RANGE", 20, UiTheme.Ink, bold: true));
-        h.AddChild(UiTheme.Pad(brand, 10, 0));
+        brand.AddThemeConstantOverride("separation", 6);
+        if (Brand.Logo is { } logo)
+            brand.AddChild(new TextureRect
+            {
+                Texture = logo, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
+                CustomMinimumSize = new Vector2(66, TopBarHeight - 16), TooltipText = $"{Brand.Name} Simulator {Version}",
+            });
+        else brand.AddChild(UiTheme.Text(Brand.Name.ToUpperInvariant(), 20, UiTheme.Accent, bold: true));
+        var version = UiTheme.Text(Version, 11, UiTheme.Muted);
+        version.SizeFlagsVertical = SizeFlags.ShrinkEnd;
+        brand.AddChild(version);
+        h.AddChild(UiTheme.Pad(brand, 6, 0));
 
-        var tabs = new HBoxContainer();
-        tabs.AddThemeConstantOverride("separation", 4);
-        var group = new ButtonGroup();
-        _rangeTab = new Button { Text = "Range", ToggleMode = true, ButtonGroup = group, ThemeTypeVariation = "TabButton", TooltipText = "Driving range  [M]" };
-        _courseTab = new Button { Text = "Course", ToggleMode = true, ButtonGroup = group, ThemeTypeVariation = "TabButton", TooltipText = "Play a course  [M]" };
-        _rangeTab.Pressed += () => { if (_courseMode) ModePressed?.Invoke(); };
-        _courseTab.Pressed += () => { if (!_courseMode) ModePressed?.Invoke(); };
-        tabs.AddChild(_rangeTab);
-        tabs.AddChild(_courseTab);
-        h.AddChild(tabs);
+        // Where you are: "Driving range" (on a course the hole badge shows it).
+        _where = UiTheme.Text("", 16, UiTheme.Muted, bold: true);
+        _where.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        _where.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _where.ClipText = true;
+        h.AddChild(_where);
 
-        _coursePicker = new OptionButton { TooltipText = "Course to play", CustomMinimumSize = new Vector2(220, 0) };
-        _coursePicker.ItemSelected += i => CourseSelected?.Invoke((int)i);
-        h.AddChild(_coursePicker);
+        // Ready / Not ready, in the middle of the bar whatever is either side of it.
+        var middle = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
+        middle.SetAnchorsAndOffsetsPreset(LayoutPreset.TopWide);
+        middle.OffsetBottom = TopBarHeight;
+        middle.AddChild(Shot.BuildReadyLight());
+        bar.AddChild(middle);
 
-        h.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill, MouseFilter = MouseFilterEnum.Ignore });
+        // Who is playing (course: whose turn; range: who the shots are saved under, click for the next player).
+        _playerChip = new Button { Visible = false, CustomMinimumSize = new Vector2(130, 0), Alignment = HorizontalAlignment.Left };
+        _playerChip.AddThemeFontOverride("font", UiTheme.Bold);
+        _playerChip.Pressed += () => PlayerChipPressed?.Invoke();
+        h.AddChild(_playerChip);
 
         // Monitor status (state and battery, with a coloured accent for readiness). Opens the monitor drawer.
         _monitorChip = new Button { TooltipText = "Launch monitor  [L]", CustomMinimumSize = new Vector2(250, 0), Alignment = HorizontalAlignment.Left };
@@ -164,18 +274,108 @@ public partial class Hud : Control
         h.AddChild(_monitorChip);
         UpdateChip(UiTheme.Muted);
 
-        _camera = new Button { TooltipText = "Camera: follow the ball or stay behind it  [C]" };
-        _camera.Pressed += () => CameraPressed?.Invoke();
-        SetCameraLabel(true);
-        h.AddChild(_camera);
-        _drawerButton = new Button { Text = "Monitor", TooltipText = "Launch monitor, device details and log  [L]" };
-        _drawerButton.Pressed += ToggleDrawer;
-        h.AddChild(_drawerButton);
-        var tuner = new Button { Text = "Physics", TooltipText = "Physics tuner: adjust the physics between shots, in its own window  [T]" };
-        tuner.Pressed += () => TunerPressed?.Invoke();
-        h.AddChild(tuner);
+        var menu = new Button { Text = "☰  Menu", TooltipText = "Settings, holes, players, camera, end the game  [M, Esc, gamepad Start]", CustomMinimumSize = new Vector2(110, 0) };
+        menu.AddThemeFontOverride("font", UiTheme.Bold);
+        menu.Pressed += () => MenuPressed?.Invoke();
+        h.AddChild(menu);
         h.AddChild(new Control { CustomMinimumSize = new Vector2(4, 0), MouseFilter = MouseFilterEnum.Ignore });
     }
+
+    /// <summary>What the top bar says about where you are ("Driving range"; nothing on a course, where the hole badge shows it).</summary>
+    public void SetWhere(string text) => _where.Text = _courseMode ? "" : text;
+
+    /// <summary>
+    /// The player chip in the top bar: who's up (course) or who range shots are saved under (range; clicking picks the
+    /// next player). Hidden with only one player.
+    /// </summary>
+    public void SetActivePlayer(string name, Color color, bool show)
+    {
+        _playerChip.Visible = show;
+        _playerChip.Text = name;
+        _playerChip.TooltipText = _courseMode ? $"{name} to play" : "Range shots are saved under this player: click for the next player";
+        _playerChip.AddThemeColorOverride("font_color", color);
+        _playerChip.AddThemeColorOverride("font_hover_color", color);
+        foreach (var (state, bg) in new[] { ("normal", UiTheme.Control), ("hover", UiTheme.ControlHover), ("pressed", UiTheme.ControlPressed) })
+        {
+            var box = UiTheme.Box(bg, 8, 0, 8, 14);
+            box.BorderWidthLeft = 5;
+            box.BorderColor = color;
+            _playerChip.AddThemeStyleboxOverride(state, box);
+        }
+    }
+
+    // ---- banner, toasts, settings, menus -----------------------------------------------------
+
+    private void BuildBannerAndToast()
+    {
+        _banner = new PanelContainer { Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+        _banner.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(0.55f, 0.36f, 0.05f, 0.97f), 12, 1, 14, 28));
+        _banner.SetAnchorsPreset(LayoutPreset.CenterTop);
+        _banner.GrowHorizontal = GrowDirection.Both;
+        _banner.OffsetTop = TopBarHeight + TopGap;
+        _bannerText = UiTheme.Text("", 26, Colors.White, bold: true);
+        _bannerText.HorizontalAlignment = HorizontalAlignment.Center;
+        _banner.AddChild(_bannerText);
+        AddChild(_banner);
+
+        _toast = new PanelContainer { Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+        _toast.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(0.06f, 0.07f, 0.085f, 0.95f), 12, 1, 14, 22));
+        _toast.SetAnchorsPreset(LayoutPreset.Center);
+        _toast.GrowHorizontal = GrowDirection.Both;
+        _toast.GrowVertical = GrowDirection.Both;
+        _toastText = UiTheme.Text("", 24, UiTheme.Ink, bold: true);
+        _toast.AddChild(_toastText);
+        AddChild(_toast);
+    }
+
+    /// <summary>A big banner at the top of the view, for something everyone needs to know (null hides it).</summary>
+    public void SetBanner(string? text)
+    {
+        _banner.Visible = text != null;
+        _bannerText.Text = text ?? "";
+    }
+
+    /// <summary>A short message in the middle of the screen that fades after a couple of seconds.</summary>
+    public void Toast(string text, Color accent)
+    {
+        _toastText.Text = text;
+        _toastText.AddThemeColorOverride("font_color", accent);
+        _toast.Visible = true;
+        _toast.Modulate = Colors.White;
+        _toastTween?.Kill();
+        _toastTween = CreateTween();
+        _toastTween.TweenInterval(2.2);
+        _toastTween.TweenProperty(_toast, "modulate:a", 0.0f, 0.5);
+        _toastTween.TweenCallback(Callable.From(() => _toast.Visible = false));
+    }
+
+    public bool SettingsOpen => _settings.Visible;
+    public void OpenSettings(AppSettings current, bool roundInProgress) => _settings.Open(current, roundInProgress);
+    public void CloseSettings() => _settings.Close();
+
+    /// <summary>A panel that takes all the input is open: the main menu, the in-game menu or a question, or the players panel.</summary>
+    public bool ModalOpen => MainMenu.IsOpen || Overlay.IsOpen || Players.IsOpen;
+
+    /// <summary>The main menu is up: the game's HUD is hidden behind it (the drawer can still open over it).</summary>
+    public void ShowMainMenu(bool show)
+    {
+        _topBar.Visible = !show;
+        _minimapFrame.Visible = !show;
+        _rangeView.Visible = !show && !_courseMode;
+        _courseView.Visible = !show && _courseMode;
+        _rangeShotSlot.Visible = !show && !_courseMode;
+        if (show)
+        {
+            _scorecardPanel.Visible = false;
+            _result.Visible = false;
+            Overlay.Close();
+            Players.Close();
+        }
+        else MainMenu.Close();
+    }
+
+    /// <summary>"v0.9.0", from the project's <c>application/config/version</c>.</summary>
+    public static string Version => ProjectSettings.GetSetting("application/config/version", "").AsString() is { Length: > 0 } v ? "v" + v : "";
 
     private void BuildMinimap()
     {
@@ -189,14 +389,30 @@ public partial class Hud : Control
         {
             bool aim = e is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }
                     || e is InputEventMouseMotion m && m.ButtonMask.HasFlag(MouseButtonMask.Left);
-            if (!aim || !_courseMode || e is not InputEventMouse mouse) return;
+            if (!aim || e is not InputEventMouse mouse) return;
             var size = _minimapContainer.Size;
             if (size.X > 0 && size.Y > 0) MinimapClicked?.Invoke(mouse.Position / size * (Vector2)Minimap.Size);
             _minimapContainer.AcceptEvent();
         };
         _minimapFrame.AddChild(_minimapContainer);
+        _mapOverlay = new MapOverlay();
+        _minimapContainer.AddChild(_mapOverlay);
+        _minimapContainer.TooltipText = "Overview: click or drag to aim there";
+        _minimapContainer.MouseDefaultCursorShape = CursorShape.Cross;
         AddChild(_minimapFrame);
     }
+
+    /// <summary>
+    /// The ball, the aim line to where the shot will land and the flag on the overview map, given as points in the
+    /// minimap viewport's pixels (as the map camera projects them); a null ball hides them all.
+    /// </summary>
+    public void SetMapMarkers(Vector2? ball, Vector2? aim, Vector2? pin, string aimText, string pinText, Color color)
+    {
+        var scale = _minimapContainer.Size / (Vector2)Minimap.Size;
+        _mapOverlay.Show(ball * scale, aim * scale, pin * scale, aimText, pinText, color);
+    }
+
+    public void HideMapMarkers() => _mapOverlay.Show(null, null, null, "", "", Colors.White);
 
     /// <summary>Places and sizes the minimap for the mode: top of the right column on the range, top right on a course.</summary>
     private void LayoutMinimap()
@@ -206,153 +422,79 @@ public partial class Hud : Control
         _minimapFrame.SetAnchorsPreset(LayoutPreset.TopRight);
         _minimapFrame.OffsetRight = -16;
         _minimapFrame.OffsetLeft = -16 - size.X - 12;
-        _minimapFrame.OffsetTop = TopBarHeight + 12;
-        _minimapFrame.OffsetBottom = TopBarHeight + 12 + size.Y + 12;
+        _minimapFrame.OffsetTop = TopBarHeight + TopGap;
+        _minimapFrame.OffsetBottom = TopBarHeight + TopGap + size.Y + 12;
+        // The wind sits under the map, at the same right edge.
+        _wind.OffsetRight = _wind.OffsetLeft = -16;
+        _wind.OffsetTop = _wind.OffsetBottom = _minimapFrame.OffsetBottom + 8;
     }
 
-    private const string SwingTip = "Swing: Space (or click) to start the backswing, again to set the power, again on the line to strike  [Space]\n"
-                                    + "D: a random demo shot instead";
+    private const string HitTip = "Hit the shot with this power, shape and spin  [Space]\nD: a random demo shot instead";
 
-    /// <summary>
-    /// The swing meter and strike point, floating above the bottom panel to one side, clear of the ball in the middle of
-    /// the view: above HIT SHOT on a course, bottom left of the view on the range.
-    /// </summary>
-    private void BuildSwingPanel()
+    /// <summary>The shot controls and HIT SHOT, built once and moved between the range and course layouts.</summary>
+    private void BuildShotControls()
     {
-        _swingPanel = new PanelContainer();
-        _swingPanel.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(UiTheme.Bar, 0.85f), 12, 1, 10));
-        _swingPanel.GrowVertical = GrowDirection.Begin;
-        var h = new HBoxContainer();
-        h.AddThemeConstantOverride("separation", 12);
-        Strike = new StrikePad();
-        Meter = new SwingMeter { SizeFlagsVertical = SizeFlags.ShrinkCenter };
-        h.AddChild(Strike);
-        h.AddChild(Meter);
-        _swingPanel.AddChild(h);
-        AddChild(_swingPanel);
+        _shotBox = new HBoxContainer();
+        _shotBox.AddThemeConstantOverride("separation", 16);
+        Shot = new ShotControls();
+        _shotBox.AddChild(Shot);
+        var hit = Shot.BuildHitButton(HitTip);
+        hit.SizeFlagsVertical = SizeFlags.ShrinkEnd;
+        _shotBox.AddChild(hit);
+        Shot.HitPressed += () => { if (_holeDone) NextHolePressed?.Invoke(); else HitPressed?.Invoke(); };
+
+        _rangeShotSlot = new PanelContainer();
+        _rangeShotSlot.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(UiTheme.Bar, 0.9f), 12, 1, 12));
+        _rangeShotSlot.SetAnchorsPreset(LayoutPreset.BottomLeft);
+        _rangeShotSlot.GrowHorizontal = GrowDirection.End;
+        _rangeShotSlot.GrowVertical = GrowDirection.Begin;
+        _rangeShotSlot.OffsetLeft = _rangeShotSlot.OffsetRight = 16;
+        _rangeShotSlot.OffsetTop = _rangeShotSlot.OffsetBottom = -RangeBarHeight - 12;
+        AddChild(_rangeShotSlot);
     }
 
-    /// <summary>Keeps the swing panel just above the bottom panel of the current mode, to the side.</summary>
-    private void LayoutSwingPanel()
+    /// <summary>Puts the shot controls in the course's shot bar or above the range's data bar.</summary>
+    private void PlaceShotControls()
     {
-        if (_courseMode)
-        {
-            // Right edge lined up with the shot panel's (it's centred, so this follows the window width).
-            _swingPanel.SetAnchorsPreset(LayoutPreset.CenterBottom);
-            _swingPanel.GrowHorizontal = GrowDirection.Begin;
-            float half = _shotPanel.Size.X / 2;
-            _swingPanel.OffsetLeft = _swingPanel.OffsetRight = half;
-        }
-        else
-        {
-            _swingPanel.SetAnchorsPreset(LayoutPreset.BottomLeft);
-            _swingPanel.GrowHorizontal = GrowDirection.End;
-            _swingPanel.OffsetLeft = _swingPanel.OffsetRight = 16;
-        }
-        float bottom = _courseMode ? 16 + _shotPanel.Size.Y + 12 : RangeBarHeight + 12;
-        _swingPanel.OffsetTop = _swingPanel.OffsetBottom = -bottom;
+        Control target = _courseMode ? _courseShotSlot : _rangeShotSlot;
+        if (_shotBox.GetParent() == target) return;
+        _shotBox.GetParent()?.RemoveChild(_shotBox);
+        target.AddChild(_shotBox);
     }
 
     public override void _Process(double delta)
     {
-        // The shot panel's size follows its contents; keep the swing panel lined up with it.
-        if (_courseMode && _shotPanel.Size != _laidOutFor) { _laidOutFor = _shotPanel.Size; LayoutSwingPanel(); }
+        // Large text leaves less room: go compact when the UI is narrower than it was laid out for.
+        bool compact = GetViewportRect().Size.X < CompactBelow;
+        if (compact != _compact) SetCompact(compact);
     }
 
-    private Vector2 _laidOutFor;
+    /// <summary>UI width (in UI units) below which the compact layout is used.</summary>
+    private const float CompactBelow = 1450;
+    private bool _compact;
+    private List<(Control Control, float Width)>? _wide;
 
-    private void BuildDrawer()
+    /// <summary>
+    /// Compact layout, for large text (or a narrow window): the shot bar's and top bar's fixed-width blocks narrowed
+    /// (notes wrap more) and tighter spacing.
+    /// </summary>
+    private void SetCompact(bool compact)
     {
-        _drawer = new PanelContainer { Visible = false };
-        _drawer.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(UiTheme.Bar, 1), 0, 1, 18));   // opaque: it covers the shot data
-        _drawer.SetAnchorsAndOffsetsPreset(LayoutPreset.LeftWide);
-        _drawer.OffsetTop = TopBarHeight;
-        _drawer.OffsetRight = 380;
-        AddChild(_drawer);
-
-        var v = new VBoxContainer();
-        v.AddThemeConstantOverride("separation", 8);
-        _drawer.AddChild(v);
-
-        var head = new HBoxContainer();
-        var title = UiTheme.Text("Launch monitor", 18, UiTheme.Ink, bold: true);
-        title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        head.AddChild(title);
-        var close = new Button { Text = "✕", ThemeTypeVariation = "FlatButton", TooltipText = "Close  [L]" };
-        close.Pressed += ToggleDrawer;
-        head.AddChild(close);
-        v.AddChild(head);
-        _status = UiTheme.Text("Not connected", 13, UiTheme.Muted);
-        v.AddChild(_status);
-
-        var devHead = new HBoxContainer();
-        var devCaption = UiTheme.Caption("Devices nearby");
-        devCaption.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        devHead.AddChild(devCaption);
-        _scan = new Button { Text = "Scan", ThemeTypeVariation = "FlatButton" };
-        _scan.Pressed += () => ScanPressed?.Invoke();
-        devHead.AddChild(_scan);
-        v.AddChild(devHead);
-
-        // No type-to-search, so keyboard shortcuts still work while the list has focus.
-        _devices = new ItemList { CustomMinimumSize = new Vector2(0, 100), AllowSearch = false };
-        _devices.ItemSelected += _ => UpdateButtons();
-        _devices.ItemActivated += _ => { if (!_connect.Disabled) _connect.EmitSignal(BaseButton.SignalName.Pressed); };
-        v.AddChild(_devices);
-        var hint = UiTheme.Text("Close the Square phone app first, and don't pair the monitor in Windows settings.", 12, UiTheme.Muted);
-        hint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        v.AddChild(hint);
-
-        var buttons = new HBoxContainer();
-        buttons.AddThemeConstantOverride("separation", 8);
-        _connect = new Button { Text = "Connect", Disabled = true, SizeFlagsHorizontal = SizeFlags.ExpandFill, ThemeTypeVariation = "PrimaryButton" };
-        _connect.Pressed += () => { if (SelectedDevice is { } d) ConnectPressed?.Invoke(d.Address); };
-        _disconnect = new Button { Text = "Disconnect", Disabled = true, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _disconnect.Pressed += () => DisconnectPressed?.Invoke();
-        buttons.AddChild(_connect);
-        buttons.AddChild(_disconnect);
-        v.AddChild(buttons);
-
-        v.AddChild(UiTheme.Caption("Device"));
-        var grid = new GridContainer { Columns = 2 };
-        grid.AddThemeConstantOverride("h_separation", 16);
-        grid.AddThemeConstantOverride("v_separation", 3);
-        foreach (var key in StatKeys)
-        {
-            grid.AddChild(UiTheme.Text(key, 13, UiTheme.Muted));
-            var val = UiTheme.Text("—", 13, UiTheme.Ink);
-            val.ClipText = true;
-            val.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            grid.AddChild(val);
-            _stats[key] = val;
-        }
-        v.AddChild(grid);
-
-        v.AddChild(UiTheme.Caption("Battery"));
-        _battery = new ProgressBar { MaxValue = 100, ShowPercentage = false, CustomMinimumSize = new Vector2(0, 20) };
-        _batteryText = UiTheme.Text("—", 12, UiTheme.Ink);
-        _batteryText.HorizontalAlignment = HorizontalAlignment.Center;
-        _batteryText.VerticalAlignment = VerticalAlignment.Center;
-        _batteryText.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        _battery.AddChild(_batteryText);
-        v.AddChild(_battery);
-
-        _leftHanded = new CheckBox { Text = "Left-handed golfer" };
-        _leftHanded.Toggled += _ => ClubChanged?.Invoke();
-        v.AddChild(_leftHanded);
-
-        v.AddChild(UiTheme.Caption("Log"));
-        _log = new RichTextLabel { ScrollFollowing = true, SizeFlagsVertical = SizeFlags.ExpandFill, SelectionEnabled = true };
-        _log.AddThemeFontSizeOverride("normal_font_size", 11);
-        _log.AddThemeColorOverride("default_color", UiTheme.Muted);
-        v.AddChild(_log);
+        _compact = compact;
+        var plan = _shotPanel.GetChild<HBoxContainer>(0);
+        _wide ??= Descendants(plan).Concat(Descendants(_topRow)).Concat(Descendants(_liePanel)).Where(c => c.CustomMinimumSize.X >= 100)
+            .Select(c => (c, c.CustomMinimumSize.X)).ToList();
+        foreach (var (c, w) in _wide) c.CustomMinimumSize = new Vector2(compact ? w * 0.75f : w, c.CustomMinimumSize.Y);
+        plan.AddThemeConstantOverride("separation", compact ? 10 : 18);
+        _topRow.AddThemeConstantOverride("separation", compact ? 6 : 10);
     }
 
-    public void ToggleDrawer() => _drawer.Visible = !_drawer.Visible;
+    private static IEnumerable<Control> Descendants(Node n) =>
+        n.GetChildren().OfType<Control>().SelectMany(c => new[] { c }.Concat(Descendants(c)));
 
     private OptionButton ClubPicker()
     {
-        var o = new OptionButton { CustomMinimumSize = new Vector2(190, 40), TooltipText = "Club (sent to the monitor)" };
+        var o = new OptionButton { CustomMinimumSize = new Vector2(190, 40), TooltipText = "Club (sent to the monitor)  [numpad 8 / 2, D-pad ↑ / ↓]" };
         foreach (var c in ClubPresets.All) o.AddItem(c.Label);
         o.Selected = ClubPresets.IndexOf("I7");
         o.ItemSelected += i => SelectClubIndex((int)i);
@@ -370,542 +512,27 @@ public partial class Hud : Control
         ClubChanged?.Invoke();
     }
 
-    // ---- range view --------------------------------------------------------------------------
-
-    private void BuildRangeView()
-    {
-        _rangeView = new Control { MouseFilter = MouseFilterEnum.Ignore };
-        _rangeView.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        AddChild(_rangeView);
-
-        var bar = new PanelContainer();
-        bar.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 0, 0, 16));
-        bar.SetAnchorsAndOffsetsPreset(LayoutPreset.BottomWide);
-        bar.OffsetTop = -RangeBarHeight;
-        _rangeView.AddChild(bar);
-
-        var h = new HBoxContainer();
-        h.AddThemeConstantOverride("separation", 16);
-        bar.AddChild(h);
-
-        // Club and actions.
-        var controls = new VBoxContainer { CustomMinimumSize = new Vector2(210, 0) };
-        controls.AddThemeConstantOverride("separation", 8);
-        controls.AddChild(UiTheme.Caption("Club"));
-        _rangeClub = ClubPicker();
-        controls.AddChild(_rangeClub);
-        var hit = new Button { Text = "HIT SHOT", ThemeTypeVariation = "PrimaryButton", CustomMinimumSize = new Vector2(0, 48),
-                               TooltipText = SwingTip };
-        hit.Pressed += () => SwingPressed?.Invoke();
-        controls.AddChild(hit);
-        var clear = new Button { Text = "Clear session", ThemeTypeVariation = "FlatButton" };
-        clear.Pressed += () => ClearPressed?.Invoke();
-        controls.AddChild(clear);
-        h.AddChild(controls);
-        h.AddChild(new VSeparator());
-
-        // Headline numbers.
-        var hero = new HBoxContainer();
-        hero.AddThemeConstantOverride("separation", 28);
-        hero.AddChild(HeroStat("Carry", "yd", out _carry));
-        hero.AddChild(HeroStat("Total", "yd", out _total));
-        h.AddChild(hero);
-        h.AddChild(new VSeparator());
-
-        // Everything else.
-        var grid = new GridContainer { Columns = 6, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        grid.AddThemeConstantOverride("h_separation", 8);
-        grid.AddThemeConstantOverride("v_separation", 8);
-        foreach (var (key, unit) in RangeMetrics)
-        {
-            var tile = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ExpandFill };
-            tile.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 10, 1, 10));
-            var tv = new VBoxContainer();
-            tv.AddThemeConstantOverride("separation", 0);
-            tv.AddChild(UiTheme.Caption(key));
-            var row = new HBoxContainer();
-            row.AddThemeConstantOverride("separation", 4);
-            var value = UiTheme.Text("—", 26, UiTheme.Ink, bold: true);
-            row.AddChild(value);
-            if (unit.Length > 0)
-            {
-                var u = UiTheme.Text(unit, 13, UiTheme.Muted);
-                u.SizeFlagsVertical = SizeFlags.ShrinkEnd;
-                row.AddChild(u);
-            }
-            tv.AddChild(row);
-            tile.AddChild(tv);
-            grid.AddChild(tile);
-            _rangeValues[key] = value;
-        }
-        h.AddChild(grid);
-
-        // Session history down the right, under the minimap.
-        var column = new PanelContainer();
-        column.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 12, 1, 14));
-        column.SetAnchorsPreset(LayoutPreset.RightWide);
-        column.OffsetLeft = -16 - RightColumnWidth;
-        column.OffsetRight = -16;
-        column.OffsetTop = TopBarHeight + 12 + 230 + 12 + 12;
-        column.OffsetBottom = -RangeBarHeight - 12;
-        _rangeView.AddChild(column);
-        var cv = new VBoxContainer();
-        cv.AddThemeConstantOverride("separation", 6);
-        cv.AddChild(UiTheme.Caption("Session"));
-        _sessionSummary = UiTheme.Text("No shots yet. Hit one with the monitor, or press HIT SHOT.", 13, UiTheme.Muted);
-        _sessionSummary.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        cv.AddChild(_sessionSummary);
-        _history = new Tree { Columns = 7, ColumnTitlesVisible = true, HideRoot = true, SelectMode = Tree.SelectModeEnum.Row, SizeFlagsVertical = SizeFlags.ExpandFill };
-        string[] cols = { "#", "Club", "Ball", "Spin", "Carry", "Total", "Off" };
-        for (int i = 0; i < cols.Length; i++)
-        {
-            _history.SetColumnTitle(i, cols[i]);
-            _history.SetColumnExpand(i, i is not 0);
-            _history.SetColumnTitleAlignment(i, HorizontalAlignment.Left);
-            if (i == 0) _history.SetColumnCustomMinimumWidth(0, 34);
-        }
-        _historyRoot = _history.CreateItem();
-        cv.AddChild(_history);
-        column.AddChild(cv);
-    }
-
-    private static Control HeroStat(string caption, string unit, out Label value)
-    {
-        var v = new VBoxContainer { CustomMinimumSize = new Vector2(140, 0), SizeFlagsVertical = SizeFlags.ShrinkCenter };
-        v.AddThemeConstantOverride("separation", 0);
-        v.AddChild(UiTheme.Caption(caption));
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 6);
-        value = UiTheme.Text("—", 64, UiTheme.Ink, bold: true);
-        row.AddChild(value);
-        var u = UiTheme.Text(unit, 18, UiTheme.Muted);
-        u.SizeFlagsVertical = SizeFlags.ShrinkEnd;
-        row.AddChild(u);
-        v.AddChild(row);
-        return v;
-    }
-
-    /// <summary>Shows a range shot: headline and detail numbers, history row and session summary.</summary>
-    public void AddRangeShot(string number, string club, RangeShot s, FlightResult f)
-    {
-        _carry.Text = f.LandingIndex == 0 ? "—" : $"{f.CarryYards:0}";
-        _total.Text = $"{f.TotalYards:0}";
-        void Set(string key, string value) => _rangeValues[key].Text = value;
-        Set("Ball speed", $"{s.BallMph:0.0}");
-        Set("Club speed", s.ClubMph is > 0 ? $"{s.ClubMph:0.0}" : "—");
-        Set("Smash", s.Smash is > 0 ? $"{s.Smash:0.00}" : "—");
-        Set("Launch", $"{s.LaunchDeg:0.0}°");
-        Set("Direction", RangeShot.Side(s.DirectionDeg) + "°");
-        Set("Apex", f.LandingIndex == 0 ? "—" : $"{f.ApexYards:0}");
-        Set("Spin", $"{s.SpinRpm:0}");
-        Set("Spin axis", RangeShot.Side(s.SpinAxisDeg) + "°");
-        Set("Descent", f.LandingIndex == 0 ? "—" : $"{f.DescentDeg:0}°");
-        Set("Offline", RangeShot.Side(f.LateralYards, "0"));
-        Set("Roll", f.LandingIndex == 0 ? "—" : $"{f.TotalYards - f.CarryYards:0}");
-        Set("Hang time", f.LandingIndex == 0 ? "—" : $"{f.HangTimeSec:0.0}");
-
-        var row = _history.CreateItem(_historyRoot, 0);
-        string[] vals = { number, club, $"{s.BallMph:0}", $"{s.SpinRpm:0}", f.LandingIndex == 0 ? "—" : $"{f.CarryYards:0}", $"{f.TotalYards:0}", RangeShot.Side(f.LateralYards, "0") };
-        for (int i = 0; i < vals.Length; i++) row.SetText(i, vals[i]);
-
-        if (f.LandingIndex > 0) _session.Add((club, f.CarryYards, f.TotalYards, f.LateralYards));
-        UpdateSessionSummary(club);
-    }
-
-    private void UpdateSessionSummary(string club)
-    {
-        var mine = _session.Where(x => x.Club == club).ToList();
-        int n = _historyRoot.GetChildCount();
-        string shots = n == 1 ? "1 shot" : $"{n} shots";
-        if (mine.Count == 0) { _sessionSummary.Text = shots; return; }
-        double carry = mine.Average(x => x.Carry), total = mine.Average(x => x.Total);
-        double spread = mine.Count > 1 ? Math.Sqrt(mine.Average(x => Math.Pow(x.Offline - mine.Average(y => y.Offline), 2))) : 0;
-        _sessionSummary.Text = $"{shots} · {club} average {carry:0} carry, {total:0} total"
-                             + (mine.Count > 1 ? $", ±{spread:0} yd offline ({mine.Count})" : "");
-    }
-
-    public void ClearShots()
-    {
-        _carry.Text = _total.Text = "—";
-        foreach (var t in _rangeValues.Values) t.Text = "—";
-        foreach (var child in _historyRoot.GetChildren()) child.Free();
-        _session.Clear();
-        _sessionSummary.Text = "No shots yet. Hit one with the monitor, or press HIT SHOT.";
-    }
-
-    // ---- course view -------------------------------------------------------------------------
-
-    private void BuildCourseView()
-    {
-        _courseView = new Control { MouseFilter = MouseFilterEnum.Ignore };
-        _courseView.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        AddChild(_courseView);
-
-        BuildHoleCard();
-        BuildShotPanel();
-        BuildResultCard();
-        BuildScorecard();
-    }
-
-    private void BuildHoleCard()
-    {
-        var card = new PanelContainer();
-        card.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 12, 1, 16));
-        card.Position = new Vector2(16, TopBarHeight + 12);
-        card.CustomMinimumSize = new Vector2(300, 0);
-        _courseView.AddChild(card);
-
-        var v = new VBoxContainer();
-        v.AddThemeConstantOverride("separation", 2);
-        var top = new HBoxContainer();
-        top.AddThemeConstantOverride("separation", 10);
-        _holeNumber = UiTheme.Text("HOLE 1", 26, UiTheme.Ink, bold: true);
-        top.AddChild(_holeNumber);
-        _holeFacts = UiTheme.Text("", 15, UiTheme.Muted);
-        _holeFacts.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-        top.AddChild(_holeFacts);
-        v.AddChild(top);
-        _holeName = UiTheme.Text("", 14, UiTheme.Muted);
-        v.AddChild(_holeName);
-        v.AddChild(new HSeparator());
-        _holeProgress = UiTheme.Text("", 15, UiTheme.Ink);
-        v.AddChild(_holeProgress);
-
-        var buttons = new HBoxContainer();
-        buttons.AddThemeConstantOverride("separation", 6);
-        var scorecard = new Button { Text = "Scorecard", ThemeTypeVariation = "FlatButton", TooltipText = "Show the scorecard  [S]" };
-        scorecard.Pressed += ToggleScorecard;
-        var restart = new Button { Text = "Restart", ThemeTypeVariation = "FlatButton", TooltipText = "Restart this hole  [R]" };
-        restart.Pressed += () => RestartHolePressed?.Invoke();
-        var next = new Button { Text = "Next hole", ThemeTypeVariation = "FlatButton", TooltipText = "Go to the next hole  [N]" };
-        next.Pressed += () => NextHolePressed?.Invoke();
-        buttons.AddChild(scorecard);
-        buttons.AddChild(restart);
-        buttons.AddChild(next);
-        v.AddChild(buttons);
-        _credit = UiTheme.Text("", 11, UiTheme.Muted);
-        _credit.Visible = false;
-        v.AddChild(_credit);
-        card.AddChild(v);
-    }
-
-    /// <summary>One labelled block of the shot panel: caption, main value, optional note.</summary>
-    private static VBoxContainer PlanBlock(string caption, out Label value, out Label note, float width, out Label captionLabel)
-    {
-        var v = new VBoxContainer { CustomMinimumSize = new Vector2(width, 0) };
-        v.AddThemeConstantOverride("separation", 2);
-        captionLabel = UiTheme.Caption(caption);
-        v.AddChild(captionLabel);
-        value = UiTheme.Text("—", 28, UiTheme.Ink, bold: true);
-        v.AddChild(value);
-        note = UiTheme.Text("", 13, UiTheme.Muted);
-        note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        note.CustomMinimumSize = new Vector2(width, 0);
-        v.AddChild(note);
-        return v;
-    }
-
-    private void BuildShotPanel()
-    {
-        var panel = _shotPanel = new PanelContainer();
-        panel.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 16, 1, 18));
-        panel.SetAnchorsPreset(LayoutPreset.CenterBottom);
-        panel.GrowHorizontal = GrowDirection.Both;
-        panel.GrowVertical = GrowDirection.Begin;
-        panel.OffsetBottom = -16;
-        panel.OffsetTop = -16 - ShotPanelHeight;
-        _courseView.AddChild(panel);
-
-        var h = new HBoxContainer();
-        h.AddThemeConstantOverride("separation", 22);
-        panel.AddChild(h);
-
-        h.AddChild(PlanBlock("To the pin", out _toPin, out _toPinNote, 150, out _));
-        h.AddChild(new VSeparator());
-
-        var lieBlock = new VBoxContainer { CustomMinimumSize = new Vector2(190, 0) };
-        lieBlock.AddThemeConstantOverride("separation", 4);
-        lieBlock.AddChild(UiTheme.Caption("Lie"));
-        _lieChip = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
-        _lie = UiTheme.Text("Tee", 18, new Color(0.06f, 0.08f, 0.06f), bold: true);
-        _lieChip.AddChild(_lie);
-        lieBlock.AddChild(_lieChip);
-        _lieNote = UiTheme.Text("", 13, UiTheme.Muted);
-        _lieNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _lieNote.CustomMinimumSize = new Vector2(190, 0);
-        lieBlock.AddChild(_lieNote);
-        h.AddChild(lieBlock);
-        h.AddChild(new VSeparator());
-
-        h.AddChild(PlanBlock("Stance", out _read, out _readNote, 190, out _readTitle));
-        h.AddChild(new VSeparator());
-
-        var clubBlock = new VBoxContainer { CustomMinimumSize = new Vector2(210, 0) };
-        clubBlock.AddThemeConstantOverride("separation", 4);
-        clubBlock.AddChild(UiTheme.Caption("Club"));
-        _courseClub = ClubPicker();
-        clubBlock.AddChild(_courseClub);
-        _clubNote = UiTheme.Text("", 13, UiTheme.Muted);
-        clubBlock.AddChild(_clubNote);
-        h.AddChild(clubBlock);
-        h.AddChild(new VSeparator());
-
-        var aimBlock = new VBoxContainer { CustomMinimumSize = new Vector2(170, 0) };
-        aimBlock.AddThemeConstantOverride("separation", 4);
-        aimBlock.AddChild(UiTheme.Caption("Aim"));
-        var aimRow = new HBoxContainer();
-        aimRow.AddThemeConstantOverride("separation", 6);
-        var left = new Button { Text = "‹", CustomMinimumSize = new Vector2(40, 40), TooltipText = "Aim left 1°  [←, Shift = 5°]" };
-        left.AddThemeFontSizeOverride("font_size", 22);
-        left.Pressed += () => AimPressed?.Invoke(Input.IsKeyPressed(Key.Shift) ? -5 : -1);
-        var right = new Button { Text = "›", CustomMinimumSize = new Vector2(40, 40), TooltipText = "Aim right 1°  [→, Shift = 5°]" };
-        right.AddThemeFontSizeOverride("font_size", 22);
-        right.Pressed += () => AimPressed?.Invoke(Input.IsKeyPressed(Key.Shift) ? 5 : 1);
-        aimRow.AddChild(left);
-        aimRow.AddChild(right);
-        aimBlock.AddChild(aimRow);
-        _aim = UiTheme.Text("", 13, UiTheme.Muted);
-        _aim.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _aim.CustomMinimumSize = new Vector2(170, 0);
-        aimBlock.AddChild(_aim);
-        h.AddChild(aimBlock);
-
-        var actions = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
-        actions.AddThemeConstantOverride("separation", 8);
-        _hit = new Button { Text = "HIT SHOT", ThemeTypeVariation = "PrimaryButton", CustomMinimumSize = new Vector2(180, 64),
-                            TooltipText = SwingTip };
-        _hit.AddThemeFontSizeOverride("font_size", 20);
-        _hit.Pressed += () => { if (_holeDone) NextHolePressed?.Invoke(); else SwingPressed?.Invoke(); };
-        actions.AddChild(_hit);
-        _flag = new Button { ThemeTypeVariation = "FlatButton", TooltipText = "Leave the flag in the hole, or pull it (the default)  [F]" };
-        _flag.Pressed += () => FlagPressed?.Invoke();
-        actions.AddChild(_flag);
-        var read = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-        read.AddThemeConstantOverride("separation", 6);
-        _heatMap = new Button { ThemeTypeVariation = "FlatButton", ToggleMode = true, Text = "Heat map  [H]",
-                                TooltipText = "Colour the green by height: blue low, red high  [H]" };
-        _heatMap.Pressed += () => HeatMapPressed?.Invoke();
-        _grid = new Button { ThemeTypeVariation = "FlatButton", ToggleMode = true, Text = "Grid  [G]",
-                             TooltipText = "Grid on the green, with dots rolling downhill along it (faster = steeper)  [G]" };
-        _grid.Pressed += () => GridPressed?.Invoke();
-        read.AddChild(_heatMap);
-        read.AddChild(_grid);
-        actions.AddChild(read);
-        h.AddChild(actions);
-        // Lie, stance/read, club and aim (with their separators) only matter while there's a shot to play.
-        _planDetails = h.GetChildren().OfType<Control>().Skip(1).Take(8).ToArray();
-    }
-
-    private Control[] _planDetails = Array.Empty<Control>();
-    private bool _holeDone;
-
-    private void BuildResultCard()
-    {
-        _result = new PanelContainer { Visible = false };
-        _result.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 14, 1, 16));
-        _result.SetAnchorsPreset(LayoutPreset.CenterTop);
-        _result.GrowHorizontal = GrowDirection.Both;
-        _result.OffsetTop = TopBarHeight + 12;
-        _courseView.AddChild(_result);
-
-        var v = new VBoxContainer();
-        v.AddThemeConstantOverride("separation", 6);
-        _resultHeadline = UiTheme.Text("", 20, UiTheme.Ink, bold: true);
-        _resultHeadline.HorizontalAlignment = HorizontalAlignment.Center;
-        v.AddChild(_resultHeadline);
-        _resultStats = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-        _resultStats.AddThemeConstantOverride("separation", 30);
-        v.AddChild(_resultStats);
-        _resultNote = UiTheme.Text("", 13, UiTheme.Muted);
-        _resultNote.HorizontalAlignment = HorizontalAlignment.Center;
-        v.AddChild(_resultNote);
-        _result.AddChild(v);
-    }
-
-    private void BuildScorecard()
-    {
-        _scorecardPanel = new PanelContainer { Visible = false };
-        _scorecardPanel.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 16, 1, 22));
-        _scorecardPanel.SetAnchorsPreset(LayoutPreset.Center);
-        _scorecardPanel.GrowHorizontal = GrowDirection.Both;
-        _scorecardPanel.GrowVertical = GrowDirection.Both;
-        _courseView.AddChild(_scorecardPanel);
-        var v = new VBoxContainer();
-        v.AddThemeConstantOverride("separation", 12);
-        var head = new HBoxContainer();
-        _scorecardTitle = UiTheme.Text("Scorecard", 20, UiTheme.Ink, bold: true);
-        _scorecardTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        head.AddChild(_scorecardTitle);
-        var close = new Button { Text = "✕", ThemeTypeVariation = "FlatButton", TooltipText = "Close  [S]" };
-        close.Pressed += ToggleScorecard;
-        head.AddChild(close);
-        v.AddChild(head);
-        _scorecard = new GridContainer();
-        _scorecard.AddThemeConstantOverride("h_separation", 18);
-        _scorecard.AddThemeConstantOverride("v_separation", 6);
-        v.AddChild(_scorecard);
-        _scorecardPanel.AddChild(v);
-    }
-
-    public void SetHoleCard(int number, string name, int par, double yards, string progress)
-    {
-        _holeNumber.Text = $"HOLE {number}";
-        _holeFacts.Text = $"Par {par} · {yards:0} yd";
-        _holeName.Text = name;
-        _holeName.Visible = name.Length > 0;
-        _holeProgress.Text = progress;
-    }
-
-    /// <summary>Shows which green-reading aids are on (the buttons also toggle themselves when clicked).</summary>
-    public void SetGreenOverlays(bool heatMap, bool grid)
-    {
-        _heatMap.SetPressedNoSignal(heatMap);
-        _grid.SetPressedNoSignal(grid);
-        _heatMap.Text = heatMap ? "Heat map: on  [H]" : "Heat map  [H]";
-        _grid.Text = grid ? "Grid: on  [G]" : "Grid  [G]";
-    }
-
-    public void SetShotPlan(ShotPlan p)
-    {
-        _toPin.Text = p.ToPin;
-        SetNote(_toPinNote, p.ToPinNote);
-        _lie.Text = p.Lie;
-        _lieChip.AddThemeStyleboxOverride("panel", UiTheme.Box(p.LieColor, 8, 0, 4, 12));
-        SetNote(_lieNote, p.LieNote);
-        _readTitle.Text = p.ReadTitle.ToUpperInvariant();
-        _read.Text = p.Read;
-        SetNote(_readNote, p.ReadNote);
-        SetNote(_clubNote, p.ClubNote);
-        SetNote(_aim, p.Aim);
-        _flag.Visible = p.OnGreen;
-        _flag.Text = p.FlagIn ? "Flag: in  [F]" : "Flag: pulled  [F]";
-        // Hole finished: the panel becomes "Holed" plus a NEXT HOLE action.
-        _holeDone = p.HoleDone;
-        foreach (var c in _planDetails) c.Visible = !p.HoleDone;
-        _hit.Text = p.HoleDone ? "NEXT HOLE" : "HIT SHOT";
-        _hit.TooltipText = p.HoleDone ? "Go to the next hole  [N]" : SwingTip;
-        _hit.Disabled = !p.CanHit && !p.HoleDone;
-    }
-
-    private static void SetNote(Label l, string text)
-    {
-        l.Text = text;
-        l.Visible = text.Length > 0;
-    }
-
-    /// <summary>The result card: a headline (where the ball finished) and a few numbers. Hidden by <see cref="HideResult"/>.</summary>
-    public void ShowResult(string headline, IReadOnlyList<Stat> stats, string note = "")
-    {
-        _resultHeadline.Text = headline;
-        foreach (var c in _resultStats.GetChildren()) c.QueueFree();
-        foreach (var s in stats)
-        {
-            var b = new VBoxContainer();
-            b.AddThemeConstantOverride("separation", 0);
-            var cap = UiTheme.Caption(s.Caption);
-            cap.HorizontalAlignment = HorizontalAlignment.Center;
-            b.AddChild(cap);
-            var row = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
-            row.AddThemeConstantOverride("separation", 4);
-            row.AddChild(UiTheme.Text(s.Value, 30, UiTheme.Ink, bold: true));
-            if (s.Unit.Length > 0)
-            {
-                var u = UiTheme.Text(s.Unit, 14, UiTheme.Muted);
-                u.SizeFlagsVertical = SizeFlags.ShrinkEnd;
-                row.AddChild(u);
-            }
-            b.AddChild(row);
-            _resultStats.AddChild(b);
-        }
-        _resultStats.Visible = stats.Count > 0;
-        SetNote(_resultNote, note);
-        _result.Visible = true;
-        _result.Modulate = new Color(1, 1, 1, 0);
-        CreateTween().TweenProperty(_result, "modulate:a", 1.0f, 0.25);
-    }
-
-    public void HideResult() => _result.Visible = false;
-
-    public void ToggleScorecard() => _scorecardPanel.Visible = _courseMode && !_scorecardPanel.Visible;
-    public void ShowScorecard(bool show) => _scorecardPanel.Visible = _courseMode && show;
-
-    /// <summary>
-    /// Rows: hole numbers, par, score (blank until played), with a total column. Courses longer than 9 holes are
-    /// shown nine at a time (Out / In), with the overall total at the end of the back nine.
-    /// </summary>
-    public void SetScorecard(string title, IReadOnlyList<int> pars, IReadOnlyList<int?> scores, int current)
-    {
-        _scorecardTitle.Text = title;
-        foreach (var c in _scorecard.GetChildren()) c.Free();
-        int perRow = pars.Count > 9 ? 9 : pars.Count;
-        bool split = pars.Count > perRow;
-        _scorecard.Columns = perRow + (split ? 3 : 2);
-        void Cell(string text, Color? color = null, bool bold = false)
-        {
-            var l = UiTheme.Text(text, 15, color ?? UiTheme.Ink, bold);
-            l.HorizontalAlignment = HorizontalAlignment.Center;
-            l.CustomMinimumSize = new Vector2(34, 0);
-            _scorecard.AddChild(l);
-        }
-        Color ScoreColor(int i) => scores[i] is not { } s ? UiTheme.Muted
-            : s < pars[i] ? UiTheme.Accent : s > pars[i] ? UiTheme.Warn : UiTheme.Ink;
-        string Total(int from, int count)
-        {
-            var idx = Enumerable.Range(from, count).Where(i => scores[i] != null).ToList();
-            if (idx.Count == 0) return "–";
-            int played = idx.Sum(i => scores[i]!.Value), par = idx.Sum(i => pars[i]);
-            return $"{played} ({ToPar(played - par)})";
-        }
-
-        for (int start = 0; start < pars.Count; start += perRow)
-        {
-            int n = Math.Min(perRow, pars.Count - start);
-            bool last = start + n >= pars.Count;
-            string label = !split ? "Tot" : start == 0 ? "Out" : "In";
-            void Pad() { for (int i = n; i < perRow; i++) Cell(""); }
-
-            Cell("Hole", UiTheme.Muted);
-            for (int i = start; i < start + n; i++) Cell((i + 1).ToString(), i == current ? UiTheme.Accent : UiTheme.Muted, i == current);
-            Pad();
-            Cell(label, UiTheme.Muted);
-            if (split) Cell(last ? "Tot" : "", UiTheme.Muted);
-
-            Cell("Par", UiTheme.Muted);
-            for (int i = start; i < start + n; i++) Cell(pars[i].ToString());
-            Pad();
-            Cell(pars.Skip(start).Take(n).Sum().ToString());
-            if (split) Cell(last ? pars.Sum().ToString() : "");
-
-            Cell("Score", UiTheme.Muted);
-            for (int i = start; i < start + n; i++) Cell(scores[i]?.ToString() ?? "–", ScoreColor(i), scores[i] != null);
-            Pad();
-            Cell(Total(start, n), bold: true);
-            if (split) Cell(last ? Total(0, pars.Count) : "", bold: true);
-        }
-    }
-
-    public static string ToPar(int d) => d == 0 ? "E" : d > 0 ? $"+{d}" : d.ToString();
-
     // ---- mode & shared state -----------------------------------------------------------------
 
     public void SetCourseMode(bool course)
     {
         _courseMode = course;
-        _rangeTab.SetPressedNoSignal(!course);
-        _courseTab.SetPressedNoSignal(course);
         _rangeView.Visible = !course;
         _courseView.Visible = course;
-        _coursePicker.Visible = course;
-        if (!course) { _scorecardPanel.Visible = false; _result.Visible = false; }
+        _rangeShotSlot.Visible = !course;
+        if (!course)
+        {
+            _scorecardPanel.Visible = false;
+            _result.Visible = false;
+            _hint.Visible = false;
+            _holeDone = false;
+            Shot.Visible = true;
+            Shot.Hit.Text = "HIT SHOT";
+            Shot.Hit.Disabled = false;
+        }
+        HideMapMarkers();
+        PlaceShotControls();
         LayoutMinimap();
-        LayoutSwingPanel();
-    }
-
-    public void SetCourses(IEnumerable<string> names, int selected)
-    {
-        _coursePicker.Clear();
-        foreach (var n in names) _coursePicker.AddItem(n);
-        _coursePicker.Selected = selected;
     }
 
     /// <summary>Map attribution on the hole card (hidden when null).</summary>
@@ -923,97 +550,23 @@ public partial class Hud : Control
         SelectClubIndex(i);
     }
 
-    public void SetCameraLabel(bool follow) => _camera.Text = follow ? "Camera: follow" : "Camera: fixed";
-
-    // ---- monitor -----------------------------------------------------------------------------
-
-    public void SetStatus(string text) => _status.Text = text;
-    public void SetStat(string key, string value) => _stats[key].Text = value;
-    public void SetScanning(bool scanning) => _scan.Text = scanning ? "Stop" : "Scan";
-
-    public void ResetStats(bool keepShots = true)
+    /// <summary>
+    /// A player's club and hand, set together (a new player up): raises <see cref="ClubChanged"/> once if either
+    /// changed, so the monitor gets one command.
+    /// </summary>
+    public void SetPlayerClub(string code, bool leftHanded)
     {
-        foreach (var (k, v) in _stats) if (!keepShots || k != "Shots") v.Text = "—";
-        _battery.Value = 0;
-        _batteryText.Text = "—";
-        _batteryLevel = null;
-        UpdateChip(UiTheme.Muted);
+        int i = ClubPresets.IndexOf(code);
+        bool handChanged = _leftHanded.ButtonPressed != leftHanded;
+        _leftHanded.SetPressedNoSignal(leftHanded);
+        if (i >= 0 && i != _rangeClub.Selected) SelectClubIndex(i);   // raises ClubChanged
+        else if (handChanged) ClubChanged?.Invoke();
     }
 
-    public void SetBattery(int level, string charge)
+    /// <summary>Next club down the bag (+1, shorter) or up it (-1, longer), from a numpad or gamepad.</summary>
+    public void StepClub(int delta)
     {
-        _battery.Value = level;
-        var fill = level <= 15 ? UiTheme.Danger : level <= 35 ? UiTheme.Warn : UiTheme.Accent;
-        _battery.AddThemeStyleboxOverride("fill", UiTheme.Box(fill, 4, 0, 0));
-        _batteryText.Text = $"{level}%  ·  {charge}";
-        _batteryLevel = level;
-        _monitorChip.Text = ChipText();
-    }
-
-    /// <summary>Monitor readiness in the top bar ("Ready — hit!", "Place a ball", ...).</summary>
-    public void SetReady(string text, Color color)
-    {
-        _readyText = text;
-        UpdateChip(color);
-    }
-
-    private Color _chipColor = UiTheme.Muted;
-
-    private void UpdateChip(Color accent)
-    {
-        _chipColor = accent;
-        _monitorChip.Text = ChipText();
-        foreach (var (state, bg) in new[] { ("normal", UiTheme.Control), ("hover", UiTheme.ControlHover), ("pressed", UiTheme.ControlPressed) })
-        {
-            var box = UiTheme.Box(bg, 8, 0, 8, 14);
-            box.BorderWidthLeft = 5;
-            box.BorderColor = accent;
-            _monitorChip.AddThemeStyleboxOverride(state, box);
-        }
-    }
-
-    private string ChipText() => _batteryLevel is { } b ? $"{_readyText}   ·   {b}%" : _readyText;
-
-    public void SetConnected(bool connected)
-    {
-        _connected = connected;
-        UpdateButtons();
-    }
-
-    public void Log(string line) => _log.AddText(line + "\n");
-
-    /// <summary>Re-renders the monitor list, keeping the selection.</summary>
-    public void SetDevices(IReadOnlyList<DeviceEntry> devices)
-    {
-        ulong? selected = SelectedDevice?.Address;
-        _shownDevices = devices.ToList();
-        _devices.Clear();
-        for (int i = 0; i < _shownDevices.Count; i++)
-        {
-            var d = _shownDevices[i];
-            bool stale = (DateTime.Now - d.SeenAt).TotalSeconds > 10;
-            int idx = _devices.AddItem($"{d.Name}   ·   {d.Rssi} dBm");
-            _devices.SetItemTooltip(idx, d.AddressText);
-            if (stale) _devices.SetItemCustomFgColor(idx, UiTheme.Muted);
-            if (d.Address == selected) _devices.Select(idx);
-        }
-        if (selected == null && _shownDevices.Count > 0) _devices.Select(0);
-        UpdateButtons();
-    }
-
-    public DeviceEntry? SelectedDevice
-    {
-        get
-        {
-            var sel = _devices.GetSelectedItems();
-            return sel.Length > 0 && sel[0] < _shownDevices.Count ? _shownDevices[sel[0]] : null;
-        }
-    }
-
-    private void UpdateButtons()
-    {
-        _connect.Disabled = _connected || SelectedDevice == null;
-        _disconnect.Disabled = !_connected;
-        _scan.Disabled = _connected;
+        int i = Math.Clamp(_rangeClub.Selected + delta, 0, ClubPresets.All.Count - 1);
+        if (i != _rangeClub.Selected) SelectClubIndex(i);
     }
 }

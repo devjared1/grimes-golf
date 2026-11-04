@@ -182,6 +182,17 @@ public static class Surfaces
         RollingResistance = 0.09, Firmness = 0.9,
     };
 
+    /// <summary>
+    /// Concrete (cart paths): its own restitution curve, livelier than turf and falling off more gently with speed
+    /// (about 0.6 at 5 m/s, 0.45 at 20 m/s), almost no crater, and very little rolling resistance.
+    /// </summary>
+    public static SurfaceProperties CartPath { get; } = new()
+    {
+        Name = "Cart path", RestitutionConstant = 0.68, RestitutionPerSpeed = -0.012, RestitutionPerSpeedSquared = 0,
+        RestitutionCurveLimitSpeed = 30, MinimumRestitution = 0.3, CraterAngleDegrees = 1, MaximumCraterAngleDegrees = 5,
+        StaticFriction = 0.5, DynamicFriction = 0.45, TangentialRestitution = 0.05, RollingResistance = 0.035, RoughnessMetres = 0.001,
+    };
+
     public static SurfaceProperties SoftGround { get; } = Fairway with { Name = "Soft ground", Firmness = 0.15 };
 
     public static SurfaceProperties WetFairway { get; } = Fairway with { Name = "Wet fairway", Moisture = 0.8 };
