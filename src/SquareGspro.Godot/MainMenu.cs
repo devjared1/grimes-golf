@@ -14,14 +14,17 @@ public sealed record CourseCard(string Name, string Description);
 /// </summary>
 public partial class MainMenu : Control
 {
-    public event Action? ResumePressed, RangePressed, SettingsPressed, QuitPressed, MonitorPressed;
+    public event Action? ResumePressed, RangePressed, SettingsPressed, QuitPressed, MonitorPressed, OnlinePressed;
     /// <summary>Start a new round on this course, set up like this.</summary>
     public event Action<int, GameSetup>? StartCourse;
     /// <summary>The course list wants this course's stats (answer with <see cref="SetCourseStats"/>).</summary>
     public event Action<int>? CourseStatsWanted;
 
     private VBoxContainer _home = null!, _courses = null!, _courseList = null!;
-    private Button _newGame = null!, _resume = null!, _start = null!;
+    private Button _newGame = null!, _resume = null!, _start = null!, _online = null!;
+
+    /// <summary>Shows Play Online (only in development builds until it has been tried between two houses).</summary>
+    public void SetOnlineAvailable(bool available) => _online.Visible = available;
     private Label _resumeNote = null!, _monitorText = null!, _courseName = null!, _courseDescription = null!, _courseStats = null!, _players = null!;
     private PanelContainer _monitorCard = null!;
     private readonly List<Button> _courseButtons = new();
@@ -80,6 +83,10 @@ public partial class MainMenu : Control
         var range = BigButton("Driving Range", "Hit balls on the range");
         range.Pressed += () => RangePressed?.Invoke();
         _home.AddChild(range);
+        _online = BigButton("Play Online", "Play a round with friends at their own simulators");
+        _online.Pressed += () => OnlinePressed?.Invoke();
+        _online.Visible = false;
+        _home.AddChild(_online);
         var settings = BigButton("Settings", "Players, house rules, launch monitor, text size");
         settings.Pressed += () => SettingsPressed?.Invoke();
         _home.AddChild(settings);

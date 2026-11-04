@@ -27,6 +27,7 @@ public partial class Main
     /// </summary>
     private void ShowMainMenu()
     {
+        if (_online != null) { LeaveOnline(); return; }   // which comes back here once online play is put away
         if (_outcome != null) FinishShot();
         if (_courseMode) { SaveRound(); EnterRange(); }
         _hud.ShowMainMenu(true);
@@ -104,11 +105,16 @@ public partial class Main
     /// <summary>The in-game menu (Menu button, M, Esc with nothing else open, gamepad Start).</summary>
     private void OpenGameMenu()
     {
-        if (_hud.MainMenu.IsOpen) return;
+        if (_hud.MainMenu.IsOpen || _hud.Online.IsOpen) return;
         bool moving = _outcome != null || _player.IsPlaying;
         var items = new List<MenuItem> { new("Resume", null, "Back to the game  [Esc]", Primary: true) };
         string subtitle = "";
-        if (_courseMode && _match is { } m)
+        if (_courseMode && _match is { } om && _online != null)
+        {
+            subtitle = $"Online, lobby {_online.Code}  ·  {_game.Summary(om.Players.Count)}";
+            AddOnlineMenuItems(items);
+        }
+        else if (_courseMode && _match is { } m)
         {
             subtitle = _game.Summary(m.Players.Count);
             items.Add(new("Scorecard", () => _hud.ShowScorecard(true), "[S, gamepad Y]"));
@@ -128,7 +134,7 @@ public partial class Main
         }
         items.Add(new(_camera.Follow ? "Camera: Follow Ball" : "Camera: Stay Behind", ToggleCamera, "Follow the ball or stay behind it  [C]"));
         items.Add(new("Launch Monitor", _hud.ToggleDrawer, "Devices, connect / disconnect, battery, log  [L]"));
-        items.Add(new("Physics Tuner", _tuner.Toggle, "Adjust the physics between shots, in its own window  [T]"));
+        if (_online == null) items.Add(new("Physics Tuner", _tuner.Toggle, "Adjust the physics between shots, in its own window  [T]"));
         if (items.Count % 2 == 1) items.Add(new("Close", null));
         _hud.Overlay.Open(_courseMode ? $"Hole {_match?.Hole.Number}  ·  {_courseDef?.Name}" : "Driving range", subtitle, items, columns: 2);
     }

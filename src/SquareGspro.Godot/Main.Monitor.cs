@@ -205,10 +205,18 @@ public partial class Main
     }
 
     /// <summary>Club or hand changed: refresh the plan or meter, and tell the monitor.</summary>
-    private async void OnClubChanged()
+    private void OnClubChanged()
     {
         SuggestPower();
         if (_courseMode) UpdateAim(); else UpdateRangeAim();
+        // Online, a club shown for a player at another PC isn't sent to this monitor (it's set when the turn comes here).
+        if (_online != null && _courseMode && !_online.IsLocalTurn) return;
+        SendClubToMonitor();
+    }
+
+    /// <summary>The club and hand on screen, to the monitor.</summary>
+    private async void SendClubToMonitor()
+    {
         var s = _session;
         if (s == null) return;
         string code = _hud.ClubCode;
