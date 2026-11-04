@@ -13,6 +13,8 @@ public sealed record ShotOutcome(
     public bool PickedUp { get; init; }
     /// <summary>The hole is finished, holed or picked up.</summary>
     public bool HoleOver => Holed || PickedUp;
+    /// <summary>How the lie changed the shot, as text, for an outcome received from another PC (which has no <see cref="LieEffect"/>).</summary>
+    public string? LieNote { get; init; }
 }
 
 /// <summary>
@@ -127,6 +129,38 @@ public sealed class HoleRound
         MulligansLeft = Math.Clamp(mulligansLeft, 0, Rules.Mulligans);
         FirstHole = Math.Clamp(firstHole, 0, _scores.Length - 1);
     }
+
+    /// <summary>The round before the last counted shot on this hole (what a mulligan goes back to), null if none.</summary>
+    public State? BeforeLast => _beforeLast;
+
+    /// <summary>
+    /// Sets the round to exactly this, mulligan state included (unlike <see cref="Resume"/>, nothing is clamped or
+    /// forgotten): for an online snapshot, so every PC's round is the host's.
+    /// </summary>
+    public void Load(IReadOnlyList<int?> scores, State current, int mulligansLeft, int firstHole, State? beforeLast)
+    {
+        for (int i = 0; i < _scores.Length; i++) _scores[i] = i < scores.Count ? scores[i] : null;
+        Restore(current);
+        MulligansLeft = Math.Max(0, mulligansLeft);
+        FirstHole = Math.Clamp(firstHole, 0, _scores.Length - 1);
+        _beforeLast = beforeLast;
+    }
+
+    /// <summary>
+    /// Ends the hole without holing out (a player skipped online after dropping): it scores <paramref name="score"/>
+    /// and can't be taken back. Nothing happens if the hole is already finished.
+    /// </summary>
+    public void PickUpHole(int score)
+    {
+        if (Holed) return;
+        Strokes = Math.Max(Strokes, score);
+        Holed = PickedUp = true;
+        _scores[HoleIndex] = Strokes;
+        _beforeLast = null;
+    }
+
+    /// <summary>What a skipped player scores on the hole: double par, or the strokes already taken if more.</summary>
+    public int SkipScore => Math.Max(Strokes, 2 * Hole.Par);
 
     /// <summary>A player joining part-way through: they start on the tee of hole <paramref name="index"/>; the holes before don't count for them.</summary>
     public void JoinAt(int index)

@@ -29,18 +29,28 @@ public static class ClubPresets
     }
 }
 
+/// <summary>Where a shot came from: the swing meter on screen, a launch monitor, a demo shot or a development tool.</summary>
+public enum ShotSource { Screen, Monitor, Demo, Dev }
+
 /// <summary>A shot in display (GSPro) conventions: mph, direction and spin axis positive = right.</summary>
 public sealed record RangeShot(
     double BallMph, double LaunchDeg, double DirectionDeg, double SpinRpm, double SpinAxisDeg,
     double? ClubMph, double? Smash, bool IsDemo = false)
 {
+    /// <summary>Where it came from (online play only takes shots from a launch monitor).</summary>
+    public ShotSource Source { get; init; } = IsDemo ? ShotSource.Demo : ShotSource.Screen;
+
+    /// <summary>Every number is a real number (not NaN or infinite), as anything sent over a network must be checked for.</summary>
+    public bool IsFinite => double.IsFinite(BallMph) && double.IsFinite(LaunchDeg) && double.IsFinite(DirectionDeg) && double.IsFinite(SpinRpm)
+                            && double.IsFinite(SpinAxisDeg) && (ClubMph is null || double.IsFinite(ClubMph.Value)) && (Smash is null || double.IsFinite(Smash.Value));
+
     public static RangeShot FromSquare(BallMetricsEvent ball, ClubMetricsEvent? club)
     {
         double mph = ball.BallSpeedMs * ShotMapper.MsToMph;
         double? clubMph = club?.ClubSpeedMs * ShotMapper.MsToMph;
         double? smash = club?.Smash ?? (clubMph > 0 ? mph / clubMph : null);
         // Square reports spin axis negative = curves right; flip to the display convention.
-        return new RangeShot(mph, ball.LaunchDeg, ball.DirectionDeg, ball.TotalSpinRpm, -ball.SpinAxisDeg, clubMph, smash);
+        return new RangeShot(mph, ball.LaunchDeg, ball.DirectionDeg, ball.TotalSpinRpm, -ball.SpinAxisDeg, clubMph, smash) { Source = ShotSource.Monitor };
     }
 
     /// <summary>A made-up shot around the club's typical numbers.</summary>

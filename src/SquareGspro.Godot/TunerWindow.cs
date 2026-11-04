@@ -41,6 +41,12 @@ public partial class TunerWindow : Window
     private bool _syncing;
     private double _saveStartupIn = -1;
 
+    /// <summary>
+    /// Start-up values aren't written while this is set: online, a friend's PC plays with the host's tuning, which
+    /// mustn't end up in its own <c>startup.json</c>.
+    /// </summary>
+    public static bool FreezeStartup { get; set; }
+
     private Label _changed = null!, _status = null!, _diff = null!;
     private Button _replay = null!;
     private CheckBox _startup = null!, _ghost = null!;
@@ -107,6 +113,7 @@ public partial class TunerWindow : Window
     public override void _Process(double delta)
     {
         if (_saveStartupIn < 0) return;
+        if (FreezeStartup) { _saveStartupIn = -1; return; }
         _saveStartupIn -= delta;
         if (_saveStartupIn < 0) WriteStartup();
     }
@@ -354,6 +361,7 @@ public partial class TunerWindow : Window
     private void WriteStartup()
     {
         _saveStartupIn = -1;
+        if (FreezeStartup) return;
         try
         {
             Directory.CreateDirectory(PresetFolder);

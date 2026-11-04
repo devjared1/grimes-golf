@@ -103,6 +103,8 @@ public sealed record SavedRound(
 /// Everything the app keeps between runs, as JSON files under one folder:
 /// <list type="bullet">
 /// <item><c>current-round.json</c>: the round being played (rewritten after every shot; resumed at start-up).</item>
+/// <item><c>online-round.json</c>: an online round this PC is hosting, kept so it can be carried on later. Kept
+/// apart from the offline round, which an online round never touches.</item>
 /// <item><c>rounds/</c>: finished rounds, one file each.</item>
 /// <item><c>sessions/</c>: every shot, one JSON line each, a file per app session.</item>
 /// </list>
@@ -129,6 +131,7 @@ public sealed class GolfData
     public string Folder { get; }
     public string CurrentRoundFile => Path.Combine(Folder, "current-round.json");
     public string RoundsFolder => Path.Combine(Folder, "rounds");
+    public string OnlineRoundFile => Path.Combine(Folder, "online-round.json");
     public string SessionFile => _sessionFile;
 
     /// <summary>Raised (with a message) when something couldn't be read or written.</summary>
@@ -151,6 +154,34 @@ public sealed class GolfData
                 JsonSerializer.Serialize(round, Json));
             File.Delete(CurrentRoundFile);
         });
+
+    /// <summary>
+    /// Files a finished round under <see cref="RoundsFolder"/> without touching the offline round in progress (online
+    /// rounds end up here on every PC that played in them).
+    /// </summary>
+    public void FileRound(SavedRound round) =>
+        Try("file the round", () =>
+        {
+            Directory.CreateDirectory(RoundsFolder);
+            WriteAtomic(Path.Combine(RoundsFolder, $"{round.Started:yyyy-MM-dd_HHmm} {Safe(round.Course)}.json"), JsonSerializer.Serialize(round, Json));
+        });
+
+    /// <summary>Saves the online round this PC hosts (any JSON-serializable record), to carry on later.</summary>
+    public void SaveOnlineRound<T>(T round) =>
+        Try("save the online round", () => WriteAtomic(OnlineRoundFile, JsonSerializer.Serialize(round, Json)));
+
+    /// <summary>The online round this PC was hosting, if there is one (and it reads).</summary>
+    public T? LoadOnlineRound<T>() where T : class
+    {
+        T? r = null;
+        Try("read the online round", () =>
+        {
+            if (File.Exists(OnlineRoundFile)) r = JsonSerializer.Deserialize<T>(File.ReadAllText(OnlineRoundFile), Json);
+        });
+        return r;
+    }
+
+    public void ClearOnlineRound() => Try("clear the online round", () => File.Delete(OnlineRoundFile));
 
     /// <summary>The round left unfinished last time, if there is one (and it reads).</summary>
     public SavedRound? LoadCurrentRound()

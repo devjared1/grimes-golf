@@ -31,6 +31,8 @@ public sealed class Match
     /// <summary>Scramble: who has hit from the team's spot this stroke, and where their shot left their round.</summary>
     private readonly bool[] _hit;
     private readonly HoleRound.State?[] _after;
+    /// <summary>Online: players who have dropped out (skipped, their holes picked up, until they're back).</summary>
+    private readonly bool[] _away;
 
     public Match(IReadOnlyList<Hole> holes, Terrain? terrain, IReadOnlyList<Golfer> players, HouseRules? rules = null, GameType type = GameType.Stroke)
     {
@@ -46,6 +48,7 @@ public sealed class Match
         _honour = Enumerable.Range(0, players.Count).ToArray();
         _hit = new bool[players.Count];
         _after = new HoleRound.State?[players.Count];
+        _away = new bool[players.Count];
     }
 
     public IReadOnlyList<Hole> Holes { get; }
@@ -102,6 +105,7 @@ public sealed class Match
         Array.Clear(_after);
         LastToPlay = null;
         LastPick = null;
+        foreach (int p in Enumerable.Range(0, Players.Count).Where(p => _away[p])) Excuse(p);
         Turn = _honour[0];
         Turn = NextToPlay();
     }
@@ -138,7 +142,7 @@ public sealed class Match
         {
             _hit[Turn] = true;
             _after[Turn] = Current.Save();
-            if (o.HoleOver || Sides[side].All(p => _hit[p])) Pick(side);
+            if (o.HoleOver || Sides[side].All(p => _hit[p] || _away[p])) Pick(side);
         }
         return o;
     }
@@ -178,7 +182,7 @@ public sealed class Match
     /// </summary>
     public int NextToPlay()
     {
-        var waiting = _honour.Where(p => !_rounds[p].Holed).ToList();
+        var waiting = _honour.Where(p => !_rounds[p].Holed && !_away[p]).ToList();
         if (waiting.Count == 0) return Turn;
         if (Type == GameType.Scramble)
         {
@@ -192,6 +196,82 @@ public sealed class Match
     }
 
     public void AdvanceTurn() => Turn = NextToPlay();
+
+    // ---- online: players away, snapshots ----
+
+    /// <summary>Whether <paramref name="player"/> is away (dropped out online).</summary>
+    public bool IsAway(int player) => _away[player];
+
+    /// <summary>
+    /// Online: a player has dropped out (<paramref name="away"/>) or come back. While away they're skipped and each
+    /// hole is picked up for them (double par, or the strokes taken if more), except in a scramble, where their team
+    /// plays on without them and they share its score (a team with nobody left picks up). Back again, they play from
+    /// the next hole.
+    /// </summary>
+    public void SetAway(int player, bool away)
+    {
+        if (player < 0 || player >= Players.Count || _away[player] == away) return;
+        _away[player] = away;
+        if (!away) return;
+        Excuse(player);
+        if (Turn == player || _rounds[Turn].Holed || _away[Turn]) Turn = NextToPlay();
+    }
+
+    /// <summary>An away player: picks up their hole, or lets their scramble team carry on without them.</summary>
+    private void Excuse(int player)
+    {
+        int side = _sideOf[player];
+        if (!Scramble(side))
+        {
+            _rounds[player].PickUpHole(_rounds[player].SkipScore);
+            return;
+        }
+        var members = Sides[side];
+        if (members.All(p => _away[p]))
+        {
+            foreach (int p in members) { _rounds[p].PickUpHole(_rounds[p].SkipScore); _hit[p] = false; _after[p] = null; }
+            return;
+        }
+        // Everyone still here has hit this stroke: the pick can be made without them.
+        if (members.Any(p => _hit[p]) && members.All(p => _hit[p] || _away[p])) Pick(side);
+    }
+
+    /// <summary>The whole state of the match, to send to other PCs or keep (see <see cref="MatchSnapshot"/>).</summary>
+    public MatchSnapshot Capture() =>
+        new(Turn, LastToPlay, _honour.ToArray(),
+            Enumerable.Range(0, Players.Count).Select(p =>
+            {
+                var r = _rounds[p];
+                return new MatchSnapshot.Player(r.Scores.ToArray(), MatchSnapshot.Position.Of(r.Save()), r.MulligansLeft, r.FirstHole,
+                    r.BeforeLast is { } b ? MatchSnapshot.Position.Of(b) : null, _hit[p],
+                    _after[p] is { } a ? MatchSnapshot.Position.Of(a) : null, _away[p]);
+            }).ToArray(),
+            MatchSnapshot.WindState.Of(Wind),
+            LastPick is { } pick ? new MatchSnapshot.Pick(pick.Side, pick.Player, pick.Message) : null);
+
+    /// <summary>
+    /// Puts this match exactly where <paramref name="s"/> says (made by <see cref="Capture"/> on a match with the
+    /// same course, players, rules and game). The rounds are changed in place, so references to them stay good.
+    /// Unlike <see cref="Resume"/>, nothing is settled or picked: a scramble part-way through a stroke stays so.
+    /// </summary>
+    public void Restore(MatchSnapshot s)
+    {
+        if (s.Players.Length != Players.Count) throw new ArgumentException($"The snapshot has {s.Players.Length} players, the match {Players.Count}.", nameof(s));
+        if (s.HoleIndex < 0 || s.HoleIndex >= Holes.Count) throw new ArgumentException("The snapshot is on a hole this match doesn't have.", nameof(s));
+        for (int p = 0; p < Players.Count; p++)
+        {
+            var d = s.Players[p];
+            _rounds[p].Load(d.Scores, d.Current.ToState(), d.MulligansLeft, d.FirstHole, d.BeforeLast?.ToState());
+            _hit[p] = d.Hit;
+            _after[p] = d.After?.ToState();
+            _away[p] = d.Away;
+        }
+        _honour = s.Honour.Length == Players.Count ? s.Honour.ToArray() : HonourFor(s.HoleIndex);
+        SetWind(s.Wind.ToWind());
+        LastToPlay = s.LastToPlay is { } l && l >= 0 && l < Players.Count ? l : null;
+        LastPick = s.LastPick is { } k ? (k.Side, k.Player, k.Message) : null;
+        Turn = Math.Clamp(s.Turn, 0, Players.Count - 1);
+    }
 
     /// <summary>The wind on the hole being played (everyone plays in the same wind).</summary>
     public CourseWind Wind => _rounds[0].Wind;
