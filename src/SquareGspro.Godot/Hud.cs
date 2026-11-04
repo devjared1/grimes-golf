@@ -204,6 +204,8 @@ public partial class Hud : Control
         AddChild(Overlay);
         Players = new PlayersPanel();
         AddChild(Players);
+        Online = new OnlinePanel();
+        AddChild(Online);
         BuildBannerAndToast();
         _settings = new SettingsPanel();
         _settings.Applied += (s, newRound) => SettingsApplied?.Invoke(s, newRound);
@@ -354,7 +356,40 @@ public partial class Hud : Control
     public void CloseSettings() => _settings.Close();
 
     /// <summary>A panel that takes all the input is open: the main menu, the in-game menu or a question, or the players panel.</summary>
-    public bool ModalOpen => MainMenu.IsOpen || Overlay.IsOpen || Players.IsOpen;
+    public bool ModalOpen => MainMenu.IsOpen || Overlay.IsOpen || Players.IsOpen || Online.IsOpen;
+
+    /// <summary>Play Online: hosting, joining and the lobby.</summary>
+    public OnlinePanel Online { get; private set; } = null!;
+
+    /// <summary>
+    /// Online play's own line under the top bar (so it never fights the monitor's banner): whose turn it is, and in
+    /// a warning colour when something's wrong (a dropped player, the host gone). Null hides it.
+    /// </summary>
+    public void SetOnlineLine(string? text, bool warning)
+    {
+        if (_onlineLine == null)
+        {
+            if (text == null) return;
+            _onlineLine = new PanelContainer { MouseFilter = MouseFilterEnum.Ignore };
+            _onlineLine.SetAnchorsPreset(LayoutPreset.CenterTop);
+            _onlineLine.GrowHorizontal = GrowDirection.Both;
+            _onlineLine.OffsetTop = TopBarHeight + TopGap + 64;
+            _onlineText = UiTheme.Text("", 20, Colors.White, bold: true);
+            _onlineText.HorizontalAlignment = HorizontalAlignment.Center;
+            _onlineLine.AddChild(_onlineText);
+            AddChild(_onlineLine);
+            MoveChild(_onlineLine, _banner.GetIndex());
+        }
+        _onlineLine.Visible = text != null;
+        if (text == null || (_onlineText!.Text == text && _onlineWarning == warning)) return;
+        _onlineText.Text = text;
+        _onlineWarning = warning;
+        _onlineLine.AddThemeStyleboxOverride("panel", UiTheme.Box(warning ? new Color(0.55f, 0.22f, 0.2f, 0.95f) : new Color(0.08f, 0.32f, 0.2f, 0.92f), 10, 1, 8, 22));
+    }
+
+    private PanelContainer? _onlineLine;
+    private Label? _onlineText;
+    private bool _onlineWarning;
 
     /// <summary>The main menu is up: the game's HUD is hidden behind it (the drawer can still open over it).</summary>
     public void ShowMainMenu(bool show)

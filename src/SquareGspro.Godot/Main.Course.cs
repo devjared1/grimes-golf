@@ -5,6 +5,7 @@ using SquareGspro.Core;
 using SquareGspro.Core.Course;
 using SquareGspro.Core.Square;
 using SquareGspro.Core.Storage;
+using SquareGspro.Online.Session;
 using SquareGspro.Physics;
 
 namespace SquareGspro.Range3D;
@@ -156,7 +157,7 @@ public partial class Main
     /// </summary>
     private void NewRound()
     {
-        if (_outcome != null) return;
+        if (_outcome != null || _online != null) return;
         if (!_courseMode || _courseDef == null)
         {
             _match = null;
@@ -233,7 +234,7 @@ public partial class Main
     private void RegroupPlayers(IReadOnlyList<Golfer> golfers, IReadOnlyList<int?> from)
     {
         var match = _match;
-        if (match == null || _outcome != null) return;
+        if (match == null || _outcome != null || _online != null) return;
         var named = golfers.Select((g, i) => string.IsNullOrWhiteSpace(g.Name) ? g with { Name = $"Player {i + 1}" } : g).ToList();
         _match = match.Regroup(named, from);
         _match.SetWind(match.Wind);
@@ -303,6 +304,9 @@ public partial class Main
     private double _autoNextIn = -1;
     private const double AutoNextSeconds = 5;
 
+    private string NextHoleNote => _online is { IsHost: false } ? "On to the next hole in a moment."
+                                 : $"Next hole in {AutoNextSeconds:0} seconds (Space to go now).";
+
     /// <summary>
     /// Counts down to the next hole (shown on the NEXT HOLE button); paused while a menu or the settings are open,
     /// and dropped if the hole is no longer finished (a mulligan) or play leaves the course.
@@ -316,7 +320,8 @@ public partial class Main
             _hud.SetNextHoleCountdown(null);
             return;
         }
-        if (_hud.ModalOpen || _hud.SettingsOpen) return;
+        // Online the host's PC moves everyone on, menus or not.
+        if ((_hud.ModalOpen || _hud.SettingsOpen) && _online == null) return;
         _autoNextIn -= delta;
         if (_autoNextIn < 0) { _hud.SetNextHoleCountdown(null); NextHole(); }
         else _hud.SetNextHoleCountdown((int)Math.Ceiling(_autoNextIn));
@@ -326,60 +331,77 @@ public partial class Main
     {
         var match = _match;
         if (match == null || _outcome != null || !_courseMode) return;
-        if (match.RoundComplete) { NewMatchState(); StartHole(0, fresh: false); return; }
+        if (_online is { IsHost: false }) { _hud.Toast("The host's PC moves everyone to the next hole", UiTheme.Ink); return; }
+        if (match.RoundComplete) { if (_online != null) return; NewMatchState(); StartHole(0, fresh: false); return; }
         StartHole((match.HoleIndex + 1) % match.Holes.Count);
+        OnlineHost?.HoleStarted();
     }
 
     /// <summary>Back to the hole before (everyone to its tee; the score there is played again).</summary>
     private void PreviousHole()
     {
         var match = _match;
-        if (match == null || _outcome != null || !_courseMode) return;
+        if (match == null || _outcome != null || !_courseMode || _online != null) return;
         StartHole((match.HoleIndex - 1 + match.Holes.Count) % match.Holes.Count);
     }
 
-    private void PlayCourseShot(RangeShot s, bool replay = false)
+    /// <summary>
+    /// Plays a course shot and starts animating it; null if it didn't count. Online, <paramref name="online"/> gives
+    /// the player, club, aim and putt (the host's PC plays a friend's shot with them), and on a friend's PC the
+    /// outcome too: the match is put as the host's snapshot at impact instead of the shot being worked out here.
+    /// </summary>
+    private ShotOutcome? PlayCourseShot(RangeShot s, bool replay = false, OnlineShot? online = null)
     {
         var match = _match;
-        if (match == null) return;
+        if (match == null) return null;
         if (_outcome != null) FinishShot();       // a new shot arrived before the last one finished animating
+        if (online != null) match.TakeTurn(online.Player);
         var round = match.Current;
-        if (round.Holed) { Log("Hole finished. Press Space (NEXT HOLE) for the next hole."); return; }
+        if (round.Holed && online?.Result == null) { Log("Hole finished. Press Space (NEXT HOLE) for the next hole."); return null; }
 
         int player = match.Turn;
         var golfer = match.Golfer;
         int strokesBefore = round.Strokes;
         var before = round.Save();
-        double heading = _aimHeading;
+        double heading = online?.Heading ?? _aimHeading;
+        string club = online?.Club ?? _hud.ClubCode;
+        bool putt = online?.Putt ?? Putter;
         var stance = round.StanceAt(round.Ball, heading, golfer.LeftHanded);
         double toPin = round.DistanceToPin, playsLike = round.PlaysLike(round.DefaultTarget);
-        var o = match.Play(s, Putter, _aimHeading, _hud.ClubCode);
+        ShotOutcome o;
+        if (online?.Result is { } remote)
+        {
+            match.Restore(remote.Snapshot);
+            o = remote.Outcome.ToOutcome();
+        }
+        else o = match.Play(s, putt, heading, club);
         if (round.Strokes == strokesBefore && !o.HoleOver)
         {
             // The engine couldn't simulate it (impossible numbers from the monitor): nothing happened.
             Log(o.Message);
             _hud.ShowResult("Shot not counted", Array.Empty<Stat>(), o.Message);
-            return;
+            return null;
         }
         _outcome = o;
         _player.Play(o.Flight);
-        _course?.SetAim(round.Ball, _aimHeading, 0, visible: false);
+        _course?.SetAim(round.Ball, heading, 0, visible: false);
         CountShot(s, o.Flight, replay);
         // Nothing about where it went (or the next shot) until the ball has stopped: FinishShot shows it all.
         _hud.HideMapMarkers();
         _hud.HideResult();
         _hud.LockHit();
-        RaiseShotFinished(new ShotFinished(DateTime.Now, golfer, _hud.ClubCode, s, o.Flight, replay)
+        RaiseShotFinished(new ShotFinished(DateTime.Now, golfer, club, s, o.Flight, replay)
         {
             Course = CourseName, Hole = round.Hole, Stroke = strokesBefore + 1, Lie = before.Lie, Stance = stance,
             ToPinYards = toPin * Units.MetresToYards, PlaysLikeYards = playsLike * Units.MetresToYards, Outcome = o,
             Match = Core.Course.ShotFinished.Standings(match),
         });
         SaveRound();   // where it finished, in case the app doesn't make it to the end of the animation
-        // A scramble's pick moved the whole team: replaying one player's shot would put them out of step.
-        if (match.LastPick != null) { ForgetLastShot(); return; }
-        Remember(new LastShot(s, _hud.ClubCode, match, player, before, heading),
-                 $"{(match.Players.Count > 1 ? golfer.Name[..1] : "")}{round.Hole.Number}.{strokesBefore + 1}{(replay ? "R" : "")}", o.Flight);
+        // No replays online (or after a scramble's pick, which moved the whole team: replaying one player's shot would put them out of step).
+        if (online != null || match.LastPick != null) { ForgetLastShot(); return o; }
+        Remember(new LastShot(s, club, match, player, before, heading),
+                 $"{(match.Players.Count > 1 && golfer.Name.Length > 0 ? golfer.Name[..1] : "")}{round.Hole.Number}.{strokesBefore + 1}{(replay ? "R" : "")}", o.Flight);
+        return o;
     }
 
     /// <summary>
@@ -399,7 +421,7 @@ public partial class Main
         // Holed (or tapped in): the ball rests at the bottom of the cup, against the flagstick.
         else if (o.Holed) _player.PlaceBall(CupBall(round.Hole));
         if (o.Holed) CelebrateScore(match, round, o);
-        string headline = who + o.Message, note = LieEffectNote(o);
+        string headline = who + o.Message, note = o.LieText;
         if (pick is { Message.Length: > 0 } p && !o.HoleOver) note = note.Length == 0 ? p.Message : $"{p.Message}   ·   {note}";
         if (match.HoleComplete && match.RoundComplete)
         {
@@ -407,13 +429,13 @@ public partial class Main
         }
         else if (match.HoleComplete && match.Type == GameType.MatchPlay)
         {
-            note = $"{HoleResult(match)}  ·  {match.MatchText()}.  Next hole in {AutoNextSeconds:0} seconds (Space to go now).";
-            _autoNextIn = AutoNextSeconds;
+            note = $"{HoleResult(match)}  ·  {match.MatchText()}.  {NextHoleNote}";
+            if (_online is not { IsHost: false }) _autoNextIn = AutoNextSeconds;
         }
         else if (match.HoleComplete)
         {
-            note = $"Next hole in {AutoNextSeconds:0} seconds (Space to go now).";
-            _autoNextIn = AutoNextSeconds;
+            note = NextHoleNote;
+            if (_online is not { IsHost: false }) _autoNextIn = AutoNextSeconds;
         }
         else if (match.CanMulligan && o.Penalty > 0) note = $"Mulligan? Press U ({round.MulligansLeft} left).";
 
@@ -443,6 +465,7 @@ public partial class Main
         _hud.ShowResult(headline, stats, note);
         Log(headline + (note.Length > 0 ? "  " + note : ""));
         PrepareNextShot(snapCamera: match.Turn != hitter);
+        _online?.ShotShown();   // after the turn has moved on here: the host's next turn is taken from this match
         if (!match.HoleComplete) return;
         // The scorecard comes up once the score announcement has had its moment (if nothing has moved on since).
         if (!o.Holed) { _hud.ShowScorecard(true); return; }
@@ -459,13 +482,21 @@ public partial class Main
     /// </summary>
     private void Mulligan()
     {
+        // Online the host's PC decides (only the PC whose player hit it can ask).
+        if (_online != null) { if (_courseMode && _outcome == null) _online.RequestMulligan(); return; }
+        TryMulligan();
+    }
+
+    /// <summary>The mulligan itself; false if there's nothing to take back.</summary>
+    private bool TryMulligan()
+    {
         var match = _match;
-        if (!_courseMode || match == null || _outcome != null) return;
+        if (!_courseMode || match == null || _outcome != null) return false;
         if (!match.CanMulligan)
         {
             var r = match.LastToPlay is { } p ? match.Rounds[p] : match.Current;
             Log(match.Rules.Mulligans == 0 ? "No mulligans in the house rules." : r.MulligansLeft == 0 ? "No mulligans left this round." : "Nothing to take back.");
-            return;
+            return false;
         }
         match.Mulligan();
         var round = match.Current;
@@ -479,29 +510,15 @@ public partial class Main
         string who = match.Players.Count > 1 ? match.Golfer.Name + ", play" : "Play";
         _hud.Toast($"Mulligan! {who} it again ({round.MulligansLeft} left)", UiTheme.Warn);
         Log($"Mulligan: {who.ToLowerInvariant()} it again from there. {round.MulligansLeft} left this round.");
+        return true;
     }
 
     /// <summary>Saves the round as it stands (and files it once it's finished), to resume after a restart or crash.</summary>
     private void SaveRound()
     {
-        if (_data == null || _match == null) return;
+        // Online rounds never touch the offline save: the host keeps online-round.json (see Main.Online.cs).
+        if (_data == null || _match == null || _online != null) return;
         _data.SaveRound(SavedRound.From(_match, CourseName, _roundStarted, _game));
-    }
-
-    /// <summary>"From the rough: −5% speed, −30% spin" when the lie or stance changed the shot.</summary>
-    private static string LieEffectNote(ShotOutcome o) =>
-        o.LieEffect is { Changed: true, Summary: { Length: > 0 } summary } e ? $"{LieWords(e.Condition)}: {summary}" : "";
-
-    private static string LieWords(LieCondition c)
-    {
-        string lie = c.Kind switch
-        {
-            LieKind.Rough => "From the rough", LieKind.DeepRough => "From deep rough", LieKind.Sand => "From the sand",
-            LieKind.Fringe => "From the fringe", _ => "",
-        };
-        // A slope too slight to count as "sloping" can still nudge the launch; with no lie to name, call it the slope.
-        string stance = c.IsLevel && lie.Length > 0 ? "" : "sloping lie";
-        return lie.Length == 0 ? char.ToUpper(stance[0]) + stance[1..] : stance.Length == 0 ? lie : $"{lie}, {stance}";
     }
 
     /// <summary>A distance in yards, or feet when short (putts, around the green).</summary>
@@ -595,7 +612,8 @@ public partial class Main
         if (match.Teams) rows.AddRange(sides.Where(s => match.Sides[s].Count > 1).Select(Team));
         if (match.Type == GameType.MatchPlay)
         {
-            string Initials(int s) => match.Sides[s].Count == 1 ? match.Players[match.Sides[s][0]].Name[..1] : string.Concat(match.Sides[s].Select(p => match.Players[p].Name[..1]));
+            string First(int p) => match.Players[p].Name is { Length: > 0 } n ? n[..1] : "?";
+            string Initials(int s) => string.Concat(match.Sides[s].Select(First));
             var marks = Enumerable.Range(0, match.Holes.Count).Select(i => match.HoleWinner(i) switch
             {
                 null => ((string, Color)?)null,
@@ -737,7 +755,8 @@ public partial class Main
     /// <summary>The wind on the hole being played, from the setting and the round (the same round always has the same wind).</summary>
     private void ApplyHoleWind()
     {
-        if (_match == null) return;
+        // Online, a friend's PC has the host's wind in the match already (the seed would differ from PC to PC).
+        if (_match == null || _online is { IsHost: false }) return;
         int seed = unchecked((int)(_roundStarted.Ticks / TimeSpan.TicksPerSecond));
         // By the hole's number: a front or back nine gets the same wind on a hole as a full round started then would.
         _match.SetWind(CourseWind.ForHole(_game.Wind, seed, _match.Hole.Number - 1));
@@ -827,6 +846,7 @@ public partial class Main
                           wind.Describe(_aimHeading).Split(", ", 2) is { Length: 2 } parts ? parts[1] : "");
         RefreshPlan();
         UpdateMapMarkers(aimPoint, length);
+        _online?.LocalAim(_aimHeading, _hud.ClubCode, _hud.Shot.Power);
     }
 
     private static string HoleTitle(Hole h) =>

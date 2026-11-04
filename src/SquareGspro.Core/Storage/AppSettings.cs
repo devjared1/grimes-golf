@@ -31,6 +31,14 @@ public sealed record AppSettings(
     bool FullScreen = false, bool HoleFlyover = true, GraphicsQuality Graphics = GraphicsQuality.High,
     GameSetup? Game = null)
 {
+    /// <summary>Online play: the relay's address (<c>wss://…/ws</c>), remembered.</summary>
+    public string? RelayUrl { get; init; }
+    /// <summary>Online play: this PC's secret token, which the relay and the host know it by when it reconnects.</summary>
+    public string? OnlineToken { get; init; }
+    /// <summary>Online play: the lobby of a round this PC was in that can still be rejoined, until <see cref="RejoinUntil"/>.</summary>
+    public string? RejoinCode { get; init; }
+    public DateTime? RejoinUntil { get; init; }
+
     public const string FileName = "settings.json";
 
     /// <summary>Two mulligans a round, 2 ft gimmes, pick up at double par.</summary>

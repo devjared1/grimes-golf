@@ -119,12 +119,19 @@ public partial class Main
             ShowShot(Putter ? Caddie.DemoShot(_hud.Club, 6, Lie.Green, _rng) : RangeShot.Demo(_hud.Club, _rng));
             return;
         }
-        if (_round == null || _round.Holed) return;
+        if (_online != null) { _hud.Toast("Online, shots come from your launch monitor", UiTheme.Ink); return; }
+        if (CourseDemoShot() is { } shot) ShowShot(shot);
+    }
+
+    /// <summary>A demo shot sized for the shot set up on the course (null when there's no shot to play).</summary>
+    private RangeShot? CourseDemoShot()
+    {
+        if (_round == null || _round.Holed) return null;
         // On the green, putt at the pace the read calls for (slopes included); elsewhere size the shot to the
         // distance it plays (uphill longer, downhill shorter).
-        if (Putter && _round.Lie == Lie.Green) { ShowShot(Caddie.DemoPutt(_round.ReadPutt().Speed, _rng)); return; }
+        if (Putter && _round.Lie == Lie.Green) return Caddie.DemoPutt(_round.ReadPutt().Speed, _rng);
         double target = Putter ? _round.DistanceToPin : _round.PlaysLike(_round.DefaultTarget);
-        ShowShot(Caddie.DemoShot(_hud.Club, target, _round.Lie, _rng, _round.StanceAt(_round.Ball, _aimHeading, _hud.LeftHanded)));
+        return Caddie.DemoShot(_hud.Club, target, _round.Lie, _rng, _round.StanceAt(_round.Ball, _aimHeading, _hud.LeftHanded));
     }
 
     // ---- hitting from the screen -------------------------------------------------------------
@@ -142,9 +149,12 @@ public partial class Main
             if (_round.Holed) { if (_outcome == null) NextHole(); return; }
             if (_outcome != null || _player.IsPlaying) return;   // wait for the ball to stop
         }
+        // Online a real ball is hit on the monitor (development runs' fake monitor stands in with the swing on screen).
+        if (_online != null && _courseMode && !_fakeMonitor) { _hud.Toast("Hit on your launch monitor", UiTheme.Ink); return; }
         var swing = _hud.Shot.Swing;
         var lie = _courseMode && _round != null ? _round.Lie : Lie.Green;
         var shot = Putter ? Caddie.SwingPutt(swing, _puttScale, lie) : Caddie.SwingShot(_hud.Club, swing, _hud.LeftHanded);
+        if (_online != null && _courseMode) shot = shot with { Source = ShotSource.Monitor };
         Log(Putter ? $"Putt: {swing.Power * 100:0}% ({DescribePower(swing.Power)})"
                    : $"Hit: {swing.Power * 100:0}% power ({DescribePower(swing.Power)}), {swing.Shape.ToString().ToLowerInvariant()}, {swing.Spin.ToString().ToLowerInvariant()} spin");
         ShowShot(shot);
@@ -189,6 +199,13 @@ public partial class Main
     private void ShowShot(RangeShot s, bool replay = false)
     {
         if (_loading) { Log("Shot ignored: a course is loading."); return; }
+        // Online every course shot goes to the session: the host's PC plays it if it's this PC's turn.
+        if (_online != null && _courseMode)
+        {
+            if (s.Source == ShotSource.Monitor && !replay) _online.MonitorShot(s, _hud.ClubCode, _aimHeading, Putter);
+            else _hud.Toast("Online, shots come from your launch monitor", UiTheme.Ink);
+            return;
+        }
         _camera.SkipFlyover();
         EndLandingView();
         _hud.Shot.ResetShape();   // a draw, fade or spin choice is for one shot
@@ -242,6 +259,7 @@ public partial class Main
     /// </summary>
     private void Replay()
     {
+        if (_online != null) return;   // no replays online
         var last = _last;
         if (last == null) { Log("Nothing to replay yet: hit a shot first."); return; }
         _hud.SetClub(last.Club);

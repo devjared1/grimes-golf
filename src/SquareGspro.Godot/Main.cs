@@ -3,6 +3,7 @@ using Godot;
 using SquareGspro.Core;
 using SquareGspro.Core.Course;
 using SquareGspro.Core.Storage;
+using SquareGspro.Online.Session;
 using SquareGspro.Physics;
 
 namespace SquareGspro.Range3D;
@@ -56,7 +57,7 @@ public partial class Main : Node3D
     public override void _Ready()
     {
         GetTree().AutoAcceptQuit = false;
-        _dataFolder = OS.GetUserDataDir();
+        _dataFolder = DataFolderFor(OS.GetCmdlineUserArgs());
         CrashLog.Install(_dataFolder);
 
         (_world, _sun) = Scenery.AddSkyAndSun(this);
@@ -107,6 +108,7 @@ public partial class Main : Node3D
         SetupSettings();
         _game = _settings.Setup;
         SetupDevTools(args);
+        SetupOnlineDevTools(args);
         // Runs that play shots by themselves (or jump holes) don't save, or resume, anything.
         bool devRun = args.Any(a => a.StartsWith("--demo-shots") || a.StartsWith("--hole=") || a.StartsWith("--hit-at") || a.StartsWith("--tune="));
         bool screenshot = args.Any(a => a.StartsWith("--screenshot"));
@@ -134,7 +136,7 @@ public partial class Main : Node3D
         if (_match != null && _courseMode && args.FirstOrDefault(a => a.StartsWith("--hole=")) is { } h && int.TryParse(h[7..], out int n) && n >= 2 && n <= _match.Holes.Count)
             StartHole(n - 1);
         UpdateInsets();
-        SetupMonitor(forceAutoConnect: args.Contains("--autoconnect"));
+        if (!_noBluetooth) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect"));
         if (_openSettingsAtStart) OpenSettings();
         if (_openMenuAtStart) OpenGameMenu();
     }
@@ -255,6 +257,7 @@ public partial class Main : Node3D
     public override void _Process(double delta)
     {
         while (_pending.TryDequeue(out var a)) a();
+        ProcessOnline(delta);
         ProcessMonitor(delta);
         if (_outcome != null && !_player.IsPlaying && _player.IdleSeconds > 1.0) FinishShot();
         if (_rangeResult != null && !_player.IsPlaying) FlushRangeResult();
@@ -272,6 +275,7 @@ public partial class Main : Node3D
     private void UpdateReady()
     {
         bool moving = _outcome != null || _player.IsPlaying;
+        if (!moving && OnlineReady()) return;
         if (_camera.Flying) _hud.Shot.SetReady(false, "Flyover");
         else if (_courseMode && _round is { Holed: true } && !moving) _hud.Shot.SetReady(false, "Hole finished");
         else if (moving) _hud.Shot.SetReady(false, "Ball in play");
@@ -287,6 +291,8 @@ public partial class Main : Node3D
     /// <summary>Closes the app, letting the monitor session let go of the monitor first (but not waiting long for it).</summary>
     private void Quit()
     {
+        if (_online is HostSession { Phase: not (OnlinePhase.Lobby or OnlinePhase.Over) } host) host.Stop(paused: true);
+        if (_online is ClientSession friend) friend.Leave();
         _scanner?.Dispose();
         if (_session == null) { GetTree().Quit(); return; }
         // Let the session release the monitor before exiting, but don't hang on it.
@@ -306,6 +312,8 @@ public partial class Main : Node3D
     /// <summary>Saving data: every shot goes into the session file.</summary>
     private void SaveShot(ShotFinished e)
     {
+        // Online, each PC keeps its own players' shots (the host plays everyone's).
+        if (_online != null && e.Course != null && !_online.IsLocalName(e.Player.Name)) return;
         var record = ShotRecord.Of(e);
         if (e.Course != null) _lastRecord = record;
         _data?.AppendShot(record);

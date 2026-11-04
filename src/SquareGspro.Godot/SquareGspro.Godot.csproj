@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SquareGspro.Core\SquareGspro.Core.csproj" />
     <ProjectReference Include="..\SquareGspro.Bluetooth\SquareGspro.Bluetooth.csproj" />
+    <ProjectReference Include="..\SquareGspro.Online\SquareGspro.Online.csproj" />
   </ItemGroup>
 
 </Project>

@@ -314,12 +314,55 @@ Carry distance is not provided by the monitor; GSPro calculates it. Impact locat
   codes beyond the documented `DR` example (unmapped codes are logged and the monitor's club is left as-is).
 - Square publishes no SDK; this is not endorsed by Invant/Square Golf. Check the licence/terms for your use.
 
+## Online play (in development, roadmap 1.2)
+
+Friends at different houses play one round through a small relay server. The host's PC plays every shot; the
+others are sent each outcome with the whole match after it and animate that, so scores can't drift apart. The
+design is in [`docs/online-play-plan.md`](docs/online-play-plan.md).
+
+**Play Online only appears in debug builds for now.** The release export stays fully offline until a full
+18 holes has been played between two houses with real Square monitors (milestone M7).
+
+Pieces:
+
+| Project | What it is |
+|---|---|
+| `src/SquareGspro.Relay` | The relay (.NET 10, no other project references): in-memory lobbies with 5-character codes, forwards messages it never reads. `Dockerfile` and `fly.toml` included. |
+| `src/SquareGspro.Online` | The relay connection (`RelayClient`, WebSocket with reconnects), the messages, and the host and friend sessions. No Godot. |
+| `src/SquareGspro.Godot/Main.Online.cs`, `OnlinePanel.cs` | The game side: lobby screen, routing monitor shots to the session, showing the host's results. |
+| `tests/SquareGspro.Online.Tests` | Relay tests (in-process), session tests over an in-memory relay (18 holes, every game type, drops, rejoins), and one end-to-end run over real sockets. |
+
+Trying it on one PC (debug build, two copies of the game):
+
+```bash
+ASPNETCORE_URLS=http://127.0.0.1:5080 dotnet run --project src/SquareGspro.Relay
+```
+
+```bash
+godot --path src/SquareGspro.Godot -- --relay=ws://127.0.0.1:5080/ws --data=user://host --no-bluetooth --fake-monitor
+```
+
+```bash
+godot --path src/SquareGspro.Godot -- --relay=ws://127.0.0.1:5080/ws --data=user://friend --no-bluetooth --fake-monitor --auto-play
+```
+
+`--data` keeps each copy's settings and rounds apart, `--fake-monitor` makes HIT SHOT stand in for a launch
+monitor (`--fake-monitor=sessions/2026-11-04_120000.jsonl` plays a saved session's shots instead), and
+`--auto-play` hits by itself whenever it's that copy's turn. These switches only work in debug builds.
+
+Deploying the relay (one small machine is plenty; lobbies live in memory, so keep it to one):
+
+```bash
+cd src/SquareGspro.Relay && fly launch --copy-config --no-deploy && fly deploy
+```
+
 ## Build from source
 
-Requires the .NET 8 SDK.
+Requires the .NET 8 SDK (and the .NET 10 SDK for the relay and the online tests).
 
 ```
 dotnet test tests/SquareGspro.Tests
+dotnet test tests/SquareGspro.Online.Tests
 dotnet publish src/SquareGspro.Connector -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o dist
 ```
 

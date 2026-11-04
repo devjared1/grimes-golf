@@ -134,6 +134,7 @@ public partial class Main
         else if (_hud.Players.IsOpen) _hud.Players.Close();
         else if (_hud.Overlay.IsOpen) _hud.Overlay.Close();
         else if (_hud.MainMenu.OnSubPage) _hud.MainMenu.Back();
+        else if (_hud.Online.IsOpen && !_hud.Online.InLobby) { _hud.Online.Close(); ShowMainMenu(); }
         else return false;
         return true;
     }
@@ -166,6 +167,8 @@ public partial class Main
             case Command.Demo:
                 if (course && _match is { HoleComplete: true } && _outcome == null) NextHole(); else Demo();
                 return true;
+            // Online: no tuner, replay or restarting the hole (the host's PC plays every shot with the host's physics).
+            case Command.Tuner or Command.Replay or Command.RestartHole when _online != null && course: return true;
             case Command.Camera: ToggleCamera(); return true;
             case Command.Drawer: _hud.ToggleDrawer(); return true;
             case Command.Settings: OpenSettings(); return true;
