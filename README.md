@@ -212,5 +212,6 @@ See [ROADMAP.md](ROADMAP.md). Next up: proving it on real hardware (0.8), the 1.
 
 ## Licence
 
-No licence has been chosen for this code yet, so all rights are reserved by the author. The map, elevation and
-texture data above keep their own licences.
+The code is released under the [MIT Licence](LICENSE). The map, elevation and texture data listed above keep their
+own licences: in particular, the OpenStreetMap data is under the ODbL, which asks for the credit and for changes to
+the data itself to be shared alike.

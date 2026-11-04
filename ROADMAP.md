@@ -125,6 +125,10 @@ balls or play a round with me, and never see a console, a command-line flag or a
 
 - [ ] Play with friends from different locations across network. Generate lobby to join. Creator of lobby picks course, sets game settings, and clicks to start game once everyone is connected
 - [ ] Only for users with Square launch monitor. Future: support other launch monitors natively (no 3rd party connector access)
+- [ ] *After v1:* **live text and video chat** in online games. Text chat first: small messages through the relay
+      it already has, shown over the game and readable from the mat. Video is a much bigger step: it goes peer to
+      peer (WebRTC), not through the relay, needs a webcam and a TURN server for PCs behind strict routers, and
+      costs bandwidth the shots don't. Voice alone (no video) may give most of the fun for less
 
 
 ## 1.3 — AI caddie and commentary
@@ -148,6 +152,14 @@ Hooks into the "shot finished" event through one `Commentator` service; the game
 - [ ] **AI coach:** after a range session it reads path, face, spin axis, attack angle and carry/direction spread,
       and explains patterns ("7-iron misses are face-closed-to-path, so the hooks are a face problem").
       Code calculates the stats; the model only explains them. A larger model is fine here (it runs rarely).
+- [ ] **Ball position display:** when the monitor reads the ball, show it on screen (where it sits in the hitting
+      zone, and how much of the ball the cameras can see) so a guest can tell why it isn't "Ready". First find out
+      what the Square reports: the sensor packet decoded today only says detected / ready (`0x11 0x01`), so a
+      recorded session (0.8) is needed to look for position data; if there is none, this needs our own camera
+- [ ] **Other cameras for swing replays:** a webcam or phone (down the line and face on) recording each swing,
+      cut to the moment the monitor reports the shot, replayed in slow motion beside the numbers. The Square
+      itself doesn't hand over its images (its Bluetooth link only sends measurements), so the video comes from
+      cameras we add. That video can then feed the AI coach (pose estimation for posture, tempo and positions)
 - [ ] **Asking questions about stats:** "average 8-iron carry this month?", "who's won more closest-to-pin games,
       me or Mike?" The model turns the question into a query over the saved data.
 
@@ -161,6 +173,16 @@ Hooks into the "shot finished" event through one `Commentator` service; the game
 ## 1.6 — Courses and the world
 
 - [ ] Pick and import any OpenStreetMap course from inside the app (no script + rebuild)
+- [ ] **One course-data tool:** combine `fetch-osm-course.ps1`, `fetch-elevation.ps1` and `fetch-canopy.ps1` (+
+      `fetch-canopy.py`) into one command with a module per source (map, elevation, trees), the same bounding box
+      for all three, and one output folder per course. Needed for importing courses from the app, and so it can
+      run off Windows (PowerShell + Python today)
+- [ ] **Where generated courses live:** Deer Run is about 7 MB (elevation 6.5 MB, trees 0.6 MB, map 0.4 MB),
+      embedded in the app today. The elevation grid is raw floats that don't compress; stored as centimetres in
+      16 bits it would be about half. So roughly 3-7 MB a course, 0.3-0.7 GB for 100. Plan: stop embedding them,
+      keep each course as its own download (a release asset or a cheap object store such as Cloudflare R2 or S3),
+      fetched once and cached in the data folder, with the course fingerprint as its version. Online, every PC
+      must have the same course version, which the fingerprint check already enforces
 - [x] Trace Deer Run's fairways for holes 5-18 on OpenStreetMap
 - [ ] Trees that balls actually hit
 - [x] Weather presets (calm, breezy, wet); green speed and firmness on the setup screen (0.9.5, Game Setup)
@@ -168,6 +190,26 @@ Hooks into the "shot finished" event through one `Commentator` service; the game
 - [ ] **AI import check:** compare the OpenStreetMap import log with the course's published scorecard and flag
       mismatched pars or yardages, or holes that are probably out of order
 - [ ] **AI rules help** ("lateral hazard, where do I drop?") once hazards go beyond stroke-and-distance
+
+## 1.7 — DIY overhead launch monitor (research)
+
+A budget alternative to the Square, mounted above the hitting area so left- and right-handers need nothing moved.
+It would arrive as one more shot source (`RangeShot.Source`), so the game doesn't change. Research first, build
+only if the numbers work out.
+
+- [ ] **Cameras:** global-shutter cameras (a rolling shutter smears a ball moving at 70 m/s), at least a few
+      hundred frames a second at a small cropped window, with infrared lighting strobed in step. One camera gives
+      ball speed and direction; two (stereo) give launch angle properly; spin needs either a marked ball or very
+      high frame rates. Compare candidates (machine-vision USB3 cameras, Raspberry Pi global-shutter camera) on
+      frame rate, exposure and price
+- [ ] **System:** what does the processing: the game PC over USB3, or a small computer (Raspberry Pi / Jetson-class)
+      beside the cameras sending measurements, as the Square does. Trigger on the ball moving (frame difference)
+      rather than recording all the time; a few frames before and after impact are enough
+- [ ] **Ball and club data engine:** find the ball in each frame, fit its path in 3D from calibrated cameras, and
+      work out speed, launch, direction and spin (from the ball's markings, or estimated from launch and club data
+      if spin can't be seen). Club path and face from the club head in the frames before impact. Check every number
+      against the Square shot by shot, using the recorded sessions (0.8)
+- [ ] **Bonus:** the same cameras give the impact snapshots and slow-motion replays the Square can't share
 
 ## Later / nice-to-have
 
