@@ -399,7 +399,7 @@ public partial class Main
         // Holed (or tapped in): the ball rests at the bottom of the cup, against the flagstick.
         else if (o.Holed) _player.PlaceBall(CupBall(round.Hole));
         if (o.Holed) CelebrateScore(match, round, o);
-        string headline = who + o.Message, note = LieEffectNote(o);
+        string headline = who + o.Message, note = o.LieText;
         if (pick is { Message.Length: > 0 } p && !o.HoleOver) note = note.Length == 0 ? p.Message : $"{p.Message}   ·   {note}";
         if (match.HoleComplete && match.RoundComplete)
         {
@@ -486,22 +486,6 @@ public partial class Main
     {
         if (_data == null || _match == null) return;
         _data.SaveRound(SavedRound.From(_match, CourseName, _roundStarted, _game));
-    }
-
-    /// <summary>"From the rough: −5% speed, −30% spin" when the lie or stance changed the shot.</summary>
-    private static string LieEffectNote(ShotOutcome o) =>
-        o.LieEffect is { Changed: true, Summary: { Length: > 0 } summary } e ? $"{LieWords(e.Condition)}: {summary}" : "";
-
-    private static string LieWords(LieCondition c)
-    {
-        string lie = c.Kind switch
-        {
-            LieKind.Rough => "From the rough", LieKind.DeepRough => "From deep rough", LieKind.Sand => "From the sand",
-            LieKind.Fringe => "From the fringe", _ => "",
-        };
-        // A slope too slight to count as "sloping" can still nudge the launch; with no lie to name, call it the slope.
-        string stance = c.IsLevel && lie.Length > 0 ? "" : "sloping lie";
-        return lie.Length == 0 ? char.ToUpper(stance[0]) + stance[1..] : stance.Length == 0 ? lie : $"{lie}, {stance}";
     }
 
     /// <summary>A distance in yards, or feet when short (putts, around the green).</summary>

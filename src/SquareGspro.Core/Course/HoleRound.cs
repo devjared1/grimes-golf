@@ -15,6 +15,21 @@ public sealed record ShotOutcome(
     public bool HoleOver => Holed || PickedUp;
     /// <summary>How the lie changed the shot, as text, for an outcome received from another PC (which has no <see cref="LieEffect"/>).</summary>
     public string? LieNote { get; init; }
+
+    /// <summary>"From the rough: −5% speed, −30% spin" when the lie or stance changed the shot (empty otherwise).</summary>
+    public string LieText => LieNote ?? (LieEffect is { Changed: true, Summary: { Length: > 0 } summary } e ? $"{LieWords(e.Condition)}: {summary}" : "");
+
+    private static string LieWords(LieCondition c)
+    {
+        string lie = c.Kind switch
+        {
+            LieKind.Rough => "From the rough", LieKind.DeepRough => "From deep rough", LieKind.Sand => "From the sand",
+            LieKind.Fringe => "From the fringe", _ => "",
+        };
+        // A slope too slight to count as "sloping" can still nudge the launch; with no lie to name, call it the slope.
+        string stance = c.IsLevel && lie.Length > 0 ? "" : "sloping lie";
+        return lie.Length == 0 ? char.ToUpper(stance[0]) + stance[1..] : stance.Length == 0 ? lie : $"{lie}, {stance}";
+    }
 }
 
 /// <summary>

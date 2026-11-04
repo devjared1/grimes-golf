@@ -17,6 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="..\SquareGspro.Tests\TestCourse.cs" Link="TestCourse.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\SquareGspro.Online\SquareGspro.Online.csproj" />
     <ProjectReference Include="..\..\src\SquareGspro.Relay\SquareGspro.Relay.csproj" />
   </ItemGroup>
