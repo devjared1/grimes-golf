@@ -197,18 +197,138 @@ A budget alternative to the Square, mounted above the hitting area so left- and 
 It would arrive as one more shot source (`RangeShot.Source`), so the game doesn't change. Research first, build
 only if the numbers work out.
 
-- [ ] **Cameras:** global-shutter cameras (a rolling shutter smears a ball moving at 70 m/s), at least a few
-      hundred frames a second at a small cropped window, with infrared lighting strobed in step. One camera gives
-      ball speed and direction; two (stereo) give launch angle properly; spin needs either a marked ball or very
-      high frame rates. Compare candidates (machine-vision USB3 cameras, Raspberry Pi global-shutter camera) on
-      frame rate, exposure and price
-- [ ] **System:** what does the processing: the game PC over USB3, or a small computer (Raspberry Pi / Jetson-class)
-      beside the cameras sending measurements, as the Square does. Trigger on the ball moving (frame difference)
-      rather than recording all the time; a few frames before and after impact are enough
-- [ ] **Ball and club data engine:** find the ball in each frame, fit its path in 3D from calibrated cameras, and
+### What the cameras have to do
+
+The numbers that decide the hardware (worked out here, not measured):
+
+- **Ball speed:** a driver at 70 m/s (157 mph) moves 14 cm between frames at 500 fps, 28 cm at 250 fps and over a
+  metre at 60 fps. Seeing the ball in 4-6 frames over a ~1 m window needs roughly 400-500 fps, or a trick that
+  puts several images of the ball in one frame (below).
+- **Blur:** to keep the ball sharp to about 1 mm at 70 m/s, each exposure (or strobe flash) must be about 15 µs or
+  shorter. That needs a global-shutter sensor (a rolling shutter smears and leans a fast ball) and bright infrared
+  light flashed only for those microseconds; room lighting is far too dim.
+- **Launch angle from above:** one camera looking down sees direction and speed well but height badly. Two cameras
+  a known distance apart (stereo), calibrated, give the ball's position in 3D and so launch angle properly.
+- **Spin:** a driver at 2,500 rpm turns 30° between frames at 500 fps; a wedge at 10,000 rpm turns 120°, too far
+  to track markings reliably. So spin needs either strobe flashes a fraction of a millisecond apart or a much
+  faster camera, plus markings on the ball (a printed line or logo) that can be followed.
+- **Mounting:** commercial overhead units want a ceiling of about 9 ft (2.7 m), 10 ft is more comfortable, with the
+  cameras slightly in front of the ball looking back at it. The rig has to survive a mishit.
+
+Commercial overhead monitors, for scale (2026 prices as listed by retailers, not checked with makers): NVISAGE N1
+about $4,995, Laon VTrack about $5,000, Uneekor EYE XR about $7,000, TruGolf Apogee about $8,000, Foresight Falcon
+about $15,000. Each uses two to four high-speed cameras and infrared light.
+
+### Three options
+
+Prices are rough part costs in USD from retailer listings (November 2026), before a mount, cables and a ball
+marking tool. Check current prices before buying.
+
+#### $ — Raspberry Pi 5 and Pi global-shutter cameras, about $200-350
+
+- **Cameras:** two Raspberry Pi Global Shutter Cameras (Sony IMX296, 1.6 MP mono-capable, about $50-65 each; the
+  InnoMaker mono version needs no soldering) with small C/CS-mount lenses (about $10-25 each).
+- **System:** one Raspberry Pi 5 (about $80) drives both cameras on its two camera ports, does all the processing
+  and sends each shot over the network, the way the Square sends it over Bluetooth. An infrared LED bank (about
+  $12) and an LED driver (about $8) on a 24 V supply (about $15) make the strobe.
+- **Data engine:** the camera runs about 60 fps at full frame, far too slow to film the ball. Instead the first
+  camera watches the teed ball and spots it moving; the second takes one long exposure while the strobe fires
+  several times, so one frame holds several sharp images of the ball a known time apart. Speed, direction and
+  launch come from where those images sit; spin from how the ball's markings turn between them. This is how
+  [PiTrac](https://github.com/PiTracLM/PiTrac), an open-source DIY monitor, works (it reports ball speed, launch
+  angles and 3-axis spin; [LaunchTrac](https://github.com/r87-e/LaunchTrac) is a cheaper offshoot claiming under
+  $200 in parts).
+- **Pros**
+  - Cheapest by far, and every part is easy to buy.
+  - Self-contained like the Square: the game PC only receives numbers, so it costs no frame rate.
+  - Working prior art: PiTrac has already solved triggering, strobe timing and spin from strobed images on this
+    exact hardware.
+  - Strobed images capture spin a fraction of a millisecond apart, better than a 500 fps camera manages.
+- **Cons**
+  - PiTrac says itself it is young and only just works; its developers report trouble finding the ball in
+    overlapping images at the cameras' low resolution. Expect to tune, not just build.
+  - Its geometry isn't designed for a ceiling: an overhead version is our own work to design and calibrate.
+  - Almost no club data: one strobed frame after impact says little about the club, and nothing films the swing.
+  - Only one usable image of each shot, so no slow-motion replays (impact snapshots, yes).
+  - The high-current strobe driver and its timing are the fiddliest part to build.
+  - Reusing PiTrac's code means following its licence: check it before copying anything into this MIT project.
+
+#### $$ — two USB3 machine-vision cameras on the game PC, about $900-1,300
+
+- **Cameras:** two mono USB3 cameras with the Sony IMX287 sensor (0.4 MP, 720×540, about 525 fps at full frame,
+  more with a smaller window), about $350-375 each from makers such as Vision Datum or Daheng (Basler's equivalent
+  lists at €379). C-mount lenses about $50-100 each. A bank of infrared LEDs triggered by the cameras' own strobe
+  outputs (about $100-150 with a driver), so every exposure gets a flash of a few microseconds.
+- **System:** the game PC does the processing. Each camera sends about 200 MB/s at full frame and speed, so two
+  need USB3 ports on separate controllers (or a plug-in USB3 card), and active USB3 cables to reach the ceiling.
+  Record into a rolling memory buffer and keep only the frames around the shot, triggered when the ball moves.
+- **Data engine:** a few to ten frames of ball flight per camera, triangulated in 3D from the two calibrated
+  cameras: speed, launch, direction and (with a marked ball) spin for full shots; club path, attack angle and face
+  from the club head in the frames before impact. Written in C# with OpenCV (OpenCvSharp) and the camera maker's
+  SDK, in this repository, behind `RangeShot.Source`.
+- **Pros**
+  - Real high-speed film of every shot: several frames of the ball and the club, with no strobe tricks needed.
+  - The best value for data: stereo 3D, club data and spin are all within reach with one rig.
+  - The same frames give the impact snapshots and slow-motion replays (1.4) the Square can't share.
+  - Hardware trigger lines keep the two cameras and the lights exactly in step.
+  - Can be built in stages: one camera first (speed and direction), the second when the first works.
+  - No extra computer, and the code lives in this repository with its tests.
+- **Cons**
+  - Heavy on the game PC: two camera streams, image processing and the 3D world at once; a weaker PC may need a
+    lower game graphics setting, and the host PC requirements go up.
+  - USB3 is fussy over distance and on shared controllers; long cables need active ones.
+  - Camera SDKs are mostly Windows and vendor-specific, which ties the code to one camera maker unless it goes
+    through a common layer (GenICam).
+  - 0.4 MP is coarse for the club face and for reading ball markings from ceiling height; needs lenses chosen
+    for a small field of view.
+  - High-spin wedges (120° of turn between frames) are still at the edge of what 500 fps can track.
+  - Four to six times the cost of the $ option.
+
+#### $$$ — three or four cameras and a dedicated processor, about $2,500-4,000
+
+- **Cameras:** a stereo pair of fast cameras for the ball (IMX287 at 525-600 fps, as in $$) plus one or two
+  higher-resolution cameras for the club and impact (for example IMX273, 1.6 MP at about 250 fps, about $330-405
+  each), or brand-name equivalents (Basler, FLIR/Teledyne) for better drivers and support. A stronger infrared
+  strobe bank to light a bigger area, with a hardware trigger shared by all cameras.
+- **System:** a separate processor beside the cameras, either an NVIDIA Jetson Orin Nano Super (about $249 list,
+  often $350-400 in stores; two camera ports plus USB3) or a small PC with a graphics card, which sends finished
+  measurements to the game over the network as the Square does. GigE cameras with power over Ethernet are an
+  alternative to USB3: one cable each to the ceiling, over longer runs.
+- **Data engine:** the $$ engine plus a dedicated club pipeline (head tracking, face angle and impact location
+  from the high-resolution views), and machine-learning detection on the processor's graphics chip for unmarked
+  balls and clubs. This is roughly how the commercial four-camera units work.
+- **Pros**
+  - Closest to a commercial overhead monitor: full ball and club data, including impact location.
+  - The game PC does nothing extra; the rig works with any PC, including a guest's, like the Square.
+  - Lots of video for the AI coach (1.4): several angles, higher resolution.
+  - Room to grow: more cameras or faster models without changing the game.
+- **Cons**
+  - Approaching the price of a budget commercial overhead monitor (about $5,000) once the mount, cabling and
+    lighting are done, without its accuracy guarantee or support.
+  - By far the most software: synchronising four cameras, calibrating them together, a club pipeline and a
+    trained model, plus a second machine to keep updated.
+  - Jetson development is its own toolchain (Linux, CUDA), separate from the Windows game.
+  - More cameras means more calibration that has to stay true if the ceiling mount gets knocked.
+
+### Recommendation
+
+Start with **$$**, one camera first. It's the cheapest rig that actually films the ball at speed, so it tests the
+hard question (can we measure a shot as well as the Square?) without strobe tricks or a second computer, and every
+part carries on into a $$$ build if the numbers work out. Meanwhile read PiTrac's code for its triggering and spin
+methods: if they prove robust, a **$** build is the route to a monitor friends can copy cheaply. Leave **$$$**
+until the $$ rig has shown, shot by shot against the Square, that the data engine is accurate.
+
+### Tasks
+
+- [ ] **Cameras:** buy one IMX287 USB3 camera, a lens and an infrared strobe; confirm the frame rate, exposure
+      and strobe sync on the game PC; then the second camera for stereo
+- [ ] **System:** a rolling frame buffer on the game PC, triggered by the ball moving (frame difference), keeping a
+      few frames before and after impact; measure the CPU and USB load during a round
+- [ ] **Ball and club data engine:** calibrate the cameras, find the ball in each frame, fit its path in 3D and
       work out speed, launch, direction and spin (from the ball's markings, or estimated from launch and club data
       if spin can't be seen). Club path and face from the club head in the frames before impact. Check every number
       against the Square shot by shot, using the recorded sessions (0.8)
+- [ ] **PiTrac review:** read its licence, triggering and spin code, and decide whether a $ build is worth it
 - [ ] **Bonus:** the same cameras give the impact snapshots and slow-motion replays the Square can't share
 
 ## Later / nice-to-have
