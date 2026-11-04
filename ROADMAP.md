@@ -14,9 +14,8 @@ balls or play a round with me, and never see a console, a command-line flag or a
 
 - [ ] Raw BLE packet recorder (timestamped capture file) and a replay mode that feeds a capture back into the app
 - [ ] Turn captured sessions into regression tests
-- [ ] Verify club codes (5W/7W/4H/3I/LW), left-handed face/path signs, impact location (and whether to forward it to GSPro)
-- [ ] End-to-end GSPro session through the connector with real shots
-- [ ] Physics calibration: ~10 shots per club compared with the Square app / GSPro carry, total and apex; make the
+- [ ] Verify club codes (5W/7W/4H/3I/LW), left-handed face/path signs, impact location
+- [ ] Physics calibration: ~10 shots per club compared with the Square app's carry, total and apex; make the
       tuned set the shipped defaults
 - [ ] *Stretch, AI:* **tuning assistant.** Give a model the captured shots, the reference numbers and the current
       tuning JSON; it suggests which values to change, and I check them with `--tune` and replay. Dev-only, an
@@ -38,7 +37,7 @@ balls or play a round with me, and never see a console, a command-line flag or a
 
 ## 0.9.1 - Additional Garage-ready features
 
-- [x] When Square Range starts, goes to a Main Menu screen with options: New Game, Resume Game (if one was started ), Driving Range, Settings. Also shows launch monitor connection status and version info
+- [x] When the app starts, goes to a Main Menu screen with options: New Game, Resume Game (if one was started ), Driving Range, Settings. Also shows launch monitor connection status and version info
       - New Game: opens to a list of courses with course stats and quick description
       - Driving Range: jumps straight into the driving range
       - Settings: shows screen for setting configurations
@@ -172,7 +171,6 @@ Hooks into the "shot finished" event through one `Commentator` service; the game
 
 ## Later / nice-to-have
 
-- Merge the GSPro connector into Range 3D as a "GSPro mode" (one app to launch)
 - Shot replays and a highlight camera ("shot of the day")
 - Support for the original (non-Omni) Square
 - **Live scoreboard on phones:** a local web page friends open to see scores and their shot stats

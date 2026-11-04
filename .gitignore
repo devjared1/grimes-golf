@@ -11,7 +11,7 @@ TestResults/
 .vscode/
 .idea/
 
-# Godot (see also src/SquareGspro.Godot/.gitignore)
+# Godot (see also src/GrimesGolf.Godot/.gitignore)
 .godot/
 .mono/
 

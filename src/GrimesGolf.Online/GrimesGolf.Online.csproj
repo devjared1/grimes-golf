@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Online play: the relay connection, the messages between PCs and the host/friend sessions. No Godot here. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GrimesGolf.Online.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GrimesGolf.Core\GrimesGolf.Core.csproj" />
+  </ItemGroup>
+
+</Project>

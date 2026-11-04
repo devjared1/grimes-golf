@@ -1,371 +1,216 @@
-# Square Golf → GSPro Connector (unofficial)
+# Grimes Golf
 
-A small Windows console app that reads shots from a **Square Golf Omni** over Bluetooth LE and
-forwards them to **GSPro** using the GSPro Open Connect v1 protocol (TCP `127.0.0.1:921`).
+A golf simulator for the garage: hit real balls into a net with a **Square Golf Omni** launch monitor and play
+real courses in 3D, or practise on a driving range. It has its own ball-flight physics, hot-seat play for up to
+four players, team games, and (in development) online rounds with friends at their own simulators.
 
-## Use it
+Built with Godot 4.7 (.NET) and C#. Windows only, because it talks to the monitor over Windows Bluetooth LE.
 
-1. In GSPro, choose **Other / Open API** as the launch monitor and start GSPro.
-2. Turn on the Square. **Close the Square phone/tablet app** (only one client can hold the link).
-   **Do not pair the Square in Windows Bluetooth settings**; it does not pair.
-3. Run `SquareGsproConnector.exe`. It scans for `SquareGolf(XXXX)`, connects, arms the monitor,
-   and sends each shot to GSPro. It reconnects automatically to both sides.
-4. Club and handedness follow GSPro (the connector forwards GSPro's club changes to the monitor).
+> This is an independent project, not made or endorsed by Invant / Square Golf. Square publishes no SDK; the
+> monitor protocol comes from community reverse-engineering notes.
 
-Settings live in `connector.json` next to the exe (host/port, exact device name if you have
-several monitors, club-data timeout, advanced vs standard spin, default club).
+## Contents
 
-## Square Range 3D (Godot)
+- [Features](#features)
+- [System requirements](#system-requirements)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [Online play](#online-play)
+- [Building from source](#building-from-source)
+- [Project layout](#project-layout)
+- [Documentation](#documentation)
+- [Known limitations](#known-limitations)
+- [Roadmap](#roadmap)
+- [Credits and data licences](#credits-and-data-licences)
+- [Licence](#licence)
 
-`src/SquareGspro.Godot` is a standalone practice app built in **Godot 4.7 (.NET edition)** that doesn't need GSPro.
+## Features
 
-- **Main menu** (where the app opens, under the Grimes Golf Simulator logo): **New Game** (a list of courses with
-  their holes, par, length and a short description, and who's playing; then **Game Setup**, below, and **Start
-  Round**), **Resume Game** (shown when a round is unfinished, with its course, game, hole and players), **Driving
-  Range**, **Settings** and **Quit**, plus the
-  launch monitor's status (with a button for the monitor drawer) and the version. New Game and Resume Game show a
-  **loading screen** (the logo, the course's logo and what's being loaded) while the course map, elevation and 3D
-  world are built.
-- **Top bar** (in play): the logo and version, "Driving range" on the range, the **Ready / Not ready** light in the
-  middle (green once the last shot has finished and, with a monitor connected, the monitor sees a ball ready to hit),
-  the player chip (with 2+ players: whose turn it is, or on the range who the shots are saved under; click it there
-  for the next player), the launch monitor status (ready state and battery; click it for the monitor drawer) and
-  **Menu** (`M`, `Esc` or gamepad Start).
-- **In-game menu**: on a course, Scorecard, Settings, Previous Hole, Next Hole, Restart Hole, Add / Remove Players
-  (players can join on the current hole, where they start from the tee and earlier holes don't count for them, or
-  leave), Restart Game and End Game (keep the round for Resume Game, or discard it); on the range, Settings, Clear
-  Session and Main Menu. Both have the camera mode, the launch monitor drawer and the physics tuner.
-- **Hitting from the screen** (no monitor needed): a **power** slider (1-100% of the club's full carry; for the
-  putter, of the roll shown beside it), **shape** (Draw / Straight / Fade: starts right and curves back left for a
-  right-hander, or the opposite) and **spin** (Low / Medium / High: lower flight with more roll, or higher with more
-  stopping), then **HIT SHOT** (`Space`). On a course the power is set for each new shot (the distance it plays, from
-  that lie; putts get the pace from the green read) and can be changed (`↑ / ↓`, Shift = 5%). Shape and spin go
-  back to Straight and Medium after every shot.
-- **Camera**: in Follow mode (`C`) it chases the ball until it stops. Before a shot, **Zoom** (`Z`) takes it down
-  the aim line to look at where the ball will land with the aim and power set; it follows aim and power changes,
-  and comes back behind the ball when pressed again or when the shot is hit. Before the first tee
-  shot on each hole it flies down the hole from behind the tee to the green (`Space` or `Esc` skips it; can be
-  turned off in Settings).
-- **Results wait for the ball**: the shot's numbers (range) and the result card, the next shot's distance, lie and
-  club (course) only appear once the ball has stopped.
-- **Monitor drawer** (`L` or the status chip): every Square it can hear over Bluetooth (with signal strength), Connect
-  / Disconnect, the monitor's serial, hardware, firmware (LM / MMI / launcher), uptime, state, ball-in-position
-  status and battery, the left-handed setting, and the log.
-- **Connecting**: with auto-connect on (the default) the app connects by itself, to the monitor used last time, or
-  to the strongest one it hears if that one isn't found within 8 s. If the link drops, a big banner says
-  "Launch monitor disconnected — reconnecting…" and it keeps retrying (every few seconds) until it's back; Disconnect
-  in the drawer stops that.
-- **Range**: each shot flies down a 3D range with a camera that follows the ball, trails, landing rings and a
-  minimap. Aim left and right (`← / →`, the ‹ › buttons, or click on the minimap), or step through the target
-  flags (50-300 yd) to aim straight at one (`F` / `Shift+F`, gamepad Y, or the target button); a line on the range
-  and the minimap shows where the shot is aimed and how far the power set carries it. The bottom bar shows Carry and Total large, with ball and club speed, smash, launch, direction, apex,
-  spin, spin axis, descent, offline, roll and hang time. The right column has the session history and a per-club
-  summary (average carry and total, offline spread).
-- **Course**: pick a course with New Game:
-  - **Deer Run (Moulton, AL)**, all 18 holes imported from OpenStreetMap: real routing, hole lengths and pars,
-    dog-legs, tee, green and bunker shapes, with the course property line as out of bounds. Fairways are mapped for
-    holes 1-4; on the others 35-yd fairways are generated along each hole line. The trees are the real ones, where
-    they stand and as tall and wide as they are, measured from lidar.
+- **Square Golf Omni over Bluetooth LE**: finds and connects to the monitor by itself, follows the player's club and
+  hand, and reconnects automatically if the link drops.
+- **No monitor needed to try it**: a power slider with draw / fade and spin choices hits shots from the screen.
+- **Real courses**: Deer Run (Moulton, AL), all 18 holes from OpenStreetMap, on 1 m lidar elevation, with its
+  ~9,900 real trees at their measured height and spread.
+- **Own physics engine**: aerodynamic flight, wind, altitude and weather, bounce and roll by surface, slopes,
+  sloping and rough lies, putts that break and lip out. Every value can be adjusted in a physics tuner.
+- **Games for 1-4 players**: stroke play, scramble, best ball and match play; full 18, front or back 9, or par 3s;
+  house rules for mulligans, gimmes and double-par pick-ups.
+- **Made for guests**: large text options, full screen for a TV or projector, and a whole round can be played with a
+  gamepad, wireless numpad or presenter clicker.
+- **Nothing lost**: the round is saved after every shot and resumes after a crash; every shot and scorecard is kept
+  per player.
+- **Online play** (in development): a relay server with 5-character lobby codes lets friends at different houses
+  play one round together.
 
-  The course screen is laid out round the ball, with the panels kept to the edges. Top left, the hole badge: the
-  course logo, hole number, par and length, the stroke being played and the score (to par, "thru 4"); under it whose
-  turn it is and the Mulligan button. Top right, the hole overview: the hole from above with the ball ringed in the
-  player's colour, a line from it to where the shot is aimed (it swings with the aim and stretches or shrinks with
-  the power) with that distance, and the flag with its distance (click or drag on the map to aim); under it, the
-  wind. Down the left, the last shot's carry, total, offline and distance left (until the next shot). Bottom left,
-  the lie card: the lie, the side and up / down slope angles, and the shot penalty (how much shorter the club
-  carries from there than from a clean, level lie); on the green, the green read with the flag, heat map and grid
-  buttons instead. Bottom right, the shot panel: distance to the pin with the rise or fall to it ("153 yds", "up 2'",
-  and what it plays), the club (its tooltip gives the carry from here), the aim, power, shape, spin and HIT SHOT.
-  A line across the top after each shot says where it finished and what happens next; holing out announces the
-  score ("BIRDIE!") across the screen; the scorecard opens with `S`, from the menu, and after each hole. Once
-  everyone has finished a hole the next one starts by itself after 5 seconds (counting down on the NEXT HOLE button;
-  `Space` goes straight away, and the count pauses while a menu is open).
+The full tour of the screens, controls and options is in the [user guide](docs/user-guide.md).
 
-  **Game Setup** (New Game's second page; every choice is a row of buttons, so a gamepad picks each with one press,
-  and the last setup is remembered):
-  - **Game type**: **Stroke Play**; **Scramble** (everyone in a team hits from the same spot, the best shot is picked
-    for them: holed first, then fewest strokes, then nearest the pin from the better lie, and the whole team plays
-    the next one from there; the result line says whose ball they're playing); **Best Ball** (everyone plays their
-    own ball, each hole counts the team's best score); **Match Play** (hole by hole: the lower score wins the hole,
-    the badge reads "2 UP" / "AS" / "1 DN" for whoever's up, the scorecard adds a row of who won each hole and the
-    match's standing, "Ann wins 3 & 2"). With four players the teams are players 1 and 2 against 3 and 4; with two
-    or three, a scramble or best ball is everyone together against par. Match play needs two players (or four, best
-    ball two against two); a game that doesn't suit the players is greyed out, and plays as stroke play if picked.
-  - **Holes**: Full 18, Front 9 (holes 1-9), Back 9 (10-18) or Par 3s (just the par-3 holes), with the count, par and
-    length shown. The badge and scorecard show the real hole numbers.
-  - **Environment**: wind (below); altitude (the course's own height from its elevation data, sea level, or 2,500 /
-    5,000 / 7,500 ft: thinner air carries further); weather (Mild as tuned; Hot 95 °F; Cold 45 °F; Wet: rain falling
-    round the camera under an overcast sky, and soft, wet ground).
-  - **Course**: fairway speed (Slow / Medium / Fast: how far the ball runs out), green firmness (Soft / Medium / Firm:
-    approach shots check or release) and green speed (stimp 8-13).
+## System requirements
 
-  The conditions are applied on top of the physics tuning while a round is played (the tuner still shows and saves
-  its own values; the range plays them as tuned), and are saved with the round, so Resume Game carries on with the
-  same game, holes and weather. The in-game menu shows them under its title.
+The minimums below come from what the app is built against. Nothing has been benchmarked yet, so performance
+figures are guidance, not tested limits.
 
-  **Wind** (Game Setup: Calm, Light 2-7 mph, Breezy 7-13 mph or Windy 13-21 mph, with gusts on top): each round has a
-  prevailing wind that shifts a little from hole to hole. It blows full shots in the air (stronger higher up, as over
-  open grass); putts roll in still air. The wind panel shows its speed and an arrow for which way it blows across the
-  shot ("into, from the left"), the flag on the green streams with it, and the plays-like distance and club
-  suggestion allow for it (about 1% longer per mph into the wind, half that downwind).
+### To play (every PC)
 
-  Each shot is played from where the last one stopped. The app suggests a club for the distance and lie (and switches
-  the monitor to it). Lies are tee, fairway, fringe (the collar around greens), rough (a first cut beside the
-  fairways, tees and greens), deep rough, bunker and green. Shots from the rough, deep rough, sand and fringe lose
-  speed and spin, and sloping lies change the launch (uphill higher, ball above the feet pulls and draws), because a
-  monitor reading a ball off a mat can't see the lie. Balls bounce and roll by surface: high-spin wedges check and spin
-  back on the greens, the rough grabs, sand stops the ball. Water and out of bounds are stroke-and-distance
-  (one-stroke penalty, replay from the previous spot); putts that stop within the gimme distance are tapped in. The
-  cup has depth: a putt at the right pace drops in, one that's too firm for how far off-centre it is lips out (or
-  skips over if it's dead straight). The flag is pulled once you're on the green (`F` to leave it in).
+| | Required | Notes |
+|---|---|---|
+| Operating system | Windows 10 version 2004 (build 19041) or later, 64-bit; Windows 11 | The Bluetooth code uses the Windows 10 19041 APIs. |
+| Graphics | A GPU with Vulkan 1.0 support | Godot's Forward+ renderer. On integrated graphics, use the Low or Medium graphics setting. |
+| Display | Any size | Laid out for 1600×900 and scales with the window; full screen works on TVs and projectors. |
+| Bluetooth | Bluetooth 4.0 (LE) or later, built in or a USB adapter | Only needed with a launch monitor. Don't pair the monitor in Windows settings. |
+| Launch monitor | Square Golf Omni | Optional offline (shots can be hit from the screen). The original Square (non-Omni) isn't supported. |
+| .NET | Nothing to install | The exported build includes the .NET runtime. |
+| Input | Mouse and keyboard, or a gamepad, numpad or presenter clicker | |
 
-  **Hot-seat multiplayer, 1-4 players** (set up in Settings): each player has their own ball, name, colour and
-  handedness. Everyone tees off in honour order (lowest score on the last hole first; player order on the first),
-  then whoever is farthest from the hole plays next. The hole card says "ANN TO PLAY" in her colour with everyone's
-  score, the other balls sit on the course with their names over them (and as dots on the minimap), and the result
-  card says who's up next. When the turn changes the monitor switches to that player's hand and suggested club. The
-  scorecard has a row per player (and per team in the team games).
+### To play online
 
-  **House rules** (Settings): mulligans per player per round (**Mulligan** on the hole card, `U`, numpad 0 or
-  gamepad X takes back the last shot of the round, penalty included, once the ball has stopped and before anyone
-  else hits; not a holed one), the gimme distance (0 = hole everything out), and picking up at double par. The
-  default is 2 mulligans, 2 ft gimmes and double-par pick-up. Player and rule changes apply from the next round
-  ("Save and start a new round" starts one now).
+Online play is still in development and only appears in debug builds (see [Online play](#online-play)). When it's
+on, both roles need everything above, plus:
 
-  **The round is saved after every shot.** If the app is closed or crashes, **Resume Game** on the main menu
-  carries on with it, with the same players. **Restart Game** in the menu (or **New round** on the scorecard)
-  starts again.
-- **Settings** (main menu, the in-game menu, numpad `*` or gamepad Back): players (1-4, name and left-handed),
-  house rules, auto-connect, text size (Small / Normal / Large / Extra large: smaller for a laptop, bigger for
-  reading from the mat or a projector), full screen, graphics quality (Low / Medium / High / Ultra: anti-aliasing,
-  shadow detail and reach, bounced light and reflections in the water, how far 3D grass reaches round the camera, and soft focus on grass right in front of a low camera;
-  High is the default), and the camera's hole flyover. The course last played and the camera mode are remembered too, so no command-line switches are
-  needed. The whole UI also scales up with the window (a full-screen projector shows it bigger), and switches to a
-  compact layout when large text leaves less room.
-- **Without a keyboard**: a gamepad, a wireless numpad or a presenter clicker can play a whole round (table below).
-- **Saved data** lives in `%APPDATA%\Square Range 3D`: `settings.json`, `current-round.json` (the round in
-  progress: every player's scorecard and ball, and whose turn it is), `rounds\` (finished rounds, the scorecards of
-  everyone who played), `sessions\` (every shot, range and course, with the player's name, one JSON line each, a
-  file per app session; a shot taken back with a mulligan is written again marked `"Mulligan": true`), `crash.log`
-  (errors and unhandled exceptions) and `logs\` (Godot's own log). Shots are saved from the app's "shot finished"
-  event, which carries everything about a shot (launch data, club, player, lie, stance, plays-like distance, result,
-  everyone's standing). Development runs that hit shots by themselves (`--demo-shots`, `--hole`, `--hit-at`,
-  `--tune`) don't save or resume anything.
-- **Physics tuner** (`T` or **Physics Tuner** in the menu) opens in its own window, so it can sit beside the game or on
-  another monitor. It has a slider and number box for every physics value, and changes apply from the next shot:
-  - **Flight**: drag, lift, spin decay and how drag changes with ball speed; air temperature, altitude and humidity;
-    wind speed, direction, gusts and how much weaker it is near the ground.
-  - **Bounce & roll**, per surface (fairway, fringe, rough, deep rough, sand, green): bounciness, dig-in, firmness,
-    friction, spin grab, and rolling resistance (green speed as a stimp reading on the green); plus wetness everywhere.
-  - **Lies**: ball speed, spin and launch change from the fringe, rough, deep rough and sand, and the slope effects.
+| | Host (creates the lobby) | Guest (joins with a code) |
+|---|---|---|
+| Launch monitor | Square Golf Omni, connected | Square Golf Omni, connected |
+| App version | The build every guest uses (versions must match exactly) | The host's build |
+| Relay | Its address. A relay has to be deployed once, by anyone in the group ([how](docs/deploying-the-relay.md)) | The address and the 5-character lobby code, from the host |
+| Network | Outbound internet to the relay (port 443 for a `wss://` relay). No port forwarding. | The same |
+| Connection quality | A steady connection for the whole round: the host's PC plays every shot, so if it drops the guests wait (after 2 minutes they're offered the main menu, scores kept) | Can drop and rejoin: if their turn comes while they're gone, their players are skipped after 60 s, and play again from the next hole once back |
+| PC kept on | Until the round ends. A paused round can be carried on within 12 hours. | Only while playing |
+| Players at the PC | 1-3 | 1-3 (at most 4 across the whole lobby) |
+| Chooses | Course, game type, holes, conditions, house rules; its physics tuning is used by everyone | Nothing: plays with the host's settings and tuning |
 
-  The last six shots are shown side by side (carry, total, roll, apex, descent, offline), with the change from the
-  shot before and which values changed between them. **Replay last shot** (`F5`) flies the same monitor numbers again
-  with the current physics: on a course from the same spot, replacing the shot rather than adding a stroke. The
-  previous flight is drawn faintly in the game for comparison. Changed values are marked, with a reset per value,
-  section or everything. Presets save as JSON in a `tuning` folder (next to the exported app, or in
-  `src/SquareGspro.Godot` when run from Godot); "Use these values at start-up" keeps the current values for the next
-  launch. Wind direction is relative to the target on the range and a compass bearing on a course.
+Each shot sends about 16 KB (an estimate), so bandwidth isn't a concern.
 
-**Install it** (the way guests use it): `./tools/export.ps1` exports the Windows build to `dist\Square Range 3D` and
-puts a **Square Range 3D** shortcut on the desktop. The preset is `src/SquareGspro.Godot/export_presets.cfg`; the
-version comes from `application/config/version` in `project.godot` and is shown in the top bar. It needs the Godot
-export templates for the editor's version (Editor > Manage Export Templates, or unzip the `.tpz` into
-`%APPDATA%\Godot\export_templates\4.7.2.stable.mono`) and uses `src/SquareGspro.Godot/SquareGspro.Godot.sln`.
-Physics presets go in `tuning\` next to the exe (existing ones are kept on re-export); saved data stays in
-`%APPDATA%`.
+### To run the relay server
 
-Run it from source: open the folder in the Godot 4.7 .NET editor and press Play, or `godot --path
-src/SquareGspro.Godot` (build first with `dotnet build src/SquareGspro.Godot`). Optional switches: `--
---autoconnect` connects even with auto-connect off, `-- --range` skips the main menu for the range, `-- --course`
-skips it for the course (the unfinished round, if there is one), `-- --hole=N` starts on hole N. For development
-(these runs skip the main menu and start on the range unless `--course` is given), `--demo-shots=N` hits N demo
-shots, `--hit-at=2,8.5` presses HIT SHOT at those times (seconds after start), `--screenshot=file.png` saves the
-window and quits (after `--screenshot-delay=seconds`, default 4, or once the demo shots finish), `--monitor-drawer`
-opens the drawer, `--settings` the settings, `--menu` the in-game menu, `--setup-page` New Game's Game Setup page,
-`--scorecard` the scorecard just before the screenshot, `--reconnecting` shows the reconnecting banner,
-`--loading-screen` the course loading screen and `--celebrate=Birdie` a hole's score announcement.
-`--players=Ann,Bob,Cat:L` (`:L` = left-handed), `--text-size=Large`, `--graphics=Ultra`, and the game setup
-`--game=Scramble` (Stroke, Scramble, BestBall, MatchPlay), `--holes=Back9`, `--wind=Breezy` and `--weather=Wet` apply
-to that run only.
-`--tuner` opens the physics tuner (the screenshot then also saves it as `file-tuner.png`), `--tuner-tab=Lies` (or
-`Flight`, or a surface such as `Green`) picks its tab, and `--tune=key=value` (e.g. `--tune=flight.drag=1.2`) changes
-one value after the demo shots and replays the last one.
+A small always-on machine with Docker, or a [Fly.io](https://fly.io) account; 256 MB of memory is plenty for a few
+friends. See [Deploying the relay](docs/deploying-the-relay.md).
 
-| Action | Keyboard | Numpad | Gamepad | Clicker |
-|---|---|---|---|---|
-| HIT SHOT; after the hole, next hole | **Space** | 5 / Enter | A | Next (Page Down) |
-| Power 1% / 5% | **↑ / ↓**, Shift + ↑ / ↓ | | | |
-| Aim ¼° (course and range) | **← / →** | 4 / 6 | D-pad ← / → | |
-| Range: next / previous target flag | **F** / **Shift + F** | | Y | |
-| Skip the hole flyover | **Space**, **Esc** | 5 / Enter | A, B | Next (Page Down) |
-| Aim 2° | **Shift + ← / →** | 7 / 9 | LB / RB | |
-| Landing view on / off (before a shot) | **Z** | 1 | Left stick click | |
-| Club longer / shorter | | 8 / 2 | D-pad ↑ / ↓ | Shift + Page Up / Down |
-| Mulligan (house rules) | **U** | 0 | X | |
-| Scorecard (course) | **S** | . | Y | Back (Page Up) |
-| Next hole | **N** | + | | |
-| Menu | **M**, **Esc** | | Start | |
-| Camera: follow the ball / stay behind it | **C** | − | Right stick click | |
-| Settings | | * | Back / Select | |
-| Close / cancel | **Esc** | / | B | |
-| Random demo shot (after holing out, next hole) | **D** | | | |
-| Launch monitor drawer | **L** | | | |
-| Physics tuner window | **T** | | | |
-| Replay the last shot with the current physics (tuner open) | **F5** | | | |
-| Restart hole / flag in or pulled / heat map / grid | **R** / **F** / **H** / **G** | | | |
+### To build from source
 
-In the menus and the settings screen, arrows / D-pad move between buttons and fields, Enter / A presses, Esc / B
-closes (the settings without saving).
+- Windows 10/11 to run and export the game (the code compiles anywhere, but Bluetooth and the export need Windows)
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) (the game and its libraries)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (the relay server and the online tests)
+- [Godot 4.7.2, .NET edition](https://godotengine.org/download), plus its export templates to make a release build
+- PowerShell for the scripts in `tools/`; Python 3 with numpy and laspy only to re-make the tree data
 
-The Godot code is split by topic: `Main.cs` (set-up, the "shot finished" event, saving shots), `Main.Monitor.cs`
-(Bluetooth, auto-connect and reconnecting), `Main.Shots.cs` (shots and the range), `Main.Course.cs` (rounds and
-turns), `Main.Menus.cs` (main menu and in-game menu), `Main.Controls.cs` (keyboard, numpad, gamepad and clicker),
-`Main.Settings.cs`, `Main.DevTools.cs`; and `Hud.cs` (top bar, banner, toasts) with `Hud.Drawer.cs`, `Hud.Range.cs`,
-`Hud.Course.cs`, `MainMenu.cs`, `MenuOverlay.cs`, `ShotControls.cs`, `LieView.cs`, `MapOverlay.cs`,
-`SettingsPanel.cs` and `PlayersPanel.cs`.
-Multiplayer turn order lives in `SquareGspro.Core/Course/Match.cs`.
+## Installation
 
-Carry/total/apex, bounce and roll come from the app's own physics engine (`src/SquareGspro.Physics`, see its README:
-aerodynamic flight, bounce and roll over the course ground, and the lie model), not from the monitor, so expect them
-to differ somewhat from the Square app and from GSPro. The engine's coefficients and the lie effects are provisional
-and not yet validated against measured shots; every one can be adjusted in the physics tuner (the values and their
-defaults are listed in `SquareGspro.Core/PhysicsTuning.cs`, and `ActivePhysics` feeds them to every simulation the
-app runs). Course rules (lies, roll, holing, penalties) live in
-`SquareGspro.Core/Course` and are unit-tested (against hand-made holes in `tests/SquareGspro.Tests/TestCourse.cs`). Trees are scenery only
-(balls don't hit them).
+There are no published releases yet. Build one from source:
 
-### Mapped courses (OpenStreetMap)
-
-`OsmCourse.cs` builds a course from OpenStreetMap data: `golf=hole` lines (ref, par, name), `golf=tee`, `green`,
-`fairway`, `bunker`, water hazards / `natural=water`, ditches and streams, cart paths (`golf=cartpath`, or paths
-tagged `golf_cart=yes`; 2.5 m wide unless `width` is tagged, and `bridge=yes` ones carry the path over water), woods,
-and the `leisure=golf_course` outline (out of bounds).
-Holes without a mapped fairway get a generated one; duplicate or missing hole numbers are fixed by routing (the
-next tee nearest the last green). What it fixed or generated is printed to the log when the course loads.
-
-Cart paths are concrete: a ball landing on one bounces higher and runs further (tune it under Physics → Bounce &
-roll → Cart path). A ball that stops on a path gets free relief, moved to the nearest point no nearer the hole that's
-0.6 m clear of every path (room for the stance) and on grass, not in a bunker, on a green or in water.
-
-The data is embedded from `src/SquareGspro.Core/Course/Data/deer-run.osm`. To pick up map edits (for example, after
-tracing Deer Run's fairways, ponds and woods on openstreetmap.org), re-download it and rebuild:
-
-```
-./tools/fetch-osm-course.ps1
-dotnet build src/SquareGspro.Godot
+```powershell
+./tools/export.ps1
 ```
 
-Map data © OpenStreetMap contributors, under the [Open Database Licence](https://opendatacommons.org/licenses/odbl/);
-the app shows this credit under the scorecard.
+This exports the Windows build to `dist\Grimes Golf` and puts a **Grimes Golf** shortcut on the desktop. Pass
+`-Godot "C:\path\to\Godot_v4.7.2-stable_mono_win64.exe"` if Godot isn't on the `PATH`, and `-NoShortcut` to skip the
+shortcut. Copy the `dist\Grimes Golf` folder to any other PC that should run it.
 
-Ground elevation comes from the USGS 3D Elevation Program (1 m lidar DEM, public domain), embedded as
-`src/SquareGspro.Core/Course/Data/deer-run.dem`; re-download it with `./tools/fetch-elevation.ps1` (same bounding box
-as the map). It's resampled to a 2 m grid (`Terrain`), lightly smoothed, and each green is reshaped as a built
-surface (its overall tilt capped at 3.5%, a little of its contour kept) so lidar noise doesn't read as bumps.
+Settings, saved rounds and shots live in `%APPDATA%\Square Range 3D` (the app's earlier name, kept so existing data
+stays where it is). Re-exporting or reinstalling doesn't touch them.
 
-The trees come from the same lidar, embedded as `src/SquareGspro.Core/Course/Data/deer-run.trees.csv.gz` and read
-by `TreeSurvey.cs`; the course keeps the ~9,900 within 150 m of it, and the scenery plants each one at its height
-and crown width (tall, narrow ones mostly as conifers, wide ones as broadleaf), leaving only the camera spot behind
-each tee clear. A course without tree data still gets trees planted at random between the holes. Re-make the file
-with `./tools/fetch-canopy.ps1` (Python 3 with numpy and `laspy[lazrs]`; `-Install` installs them): it downloads
-the 3DEP point cloud over the box from the public USGS Entwine point tiles on AWS (newest survey, cached in
-`%LOCALAPPDATA%\SquareRange\ept-cache`), makes a canopy height grid (highest return minus ground), and finds the
-tree tops with their height and crown radius, grouped as single trees, groups of 2-5 and dense woods (one row per
-tree; `-Preview` also draws a PNG, in the cache folder, to check it by eye). Rebuild afterwards.
+## Quick start
 
-With elevation, Deer Run plays on real ground:
+1. Turn on the Square Golf Omni and **close the Square phone or tablet app**: only one app can hold the connection.
+   Don't pair the monitor in Windows Bluetooth settings; it doesn't pair.
+2. Start Grimes Golf. It opens on the main menu and connects to the monitor by itself (the status card at the
+   bottom of the menu shows when it's ready).
+3. Add the players in **Settings** (1-4, with names and left- or right-handed).
+4. Pick **Driving Range** to warm up, or **New Game** to choose a course and game, then **Start Round**.
+5. Hit the ball. With no monitor, set the power and press **HIT SHOT** (`Space`).
 
-- The ball flies until it meets the ground, so uphill shots come down short and downhill ones carry further. The HUD
-  shows the distance a shot plays ("146 yd to the pin (plays 152)") and the caddie picks clubs by it.
-- Landings are judged against the slope (into an upslope checks up, onto a downslope releases), and the ball rolls
-  with friction by lie plus gravity along the slope: it runs down hills, stops on gentle slopes, and breaks on greens.
-- On the green the default aim is a putt read that allows for the break, and the HUD says how much
-  ("23 ft to the pin, aim 2.5 ft left"); demo putts are struck at the read's pace.
-- The ground is drawn as one mesh from the same grid, coloured by a coverage texture of the fairways, greens,
-  bunkers and water, so the ball sits on what you see.
+The [user guide](docs/user-guide.md) covers the course screen, game types, house rules, the controls for gamepad,
+numpad and clicker, and the physics tuner.
 
-The test holes stay flat.
+## Online play
 
-The world and UI are built in C# (`RangeWorld`, `CourseWorld`, `ShotPlayer`, `CameraRig`, `Hud`); `Main.tscn` is
-just the root. To ship an `.exe`, install Godot's export templates and add a Windows Desktop export preset.
+Friends at different houses play one round through a small relay server. The host's PC plays every shot; the others
+are sent each outcome with the whole match after it and animate that, so scores can't drift apart.
 
-## What gets sent
+**Status:** the relay, the networking and the game integration are built and tested in code, but not yet played
+between two houses. Until then **Play Online only appears in debug builds**, and the release build stays fully
+offline. The design and progress are in the [online play plan](docs/online-play-plan.md).
 
-| Square (device) | GSPro |
+To try it now, deploy a relay ([guide](docs/deploying-the-relay.md)) or run one locally, then run two copies of the
+game on one PC as described in the [development guide](docs/development.md#online-play-on-one-pc).
+
+## Building from source
+
+```bash
+dotnet build GrimesGolf.sln
+```
+
+```bash
+dotnet test tests/GrimesGolf.Tests
+```
+
+```bash
+dotnet test tests/GrimesGolf.Physics.Tests
+```
+
+```bash
+dotnet test tests/GrimesGolf.Online.Tests
+```
+
+To run the game, open `src/GrimesGolf.Godot` in the Godot 4.7 .NET editor and press Play, or:
+
+```bash
+godot --path src/GrimesGolf.Godot
+```
+
+Command-line switches for development, the code layout of the game, and how to refresh the course data are in the
+[development guide](docs/development.md).
+
+## Project layout
+
+| Path | What it is |
 |---|---|
-| ball speed m/s | `BallData.Speed` mph |
-| launch / direction | `VLA` / `HLA` (positive = right) |
-| total / back / side spin, spin axis | `TotalSpin`, `BackSpin`, `SideSpin`, `SpinAxis` (**sign flipped**: Square reports negative = curves right) |
-| club speed, path, face, attack, dynamic loft | `ClubData.*` (club data is requested after each ball packet; if it doesn't arrive within `ClubMetricsTimeoutMs`, ball data is sent alone) |
+| `src/GrimesGolf.Godot` | The game (Godot 4.7, C#): worlds, camera, HUD, menus, input, online lobby |
+| `src/GrimesGolf.Core` | Platform-neutral game logic: courses, rounds, scoring, house rules, the Square protocol, saved data |
+| `src/GrimesGolf.Physics` | The golf physics engine: impact, flight, wind, bounce, roll, putting ([README](src/GrimesGolf.Physics/README.md)) |
+| `src/GrimesGolf.Bluetooth` | The Windows Bluetooth LE link and monitor session (the only Windows-specific code) |
+| `src/GrimesGolf.Online` | Online play: the relay connection, the messages, the host and guest sessions |
+| `src/GrimesGolf.Relay` | The relay server (.NET 10, standalone), with a Dockerfile and `fly.toml` |
+| `tests/` | xUnit tests for each of the above |
+| `tools/` | The release export and the scripts that fetch course map, elevation and tree data |
+| `docs/` | User guide, development guide, relay deployment, design documents |
 
-Carry distance is not provided by the monitor; GSPro calculates it. Impact location is not forwarded
-(scale and sign are unverified).
+## Documentation
 
-## Known limits / unverified
+- [User guide](docs/user-guide.md): screens, game types, house rules, controls, the physics tuner, saved data
+- [Development guide](docs/development.md): running from source, command-line switches, code layout, course data, testing online play
+- [Deploying the relay](docs/deploying-the-relay.md): Fly.io or any Docker host
+- [Online play plan](docs/online-play-plan.md): design and status of roadmap 1.2
+- [Physics engine specification](docs/physics-engine-spec.md) and the [physics README](src/GrimesGolf.Physics/README.md)
+- [Roadmap](ROADMAP.md)
 
-- Protocol source: the community reverse-engineering notes in `divotmaker/allsquare` (Omni, firmware
-  1.5.8). The original Square (non-Omni) uses different club codes and is not covered.
-- Bluetooth connection, device info, battery/uptime/state notifications and disconnects have been run
-  against a real Square (hardware 1.5, LM firmware 1.10.29). **Real shots have not been captured yet**;
-  shot parsing, club correlation and the GSPro message flow are covered by tests.
-- Unverified details: club codes for 5W/7W/4H/3I/LW, left-handed club-face/path signs, the GSPro club
-  codes beyond the documented `DR` example (unmapped codes are logged and the monitor's club is left as-is).
-- Square publishes no SDK; this is not endorsed by Invant/Square Golf. Check the licence/terms for your use.
+## Known limitations
 
-## Online play (in development, roadmap 1.2)
+- **Real shots haven't been captured yet.** Bluetooth connection, device info, battery, state and disconnects have
+  been run against a real Square (hardware 1.5, LM firmware 1.10.29); shot parsing is covered by tests.
+- **Unverified monitor details:** club codes for 5W / 7W / 4H / 3I / LW, the left-handed club face and path signs,
+  and impact location.
+- **Physics isn't calibrated.** Carry, total and roll come from the app's own engine, not the monitor, and haven't
+  been validated against measured shots, so expect them to differ from the Square app. Every value can be adjusted
+  in the physics tuner.
+- **Trees are scenery**: balls don't hit them yet.
+- **Online play** hasn't been played between two houses yet (see above).
 
-Friends at different houses play one round through a small relay server. The host's PC plays every shot; the
-others are sent each outcome with the whole match after it and animate that, so scores can't drift apart. The
-design is in [`docs/online-play-plan.md`](docs/online-play-plan.md).
+## Roadmap
 
-**Play Online only appears in debug builds for now.** The release export stays fully offline until a full
-18 holes has been played between two houses with real Square monitors (milestone M7).
+See [ROADMAP.md](ROADMAP.md). Next up: proving it on real hardware (0.8), the 1.0 release checklist, party games
+(1.1) and online play (1.2).
 
-Pieces:
+## Credits and data licences
 
-| Project | What it is |
-|---|---|
-| `src/SquareGspro.Relay` | The relay (.NET 10, no other project references): in-memory lobbies with 5-character codes, forwards messages it never reads. `Dockerfile` and `fly.toml` included. |
-| `src/SquareGspro.Online` | The relay connection (`RelayClient`, WebSocket with reconnects), the messages, and the host and friend sessions. No Godot. |
-| `src/SquareGspro.Godot/Main.Online.cs`, `OnlinePanel.cs` | The game side: lobby screen, routing monitor shots to the session, showing the host's results. |
-| `tests/SquareGspro.Online.Tests` | Relay tests (in-process), session tests over an in-memory relay (18 holes, every game type, drops, rejoins), and one end-to-end run over real sockets. |
+- Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, under the
+  [Open Database Licence](https://opendatacommons.org/licenses/odbl/). The app shows this credit under the scorecard.
+- Elevation and tree data: [USGS 3D Elevation Program](https://www.usgs.gov/3d-elevation-program) lidar, public
+  domain.
+- Sky and ground textures: Poly Haven and ambientCG, CC0 (see
+  [assets/CREDITS.md](src/GrimesGolf.Godot/assets/CREDITS.md)).
+- Square Golf protocol: the community reverse-engineering notes in `divotmaker/allsquare`.
+- Built with [Godot Engine](https://godotengine.org) (MIT).
 
-Trying it on one PC (debug build, two copies of the game):
+## Licence
 
-```bash
-ASPNETCORE_URLS=http://127.0.0.1:5080 dotnet run --project src/SquareGspro.Relay
-```
-
-```bash
-godot --path src/SquareGspro.Godot -- --relay=ws://127.0.0.1:5080/ws --data=user://host --no-bluetooth --fake-monitor
-```
-
-```bash
-godot --path src/SquareGspro.Godot -- --relay=ws://127.0.0.1:5080/ws --data=user://friend --no-bluetooth --fake-monitor --auto-play
-```
-
-`--data` keeps each copy's settings and rounds apart, `--fake-monitor` makes HIT SHOT stand in for a launch
-monitor (`--fake-monitor=sessions/2026-11-04_120000.jsonl` plays a saved session's shots instead), and
-`--auto-play` hits by itself whenever it's that copy's turn. These switches only work in debug builds.
-
-Deploying the relay (one small machine is plenty; lobbies live in memory, so keep it to one):
-
-```bash
-cd src/SquareGspro.Relay && fly launch --copy-config --no-deploy && fly deploy
-```
-
-## Build from source
-
-Requires the .NET 8 SDK (and the .NET 10 SDK for the relay and the online tests).
-
-```
-dotnet test tests/SquareGspro.Tests
-dotnet test tests/SquareGspro.Online.Tests
-dotnet publish src/SquareGspro.Connector -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o dist
-```
-
-`SquareGspro.Core` (protocol, GSPro client, shot bridge, ball-flight model) is platform-neutral.
-`SquareGspro.Bluetooth` (BLE link, scanner, monitor session) is the only code using the Windows Bluetooth
-APIs; the connector and the Godot app both reference it.
+No licence has been chosen for this code yet, so all rights are reserved by the author. The map, elevation and
+texture data above keep their own licences.

@@ -1,0 +1,20 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+
+  <PropertyGroup>
+    <!-- Windows target so the WinRT Bluetooth APIs (via GrimesGolf.Bluetooth) are available. -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>GrimesGolf.Game</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GrimesGolf.Core\GrimesGolf.Core.csproj" />
+    <ProjectReference Include="..\GrimesGolf.Bluetooth\GrimesGolf.Bluetooth.csproj" />
+    <ProjectReference Include="..\GrimesGolf.Online\GrimesGolf.Online.csproj" />
+  </ItemGroup>
+
+</Project>
