@@ -4,7 +4,7 @@ namespace SquareGspro.Core.Square;
 public static class SquareUuids
 {
     public static readonly Guid Service = Guid.Parse("86601001-6b7e-439a-bdd1-489a3213e9bb");
-    public static readonly Guid Cmd = Guid.Parse("86602101-6b7e-439a-bdd1-489a3213e9bb");   // write with response
+    public static readonly Guid Cmd = Guid.Parse("86602101-6b7e-439a-bdd1-489a3213e9bb");   // the official app writes without response
     public static readonly Guid Evt = Guid.Parse("86602102-6b7e-439a-bdd1-489a3213e9bb");   // notify
     public static readonly Guid DeviceId = Guid.Parse("86602001-6b7e-439a-bdd1-489a3213e9bb");        // read, ASCII serial
     public static readonly Guid HardwareVersion = Guid.Parse("86602002-6b7e-439a-bdd1-489a3213e9bb"); // read, e.g. "3.1"
@@ -76,7 +76,8 @@ public sealed record ClubTimeoutEvent(int PendingId) : SquareEvent;
 
 public static class SquarePacketParser
 {
-    private const short Sentinel = -1; // 0xFFFF
+    private const short Sentinel = -1; // 0xFFFF (Omni notes)
+    private const short Invalid = short.MinValue; // 0x8000: Square's own connector treats this as "no value"
 
     public static SquareEvent Parse(byte[] d)
     {
@@ -108,7 +109,7 @@ public static class SquarePacketParser
                 case 0x03 when d.Length >= 4:
                     return new HeartbeatAckEvent((SquareDeviceState)d[3]);
 
-                case 0x07 when d.Length >= 19:
+                case 0x07 when d.Length >= 11: // hardware 1.5 sends only the first four fields
                     byte mask = d[2];
                     return new ClubMetricsEvent(mask,
                         Field(d, mask, 0, 3), Field(d, mask, 1, 5), Field(d, mask, 2, 7), Field(d, mask, 3, 9),
@@ -118,14 +119,19 @@ public static class SquarePacketParser
         return new UnknownEvent(d);
     }
 
-    private static short I16(byte[] d, int offset) => (short)(d[offset] | (d[offset + 1] << 8));
+    /// <summary>A little-endian 16-bit field, with the "no value" marker read as 0.</summary>
+    private static short I16(byte[] d, int offset)
+    {
+        short raw = (short)(d[offset] | (d[offset + 1] << 8));
+        return raw == Invalid ? (short)0 : raw;
+    }
 
-    /// <summary>Value in hundredths, or null when the mask bit is clear or the 0xFFFF sentinel is present.</summary>
+    /// <summary>Value in hundredths, or null when the mask bit is clear or a "no value" marker is present.</summary>
     private static double? Field(byte[] d, byte mask, int bit, int offset)
     {
-        if ((mask & (1 << bit)) == 0) return null;
-        short raw = I16(d, offset);
-        return raw == Sentinel ? null : raw / 100.0;
+        if ((mask & (1 << bit)) == 0 || offset + 1 >= d.Length) return null;
+        short raw = (short)(d[offset] | (d[offset + 1] << 8));
+        return raw is Sentinel or Invalid ? null : raw / 100.0;
     }
 }
 
@@ -138,10 +144,12 @@ public sealed class SquareCommandBuilder
     private readonly object _lock = new();
 
     public const byte CmdDetectBall = 0x81, CmdClubSelect = 0x82, CmdHeartbeat = 0x83,
-                      CmdQuery = 0x86, CmdRequestClubMetrics = 0x87;
+                      CmdQuery = 0x86, CmdRequestClubMetrics = 0x87, CmdSessionInfo = 0x92;
 
     public byte[] Heartbeat() => Build(CmdHeartbeat);
     public byte[] Query() => Build(CmdQuery);
+    /// <summary>Asks for the monitor's OS version, answered by 0x11 0x10 [seq] [major] [minor].</summary>
+    public byte[] SessionInfo() => Build(CmdSessionInfo);
     public byte[] RequestClubMetrics() => Build(CmdRequestClubMetrics);
 
     /// <param name="advancedSpin">0x11 advanced spin, 0x10 standard.</param>
@@ -163,19 +171,23 @@ public sealed class SquareCommandBuilder
 
 public readonly record struct SquareClub(byte Number, byte Category);
 
-/// <summary>Maps GSPro club codes (as sent in the code-201 Player message) to Square club codes.</summary>
+/// <summary>
+/// Maps GSPro club codes (as sent in the code-201 Player message) to Square club codes. These are the real-club
+/// categories (4 driver, 5 wood/hybrid, 6 iron/wedge, 7 putter), the values Square's own GSPro connector sends for
+/// both Home and Omni. Categories 0-3 are the same clubs with a swing stick, where the monitor waits for the stick.
+/// </summary>
 public static class SquareClubMap
 {
     private static readonly Dictionary<string, SquareClub> Map = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["DR"] = new(0x01, 0),
-        ["W3"] = new(0x03, 1), ["W5"] = new(0x05, 1), ["W7"] = new(0x07, 1),
-        ["H3"] = new(0x0d, 1), ["H4"] = new(0x0e, 1), ["H5"] = new(0x0f, 1),
-        ["I3"] = new(0x03, 2), ["I4"] = new(0x04, 2), ["I5"] = new(0x05, 2), ["I6"] = new(0x06, 2),
-        ["I7"] = new(0x07, 2), ["I8"] = new(0x08, 2), ["I9"] = new(0x09, 2),
-        ["PW"] = new(0x0a, 2), ["GW"] = new(0x0b, 2), ["AW"] = new(0x0b, 2),
-        ["SW"] = new(0x0c, 2), ["LW"] = new(0x0d, 2),
-        ["PT"] = new(0x01, 3),
+        ["DR"] = new(0x01, 4),
+        ["W3"] = new(0x03, 5), ["W5"] = new(0x05, 5), ["W7"] = new(0x07, 5),
+        ["H3"] = new(0x0d, 5), ["H4"] = new(0x0e, 5), ["H5"] = new(0x0f, 5),
+        ["I3"] = new(0x03, 6), ["I4"] = new(0x04, 6), ["I5"] = new(0x05, 6), ["I6"] = new(0x06, 6),
+        ["I7"] = new(0x07, 6), ["I8"] = new(0x08, 6), ["I9"] = new(0x09, 6),
+        ["PW"] = new(0x0a, 6), ["GW"] = new(0x0b, 6), ["AW"] = new(0x0b, 6),
+        ["SW"] = new(0x0c, 6), ["LW"] = new(0x11, 6),
+        ["PT"] = new(0x01, 7),
     };
 
     public static bool TryGet(string? gsProCode, out SquareClub club)

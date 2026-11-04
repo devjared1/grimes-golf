@@ -64,6 +64,16 @@ public class ParserTests
     }
 
     [Fact]
+    public void ClubMetrics_ShortPacketFromHardware15()
+    {
+        // Captured from a real monitor after a shot it couldn't track the club on.
+        var data = new byte[] { 0x11, 0x07, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+        var club = Assert.IsType<ClubMetricsEvent>(SquarePacketParser.Parse(data));
+        Assert.False(club.HasAnyData);
+        Assert.Null(club.ClubSpeedMs);
+    }
+
+    [Fact]
     public void ZeroLengthIsDisconnect() =>
         Assert.IsType<DisconnectedEvent>(SquarePacketParser.Parse(Array.Empty<byte>()));
 
@@ -87,7 +97,9 @@ public class ParserTests
         Assert.Equal(new byte[] { 0x00, 0x83, 0x00, 0, 0, 0, 0, 0, 0 }, a);
         Assert.Equal(new byte[] { 0x00, 0x81, 0x01, 0x01, 0x11, 0, 0, 0, 0 }, b);
         Assert.True(SquareClubMap.TryGet("PT", out var pt));
-        Assert.Equal(new byte[] { 0x00, 0x82, 0x02, 0x01, 0x03, 0x01, 0, 0, 0 }, c.ClubSelect(pt, leftHanded: true));
+        Assert.Equal(new byte[] { 0x00, 0x82, 0x02, 0x01, 0x07, 0x01, 0, 0, 0 }, c.ClubSelect(pt, leftHanded: true));
+        Assert.True(SquareClubMap.TryGet("I7", out var i7));
+        Assert.Equal(new byte[] { 0x00, 0x82, 0x03, 0x07, 0x06, 0x00, 0, 0, 0 }, c.ClubSelect(i7, leftHanded: false));
     }
 }
 
@@ -249,7 +261,7 @@ public class EndToEndTests
 
         // GSPro switches to the putter, left-handed -> ClubSelect (0x82) with putter code and LH flag
         await gs.SendAsync("{\"Code\":201,\"Message\":\"GSPro Player Information\",\"Player\":{\"Handed\":\"LH\",\"Club\":\"PT\"}}");
-        Assert.True(await WaitFor(() => { lock (link.Written) return link.Written.Any(w => w[1] == 0x82 && w[3] == 0x01 && w[4] == 0x03 && w[5] == 0x01); }));
+        Assert.True(await WaitFor(() => { lock (link.Written) return link.Written.Any(w => w[1] == 0x82 && w[3] == 0x01 && w[4] == 0x07 && w[5] == 0x01); }));
 
         link.Emit(new byte[] { 0x11, 0x01, 1, 0x01, 0x01, 0, 0, 0, 0 });
         link.Emit(BallPacket());
@@ -915,6 +927,27 @@ public class OsmCourseTests
         var greenSlopes = c.Holes[0].Greens.OfType<Polygon>().Select(g => Inside(g, 12).Average(p => t.Gradient(p).Length)).ToList();
         Assert.All(greenSlopes, s => Assert.True(s < 0.05, $"green slope {s:P1}"));
     }
+
+    [Fact]
+    public void DeerRunTreesLoadAndLineUpWithTheMap()
+    {
+        var c = CourseLibrary.All[0].Load();
+        var trees = c.Trees!;
+        Assert.NotNull(trees);
+        Assert.InRange(trees.Count, 5_000, 70_000);
+        Assert.Contains(trees, t => t.Kind == TreeKind.Single);
+        Assert.Contains(trees, t => t.Kind == TreeKind.Group);
+        Assert.Contains(trees, t => t.Kind == TreeKind.Dense);
+        Assert.All(trees, t => Assert.InRange(t.Height, 3, 50));   // (tops are found on a smoothed canopy, so a little under the 4 m cut-off)
+        Assert.True(trees.Average(t => t.Height) is > 8 and < 35);
+
+        // If the survey were shifted against the map, trees would turn up on greens and down the middle of fairways.
+        var h = c.Holes[0];
+        int onGreens = trees.Count(t => h.Greens.Any(g => g.Contains(t.At)));
+        int onFairways = trees.Count(t => h.Fairways.Any(f => f.Contains(t.At)));
+        int nearPlay = trees.Count(t => h.Fairways.Concat(h.Greens).Any(s => s.IsNear(t.At, 40)));
+        Assert.True(onGreens <= 3, $"{onGreens} trees on greens");
+        Assert.True(onFairways < nearPlay * 0.02, $"{onFairways} trees on fairways of {nearPlay} near them");    }
 
     [Fact]
     public void RoundOverDeerRunWithGroundPlays()
