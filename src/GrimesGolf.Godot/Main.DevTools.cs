@@ -25,8 +25,13 @@ public partial class Main
         if (double.TryParse(Arg("--screenshot-delay"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d)) _screenshotAt = d;
         if (int.TryParse(Arg("--demo-shots"), out var n)) _demoShotsLeft = n;
         if (args.Contains("--monitor-drawer")) _hud.ToggleDrawer();
-        // --monitor-ui: the layout used with a monitor connected (to check how it looks without one).
-        if (args.Contains("--monitor-ui")) _hud.SetMonitorLive(true);
+        // --monitor-ui: the layout and status used with a monitor connected (to check how it looks without one).
+        if (args.Contains("--monitor-ui"))
+        {
+            _hud.SetMonitorLive(true);
+            _hud.SetBattery(85, "");
+            _hud.SetReady("Ready — hit!", new Color(0.18f, 0.54f, 0.32f));
+        }
         // --ball=-40,-30,-33,ready: the ball position panel with this ball (mm), and --stick=1.5: the alignment panel with this reading.
         if (Arg("--ball") is { } ball && ball.Split(',') is { Length: >= 3 } b)
             _hud.SetBall(new Core.Square.BallPosition(Number(b[0]), Number(b[1]), Number(b[2])), ready: b.Length > 3);
@@ -76,8 +81,6 @@ public partial class Main
         if (Enum.TryParse<WindStrength>(Arg("--wind"), true, out var wind)) _game = _game with { Wind = wind };
         if (Enum.TryParse<Weather>(Arg("--weather"), true, out var weather)) _game = _game with { Weather = weather };
         _settings = _settings with { Game = _game };
-        // --setup-page: the main menu's Game Setup page (to check how it looks).
-        _openSetupAtStart = args.Contains("--setup-page");
         // --hit-at=2,8.5: press HIT SHOT at these times (seconds after start).
         if (Arg("--hit-at") is { } at)
             _hitPresses = new Queue<double>(at.Split(',').Select(t => double.Parse(t, System.Globalization.CultureInfo.InvariantCulture)));
@@ -92,7 +95,7 @@ public partial class Main
 
     private (string Key, double Value)? _devTune;
     /// <summary>--scorecard: open the scorecard just before the screenshot.</summary>
-    private bool _showScorecardForScreenshot, _openMenuAtStart, _openSetupAtStart, _ballCloseUp, _landingViewForScreenshot;
+    private bool _showScorecardForScreenshot, _openMenuAtStart, _ballCloseUp, _landingViewForScreenshot;
     private Queue<double>? _hitPresses;
 
     /// <summary>Hits the requested demo shots one after another, then takes the screenshot and quits.</summary>

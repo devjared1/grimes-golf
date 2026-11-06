@@ -62,10 +62,10 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 | `--demo-shots=N` | Hits N demo shots |
 | `--hit-at=2,8.5` | Presses HIT SHOT at those times (seconds after start) |
 | `--screenshot=file.png` | Saves the window and quits (after `--screenshot-delay=seconds`, default 4, or once the demo shots finish) |
-| `--monitor-drawer`, `--settings`, `--menu`, `--new-game`, `--setup-page`, `--scorecard` | Opens that screen (the scorecard just before the screenshot) |
+| `--monitor-drawer`, `--settings`, `--menu`, `--new-game`, `--scorecard` | Opens that screen (the scorecard just before the screenshot) |
 | `--home-player`, `--home-player=clubs` | Opens the home player panel (with the club distances open). It's otherwise only asked for on a normal run with no player saved |
-| `--monitor-ui` | Uses the layout for a connected monitor (no on-screen shot controls, lie card in the shot panel, leaderboard), to check it without one |
-| `--ball=-40,-30,-33,ready`, `--stick=1.5`, `--aligned=1.2` | With `--monitor-ui`: shows the ball position panel with this ball (mm), the alignment panel with this reading, or this alignment as already set |
+| `--monitor-ui` | Uses the layout and status for a connected monitor (no on-screen shot controls, lie card in the shot panel, leaderboard, "Ready — hit!" at 85% battery), to check it without one |
+| `--ball=-40,-30,-33,ready`, `--stick=1.5`, `--aligned=1.2` | With `--monitor-ui`: shows the ball position panel with this ball (mm; the panel is hidden for now, see `ShowBallZone` in `Hud.Course.cs`), the alignment panel with this reading, or this alignment as already set |
 | `--reconnecting`, `--loading-screen`, `--celebrate=Birdie` | Shows the reconnecting banner, the loading screen, or a hole's score announcement |
 | `--players=Ann,Bob,Cat:L` | Players for this run (`:L` = left-handed) |
 | `--text-size=Large`, `--graphics=Ultra` | Display settings for this run |

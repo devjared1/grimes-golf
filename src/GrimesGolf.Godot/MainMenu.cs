@@ -8,10 +8,10 @@ namespace GrimesGolf.Game;
 public sealed record CourseCard(string Name, string Description);
 
 /// <summary>
-/// The screen the app opens on: New Game (pick a course, see its stats and start a round), Resume Game (when a round
-/// is unfinished), Driving Range, Settings and Quit, with the launch monitor's status and the version. New Game goes
-/// on to Game Setup (<c>MainMenu.Setup.cs</c>) before the round starts. The range is visible behind it. Works with a mouse, keyboard or gamepad (arrows / D-pad move, Enter / A picks, Esc / B goes back
-/// from the course list).
+/// The screen the app opens on: New Game (pick a course, the players and the Game Setup, <c>MainMenu.Setup.cs</c>, and
+/// start a round), Resume Game (when a round is unfinished), Driving Range, Settings and Quit, with the launch monitor's
+/// status and the version. The range is visible behind it. Works with a mouse, keyboard or gamepad (arrows / D-pad move,
+/// Enter / A picks, Esc / B goes back from New Game).
 /// </summary>
 public partial class MainMenu : Control
 {
@@ -28,7 +28,6 @@ public partial class MainMenu : Control
 
     private VBoxContainer _home = null!, _courses = null!, _courseList = null!;
     private ScrollContainer _courseScroll = null!;
-    private Control _logoArea = null!, _columnGap = null!;
     private Button _update = null!;
     private string? _updatePage;
     private Button _newGame = null!, _resume = null!, _start = null!, _online = null!;
@@ -36,7 +35,8 @@ public partial class MainMenu : Control
     /// <summary>Shows Play Online (only in development builds until it has been tried between two houses).</summary>
     public void SetOnlineAvailable(bool available) => _online.Visible = available;
     private Label _resumeNote = null!, _monitorText = null!, _courseName = null!, _courseDescription = null!, _courseStats = null!;
-    private PanelContainer _monitorCard = null!, _playerPanel = null!;
+    private PanelContainer _monitorCard = null!;
+    private VBoxContainer _newGameRight = null!;
     private PlayerListEditor _playerList = null!;
     private readonly List<Button> _courseButtons = new();
     private readonly Dictionary<int, string> _stats = new();
@@ -54,7 +54,7 @@ public partial class MainMenu : Control
         shade.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(shade);
 
-        var margin = _margin = new MarginContainer();
+        var margin = new MarginContainer();
         margin.SetAnchorsAndOffsetsPreset(LayoutPreset.LeftWide);
         margin.OffsetRight = MenuWidth;
         margin.AddThemeConstantOverride("margin_left", 64);
@@ -66,13 +66,13 @@ public partial class MainMenu : Control
         margin.AddChild(column);
 
         if (Brand.Logo is { } logo)
-            column.AddChild(new TextureRect
-            {
-                Texture = logo, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspect,
-                CustomMinimumSize = new Vector2(250, 170), SizeFlagsHorizontal = SizeFlags.ShrinkBegin, TooltipText = Hud.Version,
-            });
+        {
+            var logoRect = Brand.LogoRect(logo, new Vector2(440, 110), TextureRect.StretchModeEnum.KeepAspect);
+            logoRect.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+            logoRect.TooltipText = Hud.Version;
+            column.AddChild(logoRect);
+        }
         else column.AddChild(UiTheme.Text($"{Brand.Name.ToUpperInvariant()} SIMULATOR", 44, UiTheme.Accent, bold: true));
-        _logoArea = column.GetChild<Control>(0);
         var version = UiTheme.Text(Hud.Version, 12, UiTheme.Muted);
         column.AddChild(version);
         _update = new Button { ThemeTypeVariation = "FlatButton", Visible = false, SizeFlagsHorizontal = SizeFlags.ShrinkBegin, TooltipText = "Open the download page" };
@@ -110,10 +110,8 @@ public partial class MainMenu : Control
         _home.AddChild(quit);
 
         BuildCoursePage(column);
-        BuildSetupPage(column);
 
-        _columnGap = new Control { SizeFlagsVertical = SizeFlags.ExpandFill };
-        column.AddChild(_columnGap);
+        column.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
         _monitorCard = new PanelContainer();
         var mv = new HBoxContainer();
         mv.AddThemeConstantOverride("separation", 12);
@@ -129,22 +127,26 @@ public partial class MainMenu : Control
         _monitorCard.AddChild(mv);
         column.AddChild(_monitorCard);
         SetMonitorStatus("Not connected", UiTheme.Muted);
-        BuildPlayerPanel();
+        BuildNewGameRight();
     }
 
-    /// <summary>New Game's player list, on the right over the range (a share of the width, so large text leaves it room).</summary>
-    private void BuildPlayerPanel()
+    /// <summary>New Game's right side, over the range: the player list and Game Setup under it (a share of the width, so large text leaves them room).</summary>
+    private void BuildNewGameRight()
     {
-        _playerPanel = new PanelContainer { Visible = false };
-        _playerPanel.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 12, 1, 18));
-        _playerPanel.AnchorLeft = 0.5075f;
-        _playerPanel.AnchorRight = 0.934f;
-        _playerPanel.OffsetTop = 125;
-        _playerPanel.OffsetBottom = 432;
-        AddChild(_playerPanel);
+        _newGameRight = new VBoxContainer { Visible = false };
+        _newGameRight.AddThemeConstantOverride("separation", 10);
+        _newGameRight.AnchorLeft = 0.5075f;
+        _newGameRight.AnchorRight = 0.97f;
+        _newGameRight.AnchorBottom = 1;
+        _newGameRight.OffsetTop = 36;
+        _newGameRight.OffsetBottom = -40;
+        AddChild(_newGameRight);
+        var playerPanel = new PanelContainer();
+        playerPanel.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 12, 1, 18, 14));
+        _newGameRight.AddChild(playerPanel);
         var v = new VBoxContainer();
-        v.AddThemeConstantOverride("separation", 12);
-        _playerPanel.AddChild(v);
+        v.AddThemeConstantOverride("separation", 10);
+        playerPanel.AddChild(v);
         var head = new HBoxContainer();
         var title = UiTheme.Text("Player List", 24, UiTheme.Ink, bold: true);
         title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -155,6 +157,7 @@ public partial class MainMenu : Control
         _playerList.SaveGuest += g => GuestSaved?.Invoke(g);
         _playerList.Changed += () => PlayersEdited?.Invoke(_playerList.Golfers);
         v.AddChild(_playerList);
+        BuildSetupCard(_newGameRight);
     }
 
     private void BuildCoursePage(VBoxContainer column)
@@ -188,10 +191,9 @@ public partial class MainMenu : Control
 
         var buttons = new HBoxContainer();
         buttons.AddThemeConstantOverride("separation", 10);
-        _start = new Button { Text = "Next: Game Setup", ThemeTypeVariation = "PrimaryButton", CustomMinimumSize = new Vector2(220, 54),
-                              TooltipText = "The game, the holes, the weather and the course conditions" };
+        _start = new Button { Text = "Start Round", ThemeTypeVariation = "PrimaryButton", CustomMinimumSize = new Vector2(220, 54) };
         _start.AddThemeFontSizeOverride("font_size", 20);
-        _start.Pressed += ShowSetup;
+        _start.Pressed += () => StartCourse?.Invoke(_selected, _setup);
         buttons.AddChild(_start);
         var more = new Button { Text = "Get More Courses", ThemeTypeVariation = "FlatButton", CustomMinimumSize = new Vector2(0, 54), TooltipText = "Download other courses" };
         more.Pressed += () => GetCoursesPressed?.Invoke();
@@ -223,13 +225,13 @@ public partial class MainMenu : Control
     }
 
     public bool IsOpen => Visible;
-    /// <summary>On the course list or the setup page (Esc / B goes back a page from there, see <see cref="Back"/>).</summary>
-    public bool OnSubPage => Visible && (_courses.Visible || _setupPage.Visible);
+    /// <summary>On New Game (Esc / B goes back from there, see <see cref="Back"/>).</summary>
+    public bool OnSubPage => Visible && _courses.Visible;
 
     /// <summary>
     /// Shows the menu. <paramref name="resume"/> describes the unfinished round (null = none, Resume is hidden);
     /// <paramref name="golfers"/> is who a new round would start with, <paramref name="saved"/> who can be picked for
-    /// it, <paramref name="home"/> the home player's name, and <paramref name="setup"/> the game setup the setup page starts from.
+    /// it, <paramref name="home"/> the home player's name, and <paramref name="setup"/> the game setup New Game starts from.
     /// </summary>
     public void Open(string? resume, IReadOnlyList<CourseCard> courses, int selected, IReadOnlyList<Golfer> golfers, IReadOnlyList<Golfer> saved, string? home, GameSetup setup)
     {
@@ -270,7 +272,7 @@ public partial class MainMenu : Control
     public void SetGolfers(IReadOnlyList<Golfer> golfers)
     {
         _golfers = golfers;
-        if (OnSetupPage) RefreshSetupNotes();
+        if (OnSubPage) RefreshSetupNotes();
     }
 
     /// <summary>Who can be picked for the player list.</summary>
@@ -284,7 +286,7 @@ public partial class MainMenu : Control
         _updatePage = update.Page;
     }
 
-    /// <summary>Straight to the course list and player list (back from Get More Courses, or to check how they look).</summary>
+    /// <summary>Straight to New Game (back from Get More Courses, or to check how it looks).</summary>
     public void OpenCoursePage()
     {
         if (Visible) ShowCourses();
@@ -293,10 +295,7 @@ public partial class MainMenu : Control
     public void ShowHome()
     {
         _courses.Visible = false;
-        _setupPage.Visible = false;
-        _playerPanel.Visible = false;
-        ShowColumnExtras(true);
-        _margin.OffsetRight = MenuWidth;
+        _newGameRight.Visible = false;
         _home.Visible = true;
         (_resume.Visible ? _resume : _newGame).GrabFocus();
     }
@@ -304,11 +303,10 @@ public partial class MainMenu : Control
     private void ShowCourses()
     {
         _home.Visible = false;
-        _setupPage.Visible = false;
-        ShowColumnExtras(true);
-        _margin.OffsetRight = MenuWidth;
         _courses.Visible = true;
-        _playerPanel.Visible = true;
+        _newGameRight.Visible = true;
+        foreach (var sync in _syncRows) sync();
+        RefreshSetupNotes();
         foreach (var c in _courseList.GetChildren()) c.Free();
         _courseButtons.Clear();
         var group = new ButtonGroup();
@@ -345,6 +343,7 @@ public partial class MainMenu : Control
         _courseDescription.Text = _cards[index].Description;
         _courseStats.Text = _stats.GetValueOrDefault(index, "Loading course…");
         if (!_stats.ContainsKey(index)) CourseStatsWanted?.Invoke(index);
+        RefreshSetupNotes();
     }
 
     /// <summary>A course's stats line ("18 holes · Par 72 · 6,412 yd"), once it's loaded.</summary>

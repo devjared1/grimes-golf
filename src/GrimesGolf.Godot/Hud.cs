@@ -253,11 +253,12 @@ public partial class Hud : Control
         var brand = new HBoxContainer();
         brand.AddThemeConstantOverride("separation", 6);
         if (Brand.Logo is { } logo)
-            brand.AddChild(new TextureRect
-            {
-                Texture = logo, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-                CustomMinimumSize = new Vector2(66, TopBarHeight - 16), TooltipText = $"{Brand.Name} Simulator {Version}",
-            });
+        {
+            var logoRect = Brand.LogoRect(logo, new Vector2(192, TopBarHeight - 16), TextureRect.StretchModeEnum.KeepAspectCentered);
+            logoRect.TooltipText = $"{Brand.Name} Simulator {Version}";
+            logoRect.Modulate = new Color(1.5f, 1.5f, 1.5f);   // the fine script dims at this size
+            brand.AddChild(logoRect);
+        }
         else brand.AddChild(UiTheme.Text(Brand.Name.ToUpperInvariant(), 20, UiTheme.Accent, bold: true));
         var version = UiTheme.Text(Version, 11, UiTheme.Muted);
         version.SizeFlagsVertical = SizeFlags.ShrinkEnd;

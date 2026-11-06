@@ -21,6 +21,7 @@ PrivilegesRequired=lowest
 DefaultDirName={localappdata}\Programs\Grimes Golf
 DisableDirPage=yes
 DisableProgramGroupPage=yes
+SetupIconFile=..\src\GrimesGolf.Godot\assets\icons\grimes_golf.ico
 UninstallDisplayIcon={app}\Grimes Golf.exe
 OutputDir=..\dist
 OutputBaseFilename=GrimesGolf-Setup-{#AppVersion}

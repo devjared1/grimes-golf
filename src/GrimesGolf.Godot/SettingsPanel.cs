@@ -95,7 +95,7 @@ public partial class SettingsPanel : Control
         v.AddChild(Row("Gimme distance (0 = hole everything out)", _gimme));
         _doublePar = new CheckBox { Text = "Pick up at double par (a hole never costs more than twice its par)" };
         v.AddChild(_doublePar);
-        var setupNote = UiTheme.Text("The game, holes, wind, weather and course conditions are picked for each round on New Game > Game Setup.", 13, UiTheme.Muted);
+        var setupNote = UiTheme.Text("The game, holes, wind, weather and course conditions are picked for each round under Game Setup on New Game.", 13, UiTheme.Muted);
         setupNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         v.AddChild(setupNote);
         v.AddChild(new HSeparator());
@@ -114,7 +114,7 @@ public partial class SettingsPanel : Control
         _textSize.AddItem("Large");
         _textSize.AddItem("Extra large");
         v.AddChild(Row("Text size (bigger for the mat or a projector)", _textSize));
-        _fullScreen = new CheckBox { Text = "Full screen" };
+        _fullScreen = new CheckBox { Text = "Full screen", TooltipText = "The app always opens full screen. Untick this to use a window until you close it." };
         v.AddChild(_fullScreen);
         _graphics = new OptionButton { CustomMinimumSize = new Vector2(170, 0),
                                        TooltipText = "Lower it if the ball flight stutters; Ultra wants a fast graphics card" };

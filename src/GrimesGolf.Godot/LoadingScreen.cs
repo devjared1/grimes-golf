@@ -37,11 +37,11 @@ public partial class LoadingScreen : Control
         centre.AddChild(v);
 
         if (Brand.Logo is { } logo)
-            v.AddChild(new TextureRect
-            {
-                Texture = logo, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-                CustomMinimumSize = new Vector2(380, 300), SizeFlagsHorizontal = SizeFlags.ShrinkCenter,
-            });
+        {
+            var logoRect = Brand.LogoRect(logo, new Vector2(720, 180), TextureRect.StretchModeEnum.KeepAspectCentered);
+            logoRect.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
+            v.AddChild(logoRect);
+        }
         _courseLogo = new TextureRect
         {
             ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
