@@ -30,6 +30,28 @@ public static partial class CourseCatalog
 
     public static string ToJson(IEnumerable<CatalogCourse> courses) => JsonSerializer.Serialize(new Document(Format, courses.OrderBy(c => c.Title, StringComparer.OrdinalIgnoreCase).ToArray()), Json);
 
+    /// <summary>
+    /// The list to publish, given what's on it now and the courses just built: nothing leaves the list unless it's asked
+    /// to, so a course missing from this PC stays up. A course built at the same version as the live one keeps the live
+    /// one (players have that zip, and its hash, already): to change a course, raise its version.
+    /// </summary>
+    /// <param name="remove">Ids to take off the list.</param>
+    /// <returns>The new list, and which of the built courses need uploading.</returns>
+    public static (IReadOnlyList<CatalogCourse> Courses, IReadOnlyList<CatalogCourse> Upload) Merge(
+        IEnumerable<CatalogCourse> live, IEnumerable<CatalogCourse> built, IEnumerable<string> remove)
+    {
+        var gone = remove.ToHashSet();
+        var courses = live.Where(c => !gone.Contains(c.Id)).ToDictionary(c => c.Id);
+        var upload = new List<CatalogCourse>();
+        foreach (var course in built.Where(c => !gone.Contains(c.Id)))
+        {
+            if (courses.TryGetValue(course.Id, out var current) && current.Version >= course.Version) continue;
+            courses[course.Id] = course;
+            upload.Add(course);
+        }
+        return (courses.Values.OrderBy(c => c.Title, StringComparer.OrdinalIgnoreCase).ToList(), upload);
+    }
+
     /// <summary>The usable courses in a catalog (the catalog comes off the internet: anything malformed is left out).</summary>
     public static IReadOnlyList<CatalogCourse> Parse(ReadOnlySpan<byte> json)
     {

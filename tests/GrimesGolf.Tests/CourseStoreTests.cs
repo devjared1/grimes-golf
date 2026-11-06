@@ -66,6 +66,64 @@ public sealed class CourseStoreTests : IDisposable
         return new CatalogCourse(id, "Deer Run", null, "", version, file, bytes.Length, Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), 18, 72, 6000);
     }
 
+    private static CatalogCourse Listed(string id, int version, string hash = "a") =>
+        new(id, id, null, "", version, $"{id}-{version}.zip", 1, new string(hash[0], 64), 18, 72, 6000);
+
+    [Fact]
+    public void PublishingKeepsCoursesThatArentOnThisPc()
+    {
+        var (courses, upload) = CourseCatalog.Merge(new[] { Listed("old", 3) }, new[] { Listed("new", 1) }, Array.Empty<string>());
+        Assert.Equal(new[] { "new", "old" }, courses.Select(c => c.Id));
+        Assert.Equal(new[] { "new" }, upload.Select(c => c.Id));
+    }
+
+    [Fact]
+    public void PublishingOnlyReplacesACourseWithAHigherVersion()
+    {
+        var live = new[] { Listed("same", 2, "a"), Listed("older", 2, "a"), Listed("newer", 2, "a") };
+        var built = new[] { Listed("same", 2, "b"), Listed("older", 1, "b"), Listed("newer", 3, "b") };
+        var (courses, upload) = CourseCatalog.Merge(live, built, Array.Empty<string>());
+        Assert.Equal(live[0], courses.Single(c => c.Id == "same"));     // its hash stays what players' zip has
+        Assert.Equal(live[1], courses.Single(c => c.Id == "older"));
+        Assert.Equal(built[2], courses.Single(c => c.Id == "newer"));
+        Assert.Equal(new[] { built[2] }, upload);
+    }
+
+    [Fact]
+    public void PublishingRemovesOnlyWhatItsAskedTo()
+    {
+        var (courses, upload) = CourseCatalog.Merge(new[] { Listed("gone", 1), Listed("stays", 1) }, new[] { Listed("gone", 2) }, new[] { "gone" });
+        Assert.Equal(new[] { "stays" }, courses.Select(c => c.Id));
+        Assert.Empty(upload);
+    }
+
+    [Fact]
+    public void AnonymisingAMapRenamesItWithoutChangingHowItPlays()
+    {
+        var before = MakePack("test-course", 1);
+        var original = before.Load();
+        string map = Path.Combine(before.Folder, CoursePack.MapFile);
+
+        OsmAnonymiser.Rewrite(map, "Deer Run", "Alabama Pines");
+        File.WriteAllText(Path.Combine(before.Folder, CoursePack.ManifestFile), """{"id":"test-course","name":"Alabama Pines","version":1}""");
+        var after = CoursePack.Read(before.Folder).Load();
+
+        Assert.Equal(CourseFingerprint.Of(original), CourseFingerprint.Of(after));
+        Assert.Equal(original.Holes.Select(h => (h.Number, h.Par)), after.Holes.Select(h => (h.Number, h.Par)));
+        Assert.DoesNotContain("Deer Run", File.ReadAllText(map));
+        Assert.Equal(new[] { "Alabama Pines" }, System.Xml.Linq.XDocument.Load(map).Descendants("tag")
+            .Where(t => (string?)t.Attribute("k") == "name").Select(t => (string?)t.Attribute("v")));
+    }
+
+    [Fact]
+    public void AnonymisingNeedsTheCourseToBeInTheMap()
+    {
+        string map = Path.Combine(MakePack("test-course", 1).Folder, CoursePack.MapFile);
+        string before = File.ReadAllText(map);
+        Assert.Throws<InvalidDataException>(() => OsmAnonymiser.Rewrite(map, "Nowhere Near", "Alabama Pines"));
+        Assert.Equal(before, File.ReadAllText(map));
+    }
+
     [Fact]
     public async Task InstallsAndAnUpdateReplacesIt()
     {

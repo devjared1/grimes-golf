@@ -122,7 +122,10 @@ tuner can still save presets beside the exe. It isn't code-signed, so Windows Sm
 2. Make it: `./tools/make-course.ps1 -Id ... -Name ... -Place ... -Bbox ...` downloads the map, elevation and trees
    into `courses/<id>` (not in git) and prints the holes. Outside the United States add `-NoElevation -NoTrees`.
    Compare the holes with the course's scorecard: a par that doesn't fit its length is flagged, and fixing it on
-   openstreetmap.org and running the command again helps everyone. Each run raises the course's version.
+   openstreetmap.org and running the command again helps everyone. Each run raises the course's version. To publish a
+   course's shape under another name, add `-PublicName`: the map then keeps only what the game plays from, without
+   hole names or anything else identifying the club. The downloaded lidar is deleted once the course is made
+   (`-KeepLidar` keeps it).
 3. Try it: `./tools/publish-courses.ps1` writes the zips and `catalog.json` to `dist\courses`. Serve that folder and
    point a debug run at it:
 
@@ -134,8 +137,10 @@ tuner can still save presets beside the exe. It isn't code-signed, so Windows Sm
    godot --path src/GrimesGolf.Godot -- --catalog=http://127.0.0.1:8765/ --data=user://courses-test
    ```
 
-4. Publish it: `./tools/publish-courses.ps1 -Upload` puts them on the `courses` pre-release on GitHub (it needs the
-   GitHub CLI). A published course is credited to OpenStreetMap under the ODbL, as the app does for Deer Run.
+4. Publish it: `./tools/publish-courses.ps1 -Upload` adds it to the `courses` pre-release on GitHub (it needs the
+   GitHub CLI). It only uploads courses that are new or have a higher version than the live list; everything else stays
+   as it is, even if it's not on this PC, and zips nothing lists any more are deleted. `-Remove <id>` takes a course
+   off the list. A published course is credited to OpenStreetMap under the ODbL, as the app does for Deer Run.
 
 ## Code layout
 
@@ -209,7 +214,7 @@ and crown width (tall, narrow ones mostly as conifers, wide ones as broadleaf), 
 each tee clear. A course without tree data still gets trees planted at random between the holes. Re-make the file
 with `./tools/fetch-canopy.ps1` (Python 3 with numpy and `laspy[lazrs]`; `-Install` installs them): it downloads
 the 3DEP point cloud over the box from the public USGS Entwine point tiles on AWS (newest survey, cached in
-`%LOCALAPPDATA%\SquareRange\ept-cache`), makes a canopy height grid (highest return minus ground), and finds the
+`%LOCALAPPDATA%\SquareRange\ept-cache`, which `make-course.ps1` clears after itself), makes a canopy height grid (highest return minus ground), and finds the
 tree tops with their height and crown radius, grouped as single trees, groups of 2-5 and dense woods (one row per
 tree; `-Preview` also draws a PNG, in the cache folder, to check it by eye).
 
