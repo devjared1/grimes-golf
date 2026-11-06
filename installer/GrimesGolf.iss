@@ -4,7 +4,7 @@
 ; updating nor uninstalling touches them.
 
 #ifndef AppVersion
-  #error Pass the version: ISCC /DAppVersion=0.9.7 installer\GrimesGolf.iss
+  #error Pass the version: ISCC /DAppVersion=0.9.8 installer\GrimesGolf.iss
 #endif
 #define Source "..\dist\Grimes Golf"
 
@@ -48,6 +48,8 @@ Source: "{#Source}\data_GrimesGolf.Godot_windows_x86_64\*"; DestDir: "{app}\data
 Source: "{#Source}\courses\*"; DestDir: "{app}\courses"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Presets may have been changed from the tuner, so ones already there are kept.
 Source: "{#Source}\tuning\*"; DestDir: "{app}\tuning"; Flags: onlyifdoesntexist uninsneveruninstall
+; The licences of what ships inside the app (Godot, its libraries and .NET): tools/make-notices.ps1 makes this file.
+Source: "THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{userprograms}\Grimes Golf"; Filename: "{app}\Grimes Golf.exe"

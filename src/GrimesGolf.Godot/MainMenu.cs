@@ -26,7 +26,7 @@ public partial class MainMenu : Control
     /// <summary>Save was pressed on a row of the player list.</summary>
     public event Action<Golfer>? GuestSaved;
 
-    private VBoxContainer _home = null!, _courses = null!, _courseList = null!;
+    private VBoxContainer _column = null!, _home = null!, _courses = null!, _courseList = null!;
     private ScrollContainer _courseScroll = null!;
     private Button _update = null!;
     private string? _updatePage;
@@ -42,6 +42,7 @@ public partial class MainMenu : Control
     private readonly Dictionary<int, string> _stats = new();
     private IReadOnlyList<CourseCard> _cards = Array.Empty<CourseCard>();
     private int _selected;
+    private bool _scrollingToCourse;
 
     public override void _Ready()
     {
@@ -64,6 +65,9 @@ public partial class MainMenu : Control
         var column = new VBoxContainer();
         column.AddThemeConstantOverride("separation", 10);
         margin.AddChild(column);
+        _column = column;
+        column.MinimumSizeChanged += FitCourseList;
+        Resized += FitCourseList;
 
         if (Brand.Logo is { } logo)
         {
@@ -168,7 +172,7 @@ public partial class MainMenu : Control
         _courses.AddChild(UiTheme.Text("New Game", 26, UiTheme.Ink, bold: true));
         _courses.AddChild(UiTheme.Caption("Course"));
         // Scrolls once there are more courses than fit above the card.
-        _courseScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _courseScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
         _courseList = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _courseList.AddThemeConstantOverride("separation", 6);
         _courseScroll.AddChild(_courseList);
@@ -320,8 +324,7 @@ public partial class MainMenu : Control
             _courseList.AddChild(b);
             _courseButtons.Add(b);
         }
-        // Room for up to four courses (48 high and 6 apart).
-        _courseScroll.CustomMinimumSize = new Vector2(0, Math.Min(_cards.Count, 4) * 54);
+        FitCourseList();
         if (_courseButtons.Count > 0) _courseButtons[_selected].ButtonPressed = true;
         SelectCourse(_selected);
         _start.Disabled = _cards.Count == 0;
@@ -335,10 +338,37 @@ public partial class MainMenu : Control
         _start.GrabFocus();
     }
 
+    /// <summary>
+    /// Room for up to four courses (48 high and 6 apart), less if that would push the launch monitor card off the screen
+    /// (large text on a low window): the list scrolls instead, and always shows at least one course.
+    /// </summary>
+    private void FitCourseList()
+    {
+        if (_courseScroll == null || !_courses.Visible) return;
+        const float margins = 36 + 40, row = 54;
+        float rest = _column.GetCombinedMinimumSize().Y - _courseScroll.CustomMinimumSize.Y;
+        float height = Mathf.Clamp(Size.Y - margins - rest, row, Math.Min(_cards.Count, 4) * row);
+        if (_cards.Count == 0) height = 0;
+        if (!Mathf.IsEqualApprox(height, _courseScroll.CustomMinimumSize.Y)) _courseScroll.CustomMinimumSize = new Vector2(0, height);
+        ShowSelectedCourse();
+    }
+
+    /// <summary>Scrolls the list to the selected course, once the list's new size has been laid out.</summary>
+    private async void ShowSelectedCourse()
+    {
+        // One scroll per frame: each is worked out from where the list was, so a second one would scroll it twice as far.
+        if (_scrollingToCourse) return;
+        _scrollingToCourse = true;
+        await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+        _scrollingToCourse = false;
+        if (_courses.Visible && _selected < _courseButtons.Count) _courseScroll.EnsureControlVisible(_courseButtons[_selected]);
+    }
+
     private void SelectCourse(int index)
     {
         if (index >= _cards.Count) return;
         _selected = index;
+        ShowSelectedCourse();
         _courseName.Text = _cards[index].Name;
         _courseDescription.Text = _cards[index].Description;
         _courseStats.Text = _stats.GetValueOrDefault(index, "Loading course…");

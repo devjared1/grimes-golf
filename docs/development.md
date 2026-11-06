@@ -106,6 +106,8 @@ saved data stays in `%APPDATA%`.
 ### Publishing a release
 
 1. Raise `config/version` in `src/GrimesGolf.Godot/project.godot`. Online play needs everyone on the same version.
+   After moving to a new Godot or .NET version, also run `./tools/make-notices.ps1`, which remakes the licence notices
+   the installer ships.
 2. Run `./tools/release.ps1`. It runs the tests, exports the app and makes `dist\GrimesGolf-Setup-<version>.exe`
    (with [Inno Setup 6](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`). Try the installer.
 3. Commit and push, then run `./tools/release.ps1 -Publish`. It needs the [GitHub CLI](https://cli.github.com),

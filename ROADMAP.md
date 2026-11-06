@@ -136,6 +136,20 @@ balls or play a round with me, and never see a console, a command-line flag or a
 - [x] **Faster loading:** drawing streams and cart paths took most of the loading time; Deer Run's round now starts in seconds
 - [x] **Game Setup fits the screen:** Start Round is always visible, and the choices scroll at large text sizes
 
+## 0.9.8
+
+- [x] **Grimes Golf branding:** a splash screen in place of Godot's, the new logo throughout, and icons for the app,
+      installer and desktop shortcut
+- [x] **Always opens full screen** in released builds (Settings can make it a window until it's closed)
+- [x] **Game Setup on New Game:** under the player list, with no second page
+- [x] **Ball position panel hidden for now:** `ShowBallZone` in `Hud.Course.cs` brings it back; the top bar still shows
+      when the ball is ready
+- [x] **Overview map labels:** the aim's distance no longer covers the flag's
+- [x] **New Game at large text:** the course list scrolls, so the launch monitor card stays on screen
+- [x] **Licence notices** for Godot, its libraries and .NET are installed with the app
+- [x] **Tests in CI:** GitHub Actions runs the tests and builds the game on every pull request and push to `main`
+- [x] **Publish course shapes under another name:** `make-course.ps1 -PublicName`; publishing only uploads what changed
+
 ## 1.0 — Release checklist
 
 - [ ] Real-shot captures checked in as regression tests; all tests green
