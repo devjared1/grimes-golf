@@ -1,4 +1,5 @@
 using Godot;
+using GrimesGolf.Core;
 using GrimesGolf.Core.Course;
 
 namespace GrimesGolf.Game;
@@ -19,14 +20,24 @@ public partial class MainMenu : Control
     public event Action<int, GameSetup>? StartCourse;
     /// <summary>The course list wants this course's stats (answer with <see cref="SetCourseStats"/>).</summary>
     public event Action<int>? CourseStatsWanted;
+    public event Action? GetCoursesPressed;
+    /// <summary>The player list was edited (it applies straight away).</summary>
+    public event Action<IReadOnlyList<Golfer>>? PlayersEdited;
+    /// <summary>Save was pressed on a row of the player list.</summary>
+    public event Action<Golfer>? GuestSaved;
 
     private VBoxContainer _home = null!, _courses = null!, _courseList = null!;
+    private ScrollContainer _courseScroll = null!;
+    private Control _logoArea = null!, _columnGap = null!;
+    private Button _update = null!;
+    private string? _updatePage;
     private Button _newGame = null!, _resume = null!, _start = null!, _online = null!;
 
     /// <summary>Shows Play Online (only in development builds until it has been tried between two houses).</summary>
     public void SetOnlineAvailable(bool available) => _online.Visible = available;
-    private Label _resumeNote = null!, _monitorText = null!, _courseName = null!, _courseDescription = null!, _courseStats = null!, _players = null!;
-    private PanelContainer _monitorCard = null!;
+    private Label _resumeNote = null!, _monitorText = null!, _courseName = null!, _courseDescription = null!, _courseStats = null!;
+    private PanelContainer _monitorCard = null!, _playerPanel = null!;
+    private PlayerListEditor _playerList = null!;
     private readonly List<Button> _courseButtons = new();
     private readonly Dictionary<int, string> _stats = new();
     private IReadOnlyList<CourseCard> _cards = Array.Empty<CourseCard>();
@@ -61,8 +72,12 @@ public partial class MainMenu : Control
                 CustomMinimumSize = new Vector2(250, 170), SizeFlagsHorizontal = SizeFlags.ShrinkBegin, TooltipText = Hud.Version,
             });
         else column.AddChild(UiTheme.Text($"{Brand.Name.ToUpperInvariant()} SIMULATOR", 44, UiTheme.Accent, bold: true));
+        _logoArea = column.GetChild<Control>(0);
         var version = UiTheme.Text(Hud.Version, 12, UiTheme.Muted);
         column.AddChild(version);
+        _update = new Button { ThemeTypeVariation = "FlatButton", Visible = false, SizeFlagsHorizontal = SizeFlags.ShrinkBegin, TooltipText = "Open the download page" };
+        _update.Pressed += () => { if (_updatePage != null) OS.ShellOpen(_updatePage); };
+        column.AddChild(_update);
         column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 10) });
 
         _home = new VBoxContainer();
@@ -97,7 +112,8 @@ public partial class MainMenu : Control
         BuildCoursePage(column);
         BuildSetupPage(column);
 
-        column.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+        _columnGap = new Control { SizeFlagsVertical = SizeFlags.ExpandFill };
+        column.AddChild(_columnGap);
         _monitorCard = new PanelContainer();
         var mv = new HBoxContainer();
         mv.AddThemeConstantOverride("separation", 12);
@@ -113,6 +129,32 @@ public partial class MainMenu : Control
         _monitorCard.AddChild(mv);
         column.AddChild(_monitorCard);
         SetMonitorStatus("Not connected", UiTheme.Muted);
+        BuildPlayerPanel();
+    }
+
+    /// <summary>New Game's player list, on the right over the range (a share of the width, so large text leaves it room).</summary>
+    private void BuildPlayerPanel()
+    {
+        _playerPanel = new PanelContainer { Visible = false };
+        _playerPanel.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 12, 1, 18));
+        _playerPanel.AnchorLeft = 0.5075f;
+        _playerPanel.AnchorRight = 0.934f;
+        _playerPanel.OffsetTop = 125;
+        _playerPanel.OffsetBottom = 432;
+        AddChild(_playerPanel);
+        var v = new VBoxContainer();
+        v.AddThemeConstantOverride("separation", 12);
+        _playerPanel.AddChild(v);
+        var head = new HBoxContainer();
+        var title = UiTheme.Text("Player List", 24, UiTheme.Ink, bold: true);
+        title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        title.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        head.AddChild(title);
+        v.AddChild(head);
+        _playerList = new PlayerListEditor { AddButtonHost = head };
+        _playerList.SaveGuest += g => GuestSaved?.Invoke(g);
+        _playerList.Changed += () => PlayersEdited?.Invoke(_playerList.Golfers);
+        v.AddChild(_playerList);
     }
 
     private void BuildCoursePage(VBoxContainer column)
@@ -122,9 +164,12 @@ public partial class MainMenu : Control
         column.AddChild(_courses);
         _courses.AddChild(UiTheme.Text("New Game", 26, UiTheme.Ink, bold: true));
         _courses.AddChild(UiTheme.Caption("Course"));
-        _courseList = new VBoxContainer();
+        // Scrolls once there are more courses than fit above the card.
+        _courseScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+        _courseList = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         _courseList.AddThemeConstantOverride("separation", 6);
-        _courses.AddChild(_courseList);
+        _courseScroll.AddChild(_courseList);
+        _courses.AddChild(_courseScroll);
 
         var card = new PanelContainer();
         card.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 12, 1, 18));
@@ -138,10 +183,6 @@ public partial class MainMenu : Control
         _courseDescription.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _courseDescription.CustomMinimumSize = new Vector2(420, 0);
         cv.AddChild(_courseDescription);
-        cv.AddChild(new HSeparator());
-        _players = UiTheme.Text("", 15, UiTheme.Ink);
-        _players.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        cv.AddChild(_players);
         card.AddChild(cv);
         _courses.AddChild(card);
 
@@ -152,9 +193,9 @@ public partial class MainMenu : Control
         _start.AddThemeFontSizeOverride("font_size", 20);
         _start.Pressed += ShowSetup;
         buttons.AddChild(_start);
-        var players = new Button { Text = "Players…", CustomMinimumSize = new Vector2(0, 54), TooltipText = "Change the players in Settings" };
-        players.Pressed += () => SettingsPressed?.Invoke();
-        buttons.AddChild(players);
+        var more = new Button { Text = "Get More Courses", ThemeTypeVariation = "FlatButton", CustomMinimumSize = new Vector2(0, 54), TooltipText = "Download other courses" };
+        more.Pressed += () => GetCoursesPressed?.Invoke();
+        buttons.AddChild(more);
         buttons.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
         var back = new Button { Text = "Back", ThemeTypeVariation = "FlatButton", CustomMinimumSize = new Vector2(0, 54), TooltipText = "Back to the menu  [Esc, gamepad B]" };
         back.Pressed += ShowHome;
@@ -187,19 +228,25 @@ public partial class MainMenu : Control
 
     /// <summary>
     /// Shows the menu. <paramref name="resume"/> describes the unfinished round (null = none, Resume is hidden);
-    /// <paramref name="players"/> is who a new round would start with (<paramref name="golfers"/>), and
-    /// <paramref name="setup"/> the game setup the setup page starts from.
+    /// <paramref name="golfers"/> is who a new round would start with, <paramref name="saved"/> who can be picked for
+    /// it, <paramref name="home"/> the home player's name, and <paramref name="setup"/> the game setup the setup page starts from.
     /// </summary>
-    public void Open(string? resume, IReadOnlyList<CourseCard> courses, int selected, string players, IReadOnlyList<Golfer> golfers, GameSetup setup)
+    public void Open(string? resume, IReadOnlyList<CourseCard> courses, int selected, IReadOnlyList<Golfer> golfers, IReadOnlyList<Golfer> saved, string? home, GameSetup setup)
     {
+        // What's known about each course goes by its place on the list, which downloading a course can change.
+        if (!_cards.SequenceEqual(courses))
+        {
+            _stats.Clear();
+            _holes.Clear();
+            _altitudeFeet.Clear();
+        }
         _cards = courses;
-        _golfers = golfers;
+        SetPlayers(golfers, saved, home);
         _setup = setup;
         _selected = Math.Clamp(selected, 0, Math.Max(0, courses.Count - 1));
         _resume.Visible = resume != null;
         _resumeNote.Text = resume ?? "";
         _resumeNote.Visible = resume != null;
-        _players.Text = players;
         Visible = true;
         ShowHome();
     }
@@ -210,18 +257,45 @@ public partial class MainMenu : Control
         GetViewport().GuiReleaseFocus();
     }
 
-    /// <summary>Updates the players (after the settings change).</summary>
-    public void SetPlayers(string players, IReadOnlyList<Golfer> golfers)
+    /// <summary>Updates the players and the player list (after the settings change).</summary>
+    public void SetPlayers(IReadOnlyList<Golfer> golfers, IReadOnlyList<Golfer> saved, string? home)
     {
-        _players.Text = players;
+        _playerList.NotSavable = home;
+        _playerList.SetSavedPlayers(saved);
+        _playerList.Load(golfers);
+        SetGolfers(golfers);
+    }
+
+    /// <summary>Who's playing, after the player list was edited here (its rows are left alone: someone may be typing in one).</summary>
+    public void SetGolfers(IReadOnlyList<Golfer> golfers)
+    {
         _golfers = golfers;
         if (OnSetupPage) RefreshSetupNotes();
+    }
+
+    /// <summary>Who can be picked for the player list.</summary>
+    public void SetSavedPlayers(IReadOnlyList<Golfer> saved) => _playerList.SetSavedPlayers(saved);
+
+    /// <summary>A newer version of the app can be downloaded: a button for it under the version number.</summary>
+    public void ShowUpdate(Releases.Update update)
+    {
+        _update.Text = $"Version {update.Version} is available";
+        _update.Visible = true;
+        _updatePage = update.Page;
+    }
+
+    /// <summary>Straight to the course list and player list (back from Get More Courses, or to check how they look).</summary>
+    public void OpenCoursePage()
+    {
+        if (Visible) ShowCourses();
     }
 
     public void ShowHome()
     {
         _courses.Visible = false;
         _setupPage.Visible = false;
+        _playerPanel.Visible = false;
+        ShowColumnExtras(true);
         _margin.OffsetRight = MenuWidth;
         _home.Visible = true;
         (_resume.Visible ? _resume : _newGame).GrabFocus();
@@ -231,8 +305,10 @@ public partial class MainMenu : Control
     {
         _home.Visible = false;
         _setupPage.Visible = false;
+        ShowColumnExtras(true);
         _margin.OffsetRight = MenuWidth;
         _courses.Visible = true;
+        _playerPanel.Visible = true;
         foreach (var c in _courseList.GetChildren()) c.Free();
         _courseButtons.Clear();
         var group = new ButtonGroup();
@@ -246,8 +322,18 @@ public partial class MainMenu : Control
             _courseList.AddChild(b);
             _courseButtons.Add(b);
         }
+        // Room for up to four courses (48 high and 6 apart).
+        _courseScroll.CustomMinimumSize = new Vector2(0, Math.Min(_cards.Count, 4) * 54);
         if (_courseButtons.Count > 0) _courseButtons[_selected].ButtonPressed = true;
         SelectCourse(_selected);
+        _start.Disabled = _cards.Count == 0;
+        if (_cards.Count == 0)
+        {
+            _courseName.Text = "No courses found";
+            _courseStats.Text = "";
+            _courseDescription.Text = "The app's courses folder is missing or empty. Reinstalling will put it back, or get one with Get More Courses.";
+            return;
+        }
         _start.GrabFocus();
     }
 

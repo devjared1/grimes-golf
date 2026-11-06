@@ -53,6 +53,14 @@ public sealed class Match
 
     public IReadOnlyList<Hole> Holes { get; }
     public IReadOnlyList<Golfer> Players { get; }
+
+    /// <summary>The trees everyone's ball can hit (null = none in play).</summary>
+    public TreeField? Trees
+    {
+        get => _rounds[0].Trees;
+        set { foreach (var r in _rounds) r.Trees = value; }
+    }
+
     public HouseRules Rules { get; }
     /// <summary>The game being played (stroke play when the chosen one doesn't suit the number of players).</summary>
     public GameType Type { get; }
@@ -344,7 +352,7 @@ public sealed class Match
     public Match Regroup(IReadOnlyList<Golfer> players, IReadOnlyList<int?> from)
     {
         if (from.Count != players.Count) throw new ArgumentException("One entry per player.", nameof(from));
-        var m = new Match(Holes, _rounds[0].Terrain, players, Rules, Type);
+        var m = new Match(Holes, _rounds[0].Terrain, players, Rules, Type) { Trees = Trees };
         for (int i = 0; i < players.Count; i++)
         {
             if (from[i] is { } old)

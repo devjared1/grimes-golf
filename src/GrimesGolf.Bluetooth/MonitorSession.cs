@@ -16,12 +16,14 @@ public sealed class MonitorSession
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
     private SquareBleLink? _link;
-    private volatile bool _detecting = true;
+    private volatile bool _detecting = true, _aligning;
 
     public event Action<SquareDeviceInfo>? InfoRead;
     public event Action<BatteryEvent>? Battery;
     public event Action<SquareDeviceState>? StateChanged;
     public event Action<SensorEvent>? Sensor;
+    /// <summary>Alignment stick readings, while <see cref="BeginAlignmentAsync"/> has the monitor looking for one.</summary>
+    public event Action<StickEvent>? Stick;
     public event Action<ulong>? Clock;
     public event Action<BallMetricsEvent, ClubMetricsEvent?>? Shot;
     public event Action<string>? Ended;
@@ -57,6 +59,9 @@ public sealed class MonitorSession
                 if (club != lastClub) _log($"Monitor club: {club}");
                 lastClub = club;
             }
+            // Ball and club metrics as sent, so a shot's numbers can be checked against what the monitor really said.
+            if (data.Length >= 2 && data[0] == 0x11 && data[1] is 0x02 or 0x07)
+                _log($"Shot raw: {Convert.ToHexString(data)}");
             channel.Writer.TryWrite(SquarePacketParser.Parse(data));
         }
         void OnDisconnected() => channel.Writer.TryWrite(new DisconnectedEvent());
@@ -101,6 +106,29 @@ public sealed class MonitorSession
 
     public void Stop() => _cts.Cancel();
 
+    /// <summary>Stops looking for a ball and looks for the alignment stick, in the order and with the wait Square's own software uses.</summary>
+    public async Task BeginAlignmentAsync(bool leftHanded)
+    {
+        _aligning = true;
+        _detecting = false;
+        await WriteAsync(_cmd.ClubSelect(SquareClubMap.AimingStick, leftHanded), _cts.Token);
+        await Task.Delay(1000, _cts.Token);
+        await WriteAsync(_cmd.DetectStick(), _cts.Token);
+        _log("Looking for the alignment stick");
+    }
+
+    /// <summary>Ends the stick reading (keeping <paramref name="angleDeg"/> if <paramref name="confirm"/>) and goes back to looking for a ball.</summary>
+    public async Task EndAlignmentAsync(bool confirm, double angleDeg, string club, bool leftHanded)
+    {
+        await WriteAsync(_cmd.StickResult(confirm, angleDeg), _cts.Token);
+        _log(confirm ? $"Alignment set: {angleDeg:0.00} degrees" : "Alignment cancelled");
+        await Task.Delay(500, _cts.Token);
+        _aligning = false;
+        await SelectClubAsync(club, leftHanded);
+        await WriteAsync(_cmd.DetectBall(on: true, advancedSpin: true), _cts.Token);
+        _detecting = true;
+    }
+
     /// <summary>Ready flag, ball flag and position for the log. The position fields are decoded, but their units aren't known.</summary>
     private static string DescribeSensor(byte[] d) => d.Length < 17 ? "" :
         $"  ready={d[3]} ball={d[4]} X={BitConverter.ToInt32(d, 5)} Y={BitConverter.ToInt32(d, 9)} Z={BitConverter.ToInt32(d, 13)}";
@@ -117,6 +145,7 @@ public sealed class MonitorSession
         int pendingSeq = 0;
         SquareDeviceState? lastState = null;
         int notDetecting = 0;
+        StickStatus? lastStick = null;
 
         await foreach (var ev in reader.ReadAllAsync(ct))
         {
@@ -126,6 +155,11 @@ public sealed class MonitorSession
                     return "Link dropped";
                 case SensorEvent s:
                     Sensor?.Invoke(s);
+                    break;
+                case StickEvent st:
+                    if (st.Status != lastStick) _log($"Stick: {st.Status}, {st.AngleDeg:0.00} degrees, at {st.X:0.0}, {st.Y:0.0}, {st.Z:0.0}");
+                    lastStick = st.Status;
+                    Stick?.Invoke(st);
                     break;
                 case HeartbeatAckEvent h:
                     if (h.State != lastState)
@@ -181,6 +215,7 @@ public sealed class MonitorSession
         try
         {
             await Task.Delay(1500, ct);
+            if (_aligning) return;   // ending the alignment arms it again
             await WriteAsync(_cmd.DetectBall(on: true, advancedSpin: true), ct);
             _detecting = true;
         }

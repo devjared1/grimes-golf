@@ -11,11 +11,11 @@
 
 .EXAMPLE
   ./tools/fetch-elevation.ps1                          # Deer Run, Moulton AL (the default)
-  ./tools/fetch-elevation.ps1 -Bbox "-87.335,34.415,-87.298,34.442" -Out src/GrimesGolf.Core/Course/Data/deer-run.dem
+  ./tools/fetch-elevation.ps1 -Bbox "-87.335,34.415,-87.298,34.442" -Out src/GrimesGolf.Godot/courses/deer-run/ground.dem
 #>
 param(
     [string]$Bbox = "-87.335,34.415,-87.298,34.442",   # west,south,east,north (same box as fetch-osm-course.ps1)
-    [string]$Out = "$PSScriptRoot/../src/GrimesGolf.Core/Course/Data/deer-run.dem",
+    [string]$Out = "$PSScriptRoot/../src/GrimesGolf.Godot/courses/deer-run/ground.dem",
     [double]$Metres = 1.0                              # target cell size
 )
 $ErrorActionPreference = "Stop"
@@ -30,10 +30,21 @@ $service = "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation
 $query = "bbox=$Bbox&bboxSR=4326&imageSR=4326&size=$width,$height&format=tiff&pixelType=F32" +
          "&noDataInterpretation=esriNoDataMatchAny&interpolation=RSP_BilinearInterpolation&f=json"
 Write-Host "Requesting $width x $height elevation grid from USGS 3DEP"
-$job = Invoke-RestMethod "$service`?$query" -TimeoutSec 300
 $tif = [System.IO.Path]::GetTempFileName()
 try {
-    Invoke-WebRequest $job.href -OutFile $tif -UseBasicParsing -TimeoutSec 600
+    # The service often times out on a first request for an area, then manages it.
+    foreach ($try in 1..5) {
+        try {
+            $job = Invoke-RestMethod "$service`?$query" -TimeoutSec 300
+            Invoke-WebRequest $job.href -OutFile $tif -UseBasicParsing -TimeoutSec 600
+            break
+        }
+        catch {
+            if ($try -eq 5) { throw }
+            Write-Host "USGS didn't answer ($($_.Exception.Message)); trying again in 60 s"
+            Start-Sleep 60
+        }
+    }
 
     Add-Type -Language CSharp -TypeDefinition @"
 using System; using System.IO; using System.IO.Compression;

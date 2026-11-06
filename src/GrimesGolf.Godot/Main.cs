@@ -25,7 +25,8 @@ namespace GrimesGolf.Game;
 /// Development: <c>--demo-shots=N</c> hits N demo shots after start-up,
 /// and <c>--screenshot=file.png</c> saves the window to a PNG (after <c>--screenshot-delay=seconds</c>, default 4, or
 /// once the demo shots have finished) and quits; <c>--monitor-drawer</c> opens the launch monitor drawer;
-/// <c>--settings</c> opens the settings; <c>--menu</c> opens the in-game menu; <c>--setup-page</c> opens New Game's
+/// <c>--settings</c> opens the settings; <c>--home-player</c> (<c>=clubs</c> with the club distances open) opens the home
+/// player panel; <c>--menu</c> opens the in-game menu; <c>--new-game</c> opens New Game's course and player lists; <c>--setup-page</c> opens New Game's
 /// Game Setup page; <c>--game=Scramble</c>, <c>--holes=Back9</c>, <c>--wind=Breezy</c> and <c>--weather=Wet</c> set up
 /// the round for this run; <c>--green-read</c> turns on the green
 /// heat map and grid; <c>--hit-at=t1,t2,…</c> presses HIT SHOT at those times (seconds after start); <c>--tuner</c>
@@ -67,6 +68,7 @@ public partial class Main : Node3D
         AddChild(_rangeWorld);
         _player = new ShotPlayer();
         AddChild(_player);
+        SetupSounds();
         _camera = new CameraRig();
         AddChild(_camera);
         _camera.Init(_player);
@@ -82,6 +84,9 @@ public partial class Main : Node3D
         _hud.ConnectPressed += Connect;
         _hud.DisconnectPressed += Disconnect;
         _hud.HitPressed += HitPress;
+        _hud.AlignPressed += OpenAlignment;
+        _hud.Alignment.Confirmed += angle => FinishAlignment(true, angle);
+        _hud.Alignment.Cancelled += () => FinishAlignment(false, _hud.Alignment.LastReading);
         _hud.RangeTargetPressed += CycleRangeTarget;
         _hud.Shot.PowerChanged += () => { if (_courseMode) UpdateAim(); else UpdateRangeAim(); };
         _hud.ClubChanged += OnClubChanged;
@@ -102,7 +107,7 @@ public partial class Main : Node3D
         SetupMainMenu();
 
         var args = OS.GetCmdlineUserArgs();
-        _settings = AppSettings.Load(_dataFolder, Log);
+        _settings = AppSettings.Load(_dataFolder, Log).AtStartup();
         ApplyDisplaySettings();
         ApplyGraphics();
         SetupSettings();
@@ -121,6 +126,9 @@ public partial class Main : Node3D
         _camera.Follow = _settings.CameraFollow;
         _camera.FlyoverFinished += () => _hud.SetHint(null);
 
+        ScanCourses();
+        SetupCourseStore(args);
+        CheckForUpdate(args);
         // The course on offer: the one with a round left unfinished (closed or crashed), else the last one picked.
         var unfinished = _data?.LoadCurrentRound();
         int savedCourse = unfinished == null ? -1 : CourseLibrary.All.ToList().FindIndex(e => e.Name == unfinished.Course);
@@ -133,12 +141,16 @@ public partial class Main : Node3D
         if (args.Contains("--course")) { if (LoadCourse(resume: true)) EnterCourse(); }
         else if (!args.Contains("--range") && (!devRun || _openSetupAtStart)) ShowMainMenu();
         if (_openSetupAtStart) _hud.MainMenu.OpenSetupPage();
+        if (args.Contains("--new-game")) _hud.MainMenu.OpenCoursePage();
         if (_match != null && _courseMode && args.FirstOrDefault(a => a.StartsWith("--hole=")) is { } h && int.TryParse(h[7..], out int n) && n >= 2 && n <= _match.Holes.Count)
             StartHole(n - 1);
         UpdateInsets();
         if (!_noBluetooth) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect"));
         if (_openSettingsAtStart) OpenSettings();
         if (_openMenuAtStart) OpenGameMenu();
+        // No saved player: ask for one, over the main menu (not in development runs, or copies playing by themselves).
+        bool askForHome = _settings.NeedsHomePlayer && _rememberChoices && !_fakeMonitor && _hud.MainMenu.IsOpen;
+        if (askForHome || args.Any(a => a.StartsWith("--home-player"))) OpenHomePlayer(showClubs: args.Contains("--home-player=clubs"));
     }
 
     private void SetupMinimap()
@@ -259,6 +271,7 @@ public partial class Main : Node3D
         while (_pending.TryDequeue(out var a)) a();
         ProcessOnline(delta);
         ProcessMonitor(delta);
+        if (_hud.Home.IsOpen) _hud.Home.SetMonitor(HomeMonitorText());
         if (_outcome != null && !_player.IsPlaying && _player.IdleSeconds > 1.0) FinishShot();
         if (_rangeResult != null && !_player.IsPlaying) FlushRangeResult();
         CountDownToNextHole(delta);
@@ -274,6 +287,7 @@ public partial class Main : Node3D
     /// </summary>
     private void UpdateReady()
     {
+        if (_aligning) { _hud.Shot.SetReady(false, "Aligning"); return; }
         bool moving = _outcome != null || _player.IsPlaying;
         if (!moving && OnlineReady()) return;
         if (_camera.Flying) _hud.Shot.SetReady(false, "Flyover");

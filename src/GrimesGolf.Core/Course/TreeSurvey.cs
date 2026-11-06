@@ -18,13 +18,6 @@ public static class TreeSurvey
     /// <summary>A tree as surveyed, before it's placed in a course's frame.</summary>
     public readonly record struct Tree(double Lat, double Lon, double Height, double Crown, TreeKind Kind);
 
-    public static IReadOnlyList<Tree> FromResource(string file)
-    {
-        using var s = typeof(TreeSurvey).Assembly.GetManifestResourceStream("GrimesGolf.Core.Course.Data." + file)
-            ?? throw new FileNotFoundException($"Tree data '{file}' is not embedded in GrimesGolf.Core.");
-        return Load(s);
-    }
-
     public static IReadOnlyList<Tree> Load(Stream stream)
     {
         using var gz = new GZipStream(stream, CompressionMode.Decompress);

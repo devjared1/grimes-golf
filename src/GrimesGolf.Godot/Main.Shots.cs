@@ -2,6 +2,7 @@
 using Godot;
 using GrimesGolf.Bluetooth;
 using GrimesGolf.Core;
+using GrimesGolf.Core.Audio;
 using GrimesGolf.Core.Course;
 using GrimesGolf.Core.Square;
 using GrimesGolf.Core.Storage;
@@ -79,7 +80,7 @@ public partial class Main
         bool resting = !_player.IsPlaying && _rangeResult == null;
         _camera.SetHome(Vector3.Zero, dir, putting: false, snap);
         if (resting) AimLandingView(dir * (float)length, dir); else EndLandingView();
-        _rangeWorld.SetAim(_rangeAim, length, resting);
+        _rangeWorld.SetAim(_rangeAim, length, resting, _landingView);
 
         string target = "Straight", note;
         Vector3? flag = null;
@@ -106,7 +107,7 @@ public partial class Main
 
     /// <summary>How far the shot set up on screen goes (m): the power's share of the club's carry from <paramref name="stance"/>, or of the putt's roll.</summary>
     private double AimDistance(LieCondition? stance) =>
-        _hud.Shot.Power * (Putter ? _puttScale : Caddie.CarryFrom(_hud.ClubCode, stance));
+        _hud.Shot.Power * (Putter ? _puttScale : Caddie.CarryFrom(_hud.ClubCode, stance, KnownYards));
 
     // ---- shots -------------------------------------------------------------------------------
 
@@ -149,11 +150,11 @@ public partial class Main
             if (_round.Holed) { if (_outcome == null) NextHole(); return; }
             if (_outcome != null || _player.IsPlaying) return;   // wait for the ball to stop
         }
-        // Online a real ball is hit on the monitor (development runs' fake monitor stands in with the swing on screen).
-        if (_online != null && _courseMode && !_fakeMonitor) { _hud.Toast("Hit on your launch monitor", UiTheme.Ink); return; }
+        // With a monitor a real ball is hit, as it always is online (development runs' fake monitor stands in with the swing on screen).
+        if (_monitorLive || (_online != null && _courseMode && !_fakeMonitor)) { _hud.Toast("Hit on your launch monitor", UiTheme.Ink); return; }
         var swing = _hud.Shot.Swing;
         var lie = _courseMode && _round != null ? _round.Lie : Lie.Green;
-        var shot = Putter ? Caddie.SwingPutt(swing, _puttScale, lie) : Caddie.SwingShot(_hud.Club, swing, _hud.LeftHanded);
+        var shot = Putter ? Caddie.SwingPutt(swing, _puttScale, lie) : Caddie.SwingShot(_hud.Club, swing, _hud.LeftHanded, KnownYards);
         if (_online != null && _courseMode) shot = shot with { Source = ShotSource.Monitor };
         Log(Putter ? $"Putt: {swing.Power * 100:0}% ({DescribePower(swing.Power)})"
                    : $"Hit: {swing.Power * 100:0}% power ({DescribePower(swing.Power)}), {swing.Shape.ToString().ToLowerInvariant()}, {swing.Spin.ToString().ToLowerInvariant()} spin");
@@ -182,7 +183,7 @@ public partial class Main
         else if (round != null && !round.Holed)
         {
             var stance = round.StanceAt(round.Ball, _aimHeading, _hud.LeftHanded);
-            _hud.Shot.SetPower(Caddie.PowerFor(_hud.ClubCode, round.PlaysLike(round.DefaultTarget), stance));
+            _hud.Shot.SetPower(Caddie.PowerFor(_hud.ClubCode, round.PlaysLike(round.DefaultTarget), stance, KnownYards));
         }
         _hud.Shot.ShowPower();
     }
@@ -192,7 +193,7 @@ public partial class Main
     {
         if (Putter) return $"{power * _puttScale * Units.MetresToYards * 3:0} ft roll";
         var stance = _courseMode && _round is { Holed: false } r ? r.StanceAt(r.Ball, _aimHeading, _hud.LeftHanded) : null;
-        return $"{power * Caddie.CarryFrom(_hud.ClubCode, stance) * Units.MetresToYards:0} yd carry";
+        return $"{power * Caddie.CarryFrom(_hud.ClubCode, stance, KnownYards) * Units.MetresToYards:0} yd carry";
     }
 
     /// <summary>Every shot (from the monitor, the screen, a demo or a replay) comes through here.</summary>
@@ -214,6 +215,7 @@ public partial class Main
         var f = Putter ? BallFlight.Putt(s.BallMph, s.DirectionDeg) : s.Fly();
         // Along the aim (the numbers, offline included, stay relative to the aim line).
         f = f with { Points = HoleRound.Place(f.Points, new P2(0, 0), _rangeAim) };
+        Sound(SoundSynth.ImpactFor(_hud.ClubCode));
         _player.Play(f);
         CountShot(s, f, replay);
         RaiseShotFinished(new ShotFinished(DateTime.Now, RangeGolfer, _hud.ClubCode, s, f, replay));

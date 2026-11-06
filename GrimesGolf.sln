@@ -25,6 +25,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrimesGolf.Relay", "src\Gri
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrimesGolf.Online.Tests", "tests\GrimesGolf.Online.Tests\GrimesGolf.Online.Tests.csproj", "{B023F3CE-5D61-4564-9C2A-8592007FBF5E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GrimesGolf.CourseTool", "src\GrimesGolf.CourseTool\GrimesGolf.CourseTool.csproj", "{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -143,6 +145,18 @@ Global
 		{B023F3CE-5D61-4564-9C2A-8592007FBF5E}.Release|x64.Build.0 = Release|Any CPU
 		{B023F3CE-5D61-4564-9C2A-8592007FBF5E}.Release|x86.ActiveCfg = Release|Any CPU
 		{B023F3CE-5D61-4564-9C2A-8592007FBF5E}.Release|x86.Build.0 = Release|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Debug|x64.Build.0 = Debug|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Debug|x86.Build.0 = Debug|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Release|x64.ActiveCfg = Release|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Release|x64.Build.0 = Release|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Release|x86.ActiveCfg = Release|Any CPU
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -157,5 +171,6 @@ Global
 		{5DBBE18E-5534-42A8-A058-B11C50D70A19} = {9047CE7B-7602-4CBA-9195-C8F4B542A992}
 		{C6744D4E-F6A8-4E09-AB3A-55DE165842C8} = {9047CE7B-7602-4CBA-9195-C8F4B542A992}
 		{B023F3CE-5D61-4564-9C2A-8592007FBF5E} = {6BD67963-6219-4816-9FC8-A9CD16AD8430}
+		{D1D71C78-2DE6-49B6-89C0-EACD4CA84654} = {9047CE7B-7602-4CBA-9195-C8F4B542A992}
 	EndGlobalSection
 EndGlobal

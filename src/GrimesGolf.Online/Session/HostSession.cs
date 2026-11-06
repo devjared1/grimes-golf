@@ -450,7 +450,7 @@ public sealed class HostSession : OnlineSession
                     pc.Fingerprint = s.Fingerprint;
                     if (Me.Fingerprint != null && s.Fingerprint != Me.Fingerprint)
                     {
-                        Refuse(pc, "Your course data is different from the host's: install the same version of the app.");
+                        Refuse(pc, "Your copy of the course is different from the host's: both of you should update it with New Game > Get More Courses.");
                         CheckShown();
                     }
                 }

@@ -9,19 +9,11 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="GrimesGolf.Tests" />
+    <InternalsVisibleTo Include="GrimesGolf.CourseTool" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\GrimesGolf.Physics\GrimesGolf.Physics.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- Mapped courses (OpenStreetMap, ODbL), refreshed with tools/fetch-osm-course.ps1. -->
-    <EmbeddedResource Include="Course\Data\*.osm" LogicalName="GrimesGolf.Core.Course.Data.%(Filename)%(Extension)" />
-    <!-- Ground elevation (USGS 3DEP, public domain), refreshed with tools/fetch-elevation.ps1. -->
-    <EmbeddedResource Include="Course\Data\*.dem" LogicalName="GrimesGolf.Core.Course.Data.%(Filename)%(Extension)" />
-    <!-- Trees (USGS 3DEP lidar, public domain), refreshed with tools/fetch-canopy.ps1. -->
-    <EmbeddedResource Include="Course\Data\*.trees.csv.gz" LogicalName="GrimesGolf.Core.Course.Data.%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

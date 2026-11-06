@@ -46,6 +46,39 @@ public static class Caddie
             FlyCarry(model.Apply(Launch(preset), lie with { UphillDegrees = up / 2.0, BallAboveFeetDegrees = side / 2.0 }, preset.LoftDeg).Launch));
     }
 
+    /// <summary>
+    /// A player's carry with a club in metres, from the carries they know (<paramref name="known"/>, yards by club code).
+    /// A club they haven't given is estimated: its typical carry, scaled by how the clubs either side of it compare
+    /// with theirs. With nothing known it's the typical carry (0 for the putter either way).
+    /// </summary>
+    public static double Carry(string code, IReadOnlyDictionary<string, int>? known)
+    {
+        double typical = Carry(code);
+        if (known is not { Count: > 0 } || typical <= 0) return typical;
+        double Scale(int i) =>
+            known.TryGetValue(ClubPresets.All[i].Code, out int yards) && yards > 0 && Carry(ClubPresets.All[i].Code) is > 0 and var carry
+                ? yards * Units.YardsToMetres / carry : 0;
+
+        int at = ClubPresets.IndexOf(code);
+        if (Scale(at) is > 0 and var own) return own * typical;
+        int longer = at - 1, shorter = at + 1;
+        while (longer >= 0 && Scale(longer) <= 0) longer--;
+        while (shorter < ClubPresets.All.Count && Scale(shorter) <= 0) shorter++;
+        if (longer < 0 && shorter >= ClubPresets.All.Count) return typical;
+        if (longer < 0) return typical * Scale(shorter);
+        if (shorter >= ClubPresets.All.Count) return typical * Scale(longer);
+        double share = (at - longer) / (double)(shorter - longer);
+        return typical * (Scale(longer) + (Scale(shorter) - Scale(longer)) * share);
+    }
+
+    /// <summary>A player's carry from <paramref name="lie"/>: their carry (above), less what the lie takes off the typical one.</summary>
+    public static double CarryFrom(string code, LieCondition? lie, IReadOnlyDictionary<string, int>? known)
+    {
+        if (known is not { Count: > 0 }) return CarryFrom(code, lie);
+        double typical = Carry(code);
+        return typical <= 0 ? 0 : CarryFrom(code, lie) * Carry(code, known) / typical;
+    }
+
     /// <summary>Forgets cached carries once the physics tuning has changed.</summary>
     private static void Refresh()
     {
@@ -65,16 +98,17 @@ public static class Caddie
 
     /// <summary>
     /// The shortest club that carries the distance from this lie; the putter on (or just off) the green. No driver
-    /// off the deck. <paramref name="stance"/> (if given) makes carries account for the lie and slope.
+    /// off the deck. <paramref name="stance"/> (if given) makes carries account for the lie and slope, and
+    /// <paramref name="known"/> (if given) are the carries the player has set.
     /// </summary>
-    public static string Suggest(double distanceMetres, Lie lie, LieCondition? stance = null)
+    public static string Suggest(double distanceMetres, Lie lie, LieCondition? stance = null, IReadOnlyDictionary<string, int>? known = null)
     {
         if (lie == Lie.Green || (lie == Lie.Fringe && distanceMetres < 20) || (lie is Lie.Fairway && distanceMetres < 12)) return "PT";
         // Long tee shots: driver, unless the target is well inside fairway-wood range.
-        if (lie == Lie.Tee && distanceMetres > Carry("W3") * 0.85) return "DR";
+        if (lie == Lie.Tee && distanceMetres > Carry("W3", known) * 0.85) return "DR";
         var usable = ClubPresets.All.Where(c => c.Code != "PT" && (lie == Lie.Tee || c.Code != "DR")).ToList();
-        var fits = usable.Where(c => CarryFrom(c.Code, stance) >= distanceMetres * 0.97).OrderBy(c => CarryFrom(c.Code, stance)).FirstOrDefault();
-        return (fits ?? usable.OrderByDescending(c => CarryFrom(c.Code, stance)).First()).Code;
+        var fits = usable.Where(c => CarryFrom(c.Code, stance, known) >= distanceMetres * 0.97).OrderBy(c => CarryFrom(c.Code, stance, known)).FirstOrDefault();
+        return (fits ?? usable.OrderByDescending(c => CarryFrom(c.Code, stance, known)).First()).Code;
     }
 
     /// <summary>A made-up putt struck at about <paramref name="speedMs"/> (e.g. from a putt read), slightly off line and pace.</summary>
@@ -120,14 +154,16 @@ public static class Caddie
     /// sized to carry that share of the club's distance (chips and pitches to finish there). A draw starts right of the
     /// aim and curves back left (for a right-hander; mirrored for a left-hander), a fade the opposite, finishing near the
     /// aim line. Low spin launches lower with less backspin (more roll), high spin higher with more (stops quicker).
-    /// The lie's effect is applied afterwards, as for any shot.
+    /// The lie's effect is applied afterwards, as for any shot. With <paramref name="known"/> carries, a full swing goes
+    /// the player's distance with the club rather than the typical one.
     /// </summary>
-    public static RangeShot SwingShot(ClubPreset club, Swing swing, bool leftHanded = false)
+    public static RangeShot SwingShot(ClubPreset club, Swing swing, bool leftHanded = false, IReadOnlyDictionary<string, int>? known = null)
     {
         double p = Math.Clamp(swing.Power, 0.01, 1);
         double mph = club.BallMph, launch = club.LaunchDeg, spin = club.SpinRpm;
-        if (p < FullSwingPower && Carry(club.Code) > 0)
-            (mph, launch, spin) = PartialLaunch(club, PartialSwingFactor(club, p * Carry(club.Code)));
+        double typical = Carry(club.Code), full = Carry(club.Code, known);
+        if (typical > 0 && (p < FullSwingPower || Math.Abs(full - typical) > 0.25))
+            (mph, launch, spin) = PartialLaunch(club, PartialSwingFactor(club, p * full));
 
         // Shape: positive = fade for a right-hander (starts left, curves right). Smaller swings curve less.
         double shape = swing.Shape switch { ShotShape.Draw => -1, ShotShape.Fade => 1, _ => 0 } * (leftHanded ? -1 : 1);
@@ -156,9 +192,9 @@ public static class Caddie
     /// The power (0.01-1) that carries <paramref name="targetMetres"/> with <paramref name="club"/> from
     /// <paramref name="stance"/> (the inverse of <see cref="SwingShot"/>'s sizing; 1 if it's out of reach).
     /// </summary>
-    public static double PowerFor(string club, double targetMetres, LieCondition? stance = null)
+    public static double PowerFor(string club, double targetMetres, LieCondition? stance = null, IReadOnlyDictionary<string, int>? known = null)
     {
-        double full = CarryFrom(club, stance);
+        double full = CarryFrom(club, stance, known);
         return full <= 0 ? 1 : Math.Clamp(targetMetres / full, 0.01, 1);
     }
 
@@ -199,7 +235,8 @@ public static class Caddie
     /// <summary>
     /// The partial-swing factor for a shot to <paramref name="targetMetres"/> on flat ground: a chip or pitch finishes
     /// there after rolling out on a green; a longer partial swing carries there (rolling out on a fast green would make
-    /// it a much smaller swing, a long way short).
+    /// it a much smaller swing, a long way short). A target past the club's typical carry (a player who hits it further)
+    /// is a factor above 1.
     /// </summary>
     private static double PartialSwingFactor(ClubPreset club, double targetMetres)
     {
@@ -211,7 +248,7 @@ public static class Caddie
             double rollShare = Math.Clamp((ApproachMetres - target) / (ApproachMetres - ShortGameMetres), 0, 1);
             var terrain = new FlatTerrain(ActivePhysics.SurfaceFor(Lie.Green));
             var options = SimulationOptions.Default with { TrajectorySampleIntervalSeconds = 1, EnableRoll = rollShare > 0, EnableBounce = rollShare > 0 };
-            double lo = 0.08, hi = 1;
+            double lo = 0.08, hi = target > Carry(club.Code) ? 3 : 1;
             for (int i = 0; i < 16; i++)
             {
                 double mid = (lo + hi) / 2;

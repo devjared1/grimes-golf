@@ -41,6 +41,7 @@ public partial class Hud
                                     TooltipText = "Aim at the next flag (then straight down the range)  [F, Shift+F back, gamepad Y]" };
         _rangeTarget.Pressed += () => RangeTargetPressed?.Invoke(Input.IsKeyPressed(Key.Shift) ? -1 : 1);
         aimRow.AddChild(_rangeTarget);
+        aimRow.AddChild(AlignButton());
         controls.AddChild(aimRow);
         _rangeAim = UiTheme.Text("", 13, UiTheme.Muted);
         controls.AddChild(_rangeAim);

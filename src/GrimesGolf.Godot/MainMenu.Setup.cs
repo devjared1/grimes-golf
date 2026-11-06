@@ -29,7 +29,7 @@ public partial class MainMenu
 
     private void BuildSetupPage(VBoxContainer column)
     {
-        _setupPage = new VBoxContainer { Visible = false };
+        _setupPage = new VBoxContainer { Visible = false, SizeFlagsVertical = SizeFlags.ExpandFill };
         _setupPage.AddThemeConstantOverride("separation", 8);
         column.AddChild(_setupPage);
         var head = new HBoxContainer();
@@ -40,12 +40,15 @@ public partial class MainMenu
         head.AddChild(UiTheme.Pad(_setupCourse, 0, 4, mouse: false));
         _setupPage.AddChild(head);
 
-        var card = new PanelContainer();
+        // The choices scroll if they don't fit (large text), so Start Round is always on the screen.
+        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
+        var card = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         card.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 12, 1, 16, 18));
         var v = new VBoxContainer();
         v.AddThemeConstantOverride("separation", 7);
         card.AddChild(v);
-        _setupPage.AddChild(card);
+        scroll.AddChild(card);
+        _setupPage.AddChild(scroll);
 
         v.AddChild(UiTheme.Caption("Game"));
         var types = Row(v, "Game type", Enum.GetValues<GameType>(), GameSetup.Name, () => _setup.Type, t => _setup = _setup with { Type = t },
@@ -104,6 +107,16 @@ public partial class MainMenu
         back.Pressed += ShowCourses;
         buttons.AddChild(back);
         _setupPage.AddChild(buttons);
+
+        // As tall as the choices if there's room, with the buttons straight under them; otherwise what's left.
+        void Fit()
+        {
+            float room = _setupPage.Size.Y - head.Size.Y - buttons.Size.Y - 2 * _setupPage.GetThemeConstant("separation");
+            if (_setupPage.Visible) scroll.CustomMinimumSize = new Vector2(0, Mathf.Max(0, Mathf.Min(card.GetCombinedMinimumSize().Y, room)));
+        }
+        _setupPage.Resized += Fit;
+        _setupPage.VisibilityChanged += () => Callable.From(Fit).CallDeferred();
+        card.MinimumSizeChanged += () => Callable.From(Fit).CallDeferred();
     }
 
     private static Label Note(VBoxContainer into)
@@ -167,12 +180,22 @@ public partial class MainMenu
     {
         _courses.Visible = false;
         _home.Visible = false;
+        _playerPanel.Visible = false;
         _setupPage.Visible = true;
+        ShowColumnExtras(false);
         _margin.OffsetRight = SetupWidth;
         _setupCourse.Text = _selected < _cards.Count ? _cards[_selected].Name : "";
         foreach (var sync in _syncRows) sync();
         RefreshSetupNotes();
         _startRound.GrabFocus();
+    }
+
+    /// <summary>The logo and launch monitor card: the setup page needs the height they take.</summary>
+    private void ShowColumnExtras(bool show)
+    {
+        _logoArea.Visible = show;
+        _columnGap.Visible = show;
+        _monitorCard.Visible = show;
     }
 
     /// <summary>What the chosen game and holes mean here: the teams, or why the game can't be played; how long the round is.</summary>

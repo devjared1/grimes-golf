@@ -27,13 +27,6 @@ public sealed class ElevationGrid
     /// <summary>Lowest height in the grid (m above sea level).</summary>
     public float BaseMetres { get; }
 
-    public static ElevationGrid FromResource(string file)
-    {
-        using var s = typeof(ElevationGrid).Assembly.GetManifestResourceStream("GrimesGolf.Core.Course.Data." + file)
-            ?? throw new FileNotFoundException($"Elevation data '{file}' is not embedded in GrimesGolf.Core.");
-        return Load(s);
-    }
-
     public static ElevationGrid Load(Stream stream)
     {
         using var gz = new GZipStream(stream, CompressionMode.Decompress);

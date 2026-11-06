@@ -7,6 +7,9 @@ namespace GrimesGolf.Game;
 
 public sealed record DeviceEntry(ulong Address, string Name, string AddressText, int Rssi, DateTime SeenAt);
 
+/// <summary>One player's (or team's) line on the small leaderboard; <paramref name="Up"/> marks whoever is playing.</summary>
+public sealed record LeaderboardRow(string Name, string Score, string Note, Color Color, bool Up);
+
 /// <summary>One player's (or team's) line on the scorecard.</summary>
 public sealed record ScorecardRow(string Name, IReadOnlyList<int?> Scores, Color Color)
 {
@@ -52,7 +55,7 @@ public partial class Hud : Control
     public const int TopBarHeight = 64, TopGap = 16;
     public const int RangeBarHeight = 196, RightColumnWidth = 360, ShotPanelHeight = 178;
     public static readonly string[] StatKeys =
-        { "Name", "Address", "Signal", "Serial", "Hardware", "Firmware (LM)", "Firmware (MMI)", "Firmware (launcher)", "Uptime", "State", "Ball", "Shots" };
+        { "Name", "Address", "Signal", "Serial", "Hardware", "Firmware (LM)", "Firmware (MMI)", "Firmware (launcher)", "Uptime", "State", "Ball", "Alignment", "Shots" };
 
     private static readonly (string Key, string Unit)[] RangeMetrics =
     {
@@ -60,7 +63,7 @@ public partial class Hud : Control
         ("Spin", "rpm"), ("Spin axis", ""), ("Descent", ""), ("Offline", "yd"), ("Roll", "yd"), ("Hang time", "s"),
     };
 
-    public event Action? ScanPressed, DisconnectPressed;
+    public event Action? ScanPressed, DisconnectPressed, AlignPressed;
     /// <summary>HIT SHOT (or NEXT HOLE once the hole is finished).</summary>
     public event Action? HitPressed;
     public event Action? MenuPressed, NextHolePressed, FlagPressed, HeatMapPressed, GridPressed, MulliganPressed, NewRoundPressed, PlayerChipPressed;
@@ -76,7 +79,7 @@ public partial class Hud : Control
     /// <summary>Aim nudges in degrees: a press (and each repeat while held), and with Shift / numpad 7 9 / LB RB.</summary>
     public const double AimStep = 0.25, AimStepBig = 2;
 
-    private readonly List<Button> _zoomButtons = new();
+    private readonly List<Button> _zoomButtons = new(), _aimButtons = new();
 
     /// <summary>The aim buttons (‹ ›, Shift for big steps) and the landing-view toggle, for an aim row.</summary>
     private void AddAimButtons(HBoxContainer row, float width)
@@ -91,6 +94,7 @@ public partial class Hud : Control
                                 TooltipText = "Look at where the ball will land with this aim and power; again to come back  [Z, numpad 1, left stick click]" };
         zoom.Pressed += () => LandingViewPressed?.Invoke();
         _zoomButtons.Add(zoom);
+        _aimButtons.AddRange(new[] { left, right, zoom });
         row.AddChild(left);
         row.AddChild(right);
         row.AddChild(zoom);
@@ -110,6 +114,7 @@ public partial class Hud : Control
     public MainMenu MainMenu { get; private set; } = null!;
     public MenuOverlay Overlay { get; private set; } = null!;
     public PlayersPanel Players { get; private set; } = null!;
+    public AlignmentPanel Alignment { get; private set; } = null!;
 
     private readonly Dictionary<string, Label> _stats = new();
     private readonly Dictionary<string, Label> _rangeValues = new();
@@ -195,6 +200,8 @@ public partial class Hud : Control
         // The scorecard opens over everything else in the course view, drawer included.
         _courseView.RemoveChild(_scorecardPanel);
         AddChild(_scorecardPanel);
+        _ballZone = new BallZone { Visible = false };
+        AddChild(_ballZone);
         _scoreBurst = new ScoreBurst();
         AddChild(_scoreBurst);
         MainMenu = new MainMenu();
@@ -204,12 +211,19 @@ public partial class Hud : Control
         AddChild(Overlay);
         Players = new PlayersPanel();
         AddChild(Players);
+        Alignment = new AlignmentPanel();
+        AddChild(Alignment);
         Online = new OnlinePanel();
         AddChild(Online);
         BuildBannerAndToast();
         _settings = new SettingsPanel();
         _settings.Applied += (s, newRound) => SettingsApplied?.Invoke(s, newRound);
+        _settings.HomePressed += () => EditHomePressed?.Invoke();
         AddChild(_settings);
+        Home = new HomePlayerPanel();
+        AddChild(Home);
+        Store = new CourseStorePanel();
+        AddChild(Store);
         Loading = new LoadingScreen();
         AddChild(Loading);
         SetCourseMode(false);
@@ -354,9 +368,18 @@ public partial class Hud : Control
     public bool SettingsOpen => _settings.Visible;
     public void OpenSettings(AppSettings current, bool roundInProgress) => _settings.Open(current, roundInProgress);
     public void CloseSettings() => _settings.Close();
+    /// <summary>The home player changed while the settings are open.</summary>
+    public void RefreshSettingsHome(AppSettings current) => _settings.RefreshHome(current);
+
+    /// <summary>The home player: asked for at start-up when none is saved, and edited from the settings.</summary>
+    public HomePlayerPanel Home { get; private set; } = null!;
+    public event Action? EditHomePressed;
+
+    /// <summary>Get More Courses, from New Game.</summary>
+    public CourseStorePanel Store { get; private set; } = null!;
 
     /// <summary>A panel that takes all the input is open: the main menu, the in-game menu or a question, or the players panel.</summary>
-    public bool ModalOpen => MainMenu.IsOpen || Overlay.IsOpen || Players.IsOpen || Online.IsOpen;
+    public bool ModalOpen => MainMenu.IsOpen || Overlay.IsOpen || Players.IsOpen || Online.IsOpen || Alignment.IsOpen;
 
     /// <summary>Play Online: hosting, joining and the lobby.</summary>
     public OnlinePanel Online { get; private set; } = null!;
@@ -398,7 +421,7 @@ public partial class Hud : Control
         _minimapFrame.Visible = !show;
         _rangeView.Visible = !show && !_courseMode;
         _courseView.Visible = !show && _courseMode;
-        _rangeShotSlot.Visible = !show && !_courseMode;
+        UpdateShotLayout();
         if (show)
         {
             _scorecardPanel.Visible = false;
@@ -554,17 +577,16 @@ public partial class Hud : Control
         _courseMode = course;
         _rangeView.Visible = !course;
         _courseView.Visible = course;
-        _rangeShotSlot.Visible = !course;
         if (!course)
         {
             _scorecardPanel.Visible = false;
             _result.Visible = false;
             _hint.Visible = false;
             _holeDone = false;
-            Shot.Visible = true;
             Shot.Hit.Text = "HIT SHOT";
             Shot.Hit.Disabled = false;
         }
+        UpdateShotLayout();
         HideMapMarkers();
         PlaceShotControls();
         LayoutMinimap();

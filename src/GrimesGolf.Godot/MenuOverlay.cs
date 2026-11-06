@@ -59,7 +59,8 @@ public partial class MenuOverlay : Control
         _title.Text = title;
         _message.Text = message;
         _message.Visible = message.Length > 0;
-        foreach (var c in _buttons.GetChildren()) c.Free();
+        // A menu button can open the next menu from its own Pressed signal, so it can't be freed right now.
+        foreach (var c in _buttons.GetChildren()) { _buttons.RemoveChild(c); c.QueueFree(); }
         _buttons.Columns = Math.Max(1, columns);
         Button? first = null;
         foreach (var item in items)

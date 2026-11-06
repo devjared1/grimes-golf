@@ -169,7 +169,7 @@ public class SessionTests
         Assert.Equal(OnlinePhase.Loading, t.Host.Phase);   // waiting for Cat's PC
         t.Friends[1].Session.RoundBuilt("not-the-same");
         t.Relay.Pump();
-        Assert.Contains("course data", t.Friends[1].Game.EndedReason);
+        Assert.Contains("copy of the course", t.Friends[1].Game.EndedReason);
         Assert.Equal(OnlinePhase.Open, t.Host.Phase);       // the others carry on
     }
 

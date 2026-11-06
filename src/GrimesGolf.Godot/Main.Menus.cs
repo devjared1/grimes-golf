@@ -20,6 +20,8 @@ public partial class Main
         menu.QuitPressed += Quit;
         menu.MonitorPressed += _hud.ToggleDrawer;
         menu.CourseStatsWanted += LoadCourseStats;
+        menu.PlayersEdited += EditMenuPlayers;
+        menu.GuestSaved += SaveMenuGuest;
     }
 
     /// <summary>
@@ -32,7 +34,7 @@ public partial class Main
         if (_courseMode) { SaveRound(); EnterRange(); }
         _hud.ShowMainMenu(true);
         var courses = CourseLibrary.All.Select(e => new CourseCard(e.Name, e.Description)).ToList();
-        _hud.MainMenu.Open(ResumeText(), courses, _courseIndex, PlayersText(), _settings.Golfers, _settings.Setup);
+        _hud.MainMenu.Open(ResumeText(), courses, _courseIndex, _settings.Golfers, _settings.SavedPlayers, _settings.Home?.Name, _settings.Setup);
     }
 
     /// <summary>"Deer Run · hole 5 of 18 · Ann, Bob · Tue 14:05" for the round Resume Game would carry on (null = none).</summary>
@@ -51,10 +53,22 @@ public partial class Main
         return null;
     }
 
-    private string PlayersText()
+    /// <summary>New Game's player list was edited: it applies straight away.</summary>
+    private void EditMenuPlayers(IReadOnlyList<Golfer> players)
     {
-        var g = _settings.Golfers;
-        return $"Players ({g.Count}): {string.Join(", ", g.Select(p => p.Name + (p.LeftHanded ? " (LH)" : "")))}";
+        SaveSettingsAlways(_settings with { Players = players });
+        _hud.MainMenu.SetGolfers(_settings.Golfers);
+        _rangePlayer %= _settings.Golfers.Count;
+        ShowRangePlayer();
+    }
+
+    /// <summary>Save on a row of New Game's player list: kept as a guest (the home player is saved already).</summary>
+    private void SaveMenuGuest(Golfer guest)
+    {
+        if (guest.Name.Equals(_settings.Home?.Name, StringComparison.OrdinalIgnoreCase)) return;
+        SaveSettingsAlways(_settings.WithGuest(guest));
+        _hud.MainMenu.SetSavedPlayers(_settings.SavedPlayers);
+        _hud.Toast($"{guest.Name} saved as a guest", UiTheme.Accent);
     }
 
     /// <summary>Resume Game: the round in memory if there is one, otherwise the one saved last time.</summary>
@@ -122,7 +136,7 @@ public partial class Main
             items.Add(new("Previous Hole", PreviousHole, "Everyone to the tee of the hole before", !moving));
             items.Add(new("Next Hole", NextHole, "Everyone to the next tee  [N]", !moving));
             items.Add(new("Restart Hole", RestartHole, "Everyone back to this tee  [R]", !moving));
-            items.Add(new("Add / Remove Players", () => _hud.Players.Open(m.Players), "Players can join or leave part-way through", !moving));
+            items.Add(new("Add / Remove Players", () => _hud.Players.Open(m.Players, _settings.SavedPlayers), "Players can join or leave part-way through", !moving));
             items.Add(new("Restart Game", ConfirmRestartGame, "A new round from the first tee", !moving));
             items.Add(new("End Game", ConfirmEndGame, "Back to the main menu"));
         }
@@ -134,6 +148,7 @@ public partial class Main
         }
         items.Add(new(_camera.Follow ? "Camera: Follow Ball" : "Camera: Stay Behind", ToggleCamera, "Follow the ball or stay behind it  [C]"));
         items.Add(new("Launch Monitor", _hud.ToggleDrawer, "Devices, connect / disconnect, battery, log  [L]"));
+        if (_monitorLive) items.Add(new("Align with Stick", OpenAlignment, "Set the target line with the monitor's white stick", !moving));
         if (_online == null) items.Add(new("Physics Tuner", _tuner.Toggle, "Adjust the physics between shots, in its own window  [T]"));
         if (items.Count % 2 == 1) items.Add(new("Close", null));
         _hud.Overlay.Open(_courseMode ? $"Hole {_match?.Hole.Number}  ·  {_courseDef?.Name}" : "Driving range", subtitle, items, columns: 2);

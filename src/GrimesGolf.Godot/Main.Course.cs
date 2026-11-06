@@ -2,6 +2,7 @@
 using Godot;
 using GrimesGolf.Bluetooth;
 using GrimesGolf.Core;
+using GrimesGolf.Core.Audio;
 using GrimesGolf.Core.Course;
 using GrimesGolf.Core.Square;
 using GrimesGolf.Core.Storage;
@@ -107,6 +108,7 @@ public partial class Main
     /// </summary>
     private bool LoadCourse(bool resume)
     {
+        if (_courseIndex >= CourseLibrary.All.Count) { Log("There's no course to load: the courses folder is missing or empty."); return false; }
         var entry = CourseLibrary.All[_courseIndex];
         try
         {
@@ -126,7 +128,7 @@ public partial class Main
         if (resume && _data?.LoadCurrentRound() is { } saved && saved.Course == entry.Name && saved.HolesOf(_courseDef.Holes) is var holes && saved.Fits(holes))
         {
             _game = saved.Game;
-            _match = new Match(holes, _courseDef.Terrain, saved.Golfers, saved.Rules, _game.Type);
+            _match = new Match(holes, _courseDef.Terrain, saved.Golfers, saved.Rules, _game.Type) { Trees = _courseDef.Obstacles };
             saved.ApplyTo(_match);
             _roundStarted = saved.Started;
             int played = saved.Players[0].Scores.Count(s => s != null);
@@ -140,7 +142,7 @@ public partial class Main
     /// <summary>A new round on the loaded course with the players and house rules from the settings, set up as <see cref="_game"/>.</summary>
     private void NewMatchState()
     {
-        _match = new Match(_game.Pick(_courseDef!.Holes), _courseDef.Terrain, _settings.Golfers, _settings.Rules, _game.Type);
+        _match = new Match(_game.Pick(_courseDef!.Holes), _courseDef.Terrain, _settings.Golfers, _settings.Rules, _game.Type) { Trees = _courseDef.Obstacles };
         _match.StartHole(0);
         _roundStarted = DateTime.Now;
         _lastRecord = null;
@@ -172,7 +174,7 @@ public partial class Main
     /// <summary>New Game: a new round on course <paramref name="index"/> with the players in the settings, set up as <paramref name="setup"/>.</summary>
     private async void StartNewGame(int index, GameSetup setup)
     {
-        if (_loading) return;
+        if (_loading || index >= CourseLibrary.All.Count) return;
         int previous = _courseIndex;
         var previousGame = _game;
         _courseIndex = index;
@@ -383,6 +385,7 @@ public partial class Main
             return null;
         }
         _outcome = o;
+        Sound(SoundSynth.ImpactFor(club));
         _player.Play(o.Flight);
         _course?.SetAim(round.Ball, heading, 0, visible: false);
         CountShot(s, o.Flight, replay);
@@ -538,7 +541,7 @@ public partial class Main
         var round = match.Current;
         var golfer = match.Golfer;
         _aimHeading = round.DefaultAimHeading();
-        string club = round.Holed ? _hud.ClubCode : Caddie.Suggest(round.PlaysLike(round.DefaultTarget), round.Lie, round.StanceAt(round.Ball, _aimHeading, golfer.LeftHanded));
+        string club = round.Holed ? _hud.ClubCode : Caddie.Suggest(round.PlaysLike(round.DefaultTarget), round.Lie, round.StanceAt(round.Ball, _aimHeading, golfer.LeftHanded), KnownYards);
         _hud.SetPlayerClub(club, golfer.LeftHanded);
         SuggestPower();
         UpdateAim(snapCamera);
@@ -566,11 +569,32 @@ public partial class Main
         _hud.SetHoleCard(hole.Number, hole.Name, hole.Par, hole.LengthYards, stroke, score, scoreNote);
         _hud.SetActivePlayer(golfer.Name, UiTheme.PlayerColor(match.Turn), several);
         _hud.SetTurn(several && !match.HoleComplete ? golfer.Name : null, UiTheme.PlayerColor(match.Turn), several ? Standings(match) : "");
+        _hud.SetLeaderboard(match.Type == GameType.MatchPlay ? match.MatchText() : "Leaderboard", LeaderboardRows(match));
         var mulliganFor = match.LastToPlay is { } lp ? match.Rounds[lp] : round;
         _hud.SetMulligans(match.Rules.Mulligans, mulliganFor.MulligansLeft, match.CanMulligan && _outcome == null);
         _hud.SetScorecard($"{_courseDef!.Name}  ·  {GameSetup.Name(match.Type)}", match.Holes.Select(h => h.Number).ToList(),
             match.Holes.Select(h => h.Par).ToList(), ScorecardRows(match), match.HoleIndex);
         SaveRound();
+    }
+
+    /// <summary>The small leaderboard: teams or players, best score first (match play keeps its order, its caption says who's ahead).</summary>
+    private static List<LeaderboardRow> LeaderboardRows(Match match)
+    {
+        static string Thru(int thru) => thru == 0 ? "" : $"thru {thru}";
+        var rows = match.Teams
+            ? Enumerable.Range(0, match.Sides.Count).Select(s =>
+            {
+                var (_, toPar, thru) = match.SideStanding(s);
+                return (Row: new LeaderboardRow(match.SideName(s), thru == 0 ? "E" : Hud.ToPar(toPar), Thru(thru),
+                    UiTheme.PlayerColor(match.Sides[s][0]), match.Sides[s].Contains(match.Turn)), ToPar: thru == 0 ? 0 : toPar);
+            })
+            : match.Players.Select((g, i) =>
+            {
+                var (_, toPar, thru) = match.Standing(i);
+                return (Row: new LeaderboardRow(g.Name, thru == 0 ? "E" : Hud.ToPar(toPar), Thru(thru), UiTheme.PlayerColor(i), i == match.Turn),
+                    ToPar: thru == 0 ? 0 : toPar);
+            });
+        return (match.Type == GameType.MatchPlay ? rows : rows.OrderBy(r => r.ToPar)).Select(r => r.Row).ToList();
     }
 
     /// <summary>Everyone's standing under the hole badge: per player, per team, or the match, with this hole so far.</summary>
@@ -681,7 +705,7 @@ public partial class Main
         string lieEffect = putting ? "" : ActivePhysics.LieModel.Apply(typical, stance, preset.LoftDeg).Summary;
         string lieNote = round.Holed ? "" : putting ? (green ? "" : "Putting from off the green") : lieEffect.Length > 0 ? lieEffect : "Clean lie";
         // Shot penalty: what the lie and stance take off the club's carry.
-        double clean = Caddie.Carry(preset.Code), fromHere = Caddie.CarryFrom(preset.Code, stance);
+        double clean = Caddie.Carry(preset.Code, KnownYards), fromHere = Caddie.CarryFrom(preset.Code, stance, KnownYards);
         double penalty = putting || round.Holed || clean <= 0 ? 0 : Math.Max(0, 1 - fromHere / clean);
 
         string read = "", readNote = "";
@@ -775,6 +799,9 @@ public partial class Main
         string who = match.Players.Count == 1 ? "" : match.Type == GameType.Scramble ? match.SideName(match.SideOf(match.Turn)) + "  ·  " : match.Golfer.Name + "  ·  ";
         string sub =$"{who}{strokes} stroke{(strokes == 1 ? "" : "s")} on hole {round.Hole.Number}";
         _hud.CelebrateScore(text, sub, color, sparks: diff < 0 || strokes == 1);
+        // The crowd goes wild for under par and claps a par; anything worse gets silence.
+        if (diff < 0 || strokes == 1) Sound(SoundEffect.Cheer);
+        else if (diff == 0) Sound(SoundEffect.Applause, -4);
     }
 
     /// <summary>Flag in or out while putting (it's pulled by default once the ball is on the green).</summary>
@@ -830,7 +857,7 @@ public partial class Main
         bool putting = Putter;
         double length = Math.Max(AimDistance(round.Holed ? null : round.StanceAt(round.Ball, _aimHeading, _hud.LeftHanded)), 1);
         var aimPoint = round.Ball + new P2(Math.Cos(_aimHeading), Math.Sin(_aimHeading)) * length;
-        _course.SetAim(round.Ball, _aimHeading, length, visible: !round.Holed, showRing: !putting);
+        _course.SetAim(round.Ball, _aimHeading, length, visible: !round.Holed, showRing: !putting, landingView: _landingView);
         _course.ShowGrassAround(round.Ball);
 
         var dir = new Vector3((float)Math.Sin(_aimHeading), 0, (float)-Math.Cos(_aimHeading));

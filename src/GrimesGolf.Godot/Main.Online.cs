@@ -109,6 +109,7 @@ public partial class Main
 
     private void OpenOnline()
     {
+        if (CourseLibrary.All.Count == 0) { _hud.Toast("There are no courses on this PC", UiTheme.Warn); return; }
         _hud.MainMenu.Close();
         string? rejoin = _settings.RejoinCode is { } code && _settings.RejoinUntil > DateTime.Now ? $"Rejoin lobby {code}" : null;
         string? resume = _data?.LoadOnlineRound<OnlineSave>() is { } s && s.Saved > DateTime.Now.AddHours(-12)
@@ -264,7 +265,7 @@ public partial class Main
         var session = _online;
         if (session == null) return;
         int index = CourseLibrary.All.ToList().FindIndex(e => e.Name == config.Course);
-        if (index < 0) { OnlineFailed($"This PC doesn't have the course {config.Course}. Install the same version of the app as the host."); return; }
+        if (index < 0) { OnlineFailed($"This PC doesn't have the course {config.Course}. Download it with New Game > Get More Courses, then join again."); return; }
         if (_outcome != null) FinishShot();
         _courseIndex = index;
         _game = config.Setup;
@@ -287,12 +288,12 @@ public partial class Main
                 : config.Setup.Pick(_courseDef.Holes);
             if (holes.Count == 0 || (config.HoleNumbers.Length > 0 && holes.Count != config.HoleNumbers.Length))
             {
-                problem = "This PC's course has different holes from the host's. Install the same version of the app.";
+                problem = "This PC's course has different holes from the host's. Update it with New Game > Get More Courses, or check you're both on the same version.";
                 return;
             }
             try
             {
-                _match = new Match(holes, _courseDef.Terrain, config.Golfers, config.Rules, config.Setup.Type);
+                _match = new Match(holes, _courseDef.Terrain, config.Golfers, config.Rules, config.Setup.Type) { Trees = _courseDef.Obstacles };
                 if (snapshot != null) _match.Restore(snapshot); else _match.StartHole(0);
             }
             catch (ArgumentException ex) { problem = $"Couldn't set up the round: {ex.Message}"; return; }
@@ -302,7 +303,7 @@ public partial class Main
             _hud.Online.Close();
             _hud.ShowMainMenu(false);
             EnterCourse();
-            fingerprint = CourseFingerprint.Of(holes, _courseDef.Terrain);
+            fingerprint = CourseFingerprint.Of(holes, _courseDef.Terrain, _courseDef.Trees);
         });
         if (_online != session) return;
         if (fingerprint == null) { OnlineFailed(problem ?? "Couldn't load the course."); return; }
