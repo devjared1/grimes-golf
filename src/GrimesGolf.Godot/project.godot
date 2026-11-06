@@ -16,6 +16,11 @@ run/main_scene="res://Main.tscn"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="Square Range 3D"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+config/icon="res://assets/icons/grimes_golf_icon.png"
+boot_splash/bg_color=Color(0.0235294, 0.0313726, 0.0352941, 1)
+boot_splash/image="res://assets/ui/splash.png"
+boot_splash/stretch_mode=4
+boot_splash/minimum_display_time=2000
 
 [debug]
 
@@ -25,6 +30,7 @@ file_logging/enable_file_logging=true
 
 window/size/viewport_width=1600
 window/size/viewport_height=900
+window/size/mode.template=3
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 

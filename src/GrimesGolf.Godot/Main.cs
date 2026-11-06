@@ -26,8 +26,8 @@ namespace GrimesGolf.Game;
 /// and <c>--screenshot=file.png</c> saves the window to a PNG (after <c>--screenshot-delay=seconds</c>, default 4, or
 /// once the demo shots have finished) and quits; <c>--monitor-drawer</c> opens the launch monitor drawer;
 /// <c>--settings</c> opens the settings; <c>--home-player</c> (<c>=clubs</c> with the club distances open) opens the home
-/// player panel; <c>--menu</c> opens the in-game menu; <c>--new-game</c> opens New Game's course and player lists; <c>--setup-page</c> opens New Game's
-/// Game Setup page; <c>--game=Scramble</c>, <c>--holes=Back9</c>, <c>--wind=Breezy</c> and <c>--weather=Wet</c> set up
+/// player panel; <c>--menu</c> opens the in-game menu; <c>--new-game</c> opens New Game;
+/// <c>--game=Scramble</c>, <c>--holes=Back9</c>, <c>--wind=Breezy</c> and <c>--weather=Wet</c> set up
 /// the round for this run; <c>--green-read</c> turns on the green
 /// heat map and grid; <c>--hit-at=t1,t2,…</c> presses HIT SHOT at those times (seconds after start); <c>--tuner</c>
 /// opens the physics tuner (and the screenshot saves it too, as <c>file-tuner.png</c>); <c>--tune=key=value</c>
@@ -108,6 +108,9 @@ public partial class Main : Node3D
 
         var args = OS.GetCmdlineUserArgs();
         _settings = AppSettings.Load(_dataFolder, Log).AtStartup();
+        // The released app always opens full screen (Settings can make it a window until it's closed). Development runs
+        // from the editor stay as saved, so they can sit beside it.
+        if (OS.HasFeature("template")) _settings = _settings with { FullScreen = true };
         ApplyDisplaySettings();
         ApplyGraphics();
         SetupSettings();
@@ -139,8 +142,7 @@ public partial class Main : Node3D
         EnterRange();
         // The main menu, unless a switch says where to go (development runs stay on the range unless told otherwise).
         if (args.Contains("--course")) { if (LoadCourse(resume: true)) EnterCourse(); }
-        else if (!args.Contains("--range") && (!devRun || _openSetupAtStart)) ShowMainMenu();
-        if (_openSetupAtStart) _hud.MainMenu.OpenSetupPage();
+        else if (!args.Contains("--range") && !devRun) ShowMainMenu();
         if (args.Contains("--new-game")) _hud.MainMenu.OpenCoursePage();
         if (_match != null && _courseMode && args.FirstOrDefault(a => a.StartsWith("--hole=")) is { } h && int.TryParse(h[7..], out int n) && n >= 2 && n <= _match.Holes.Count)
             StartHole(n - 1);
@@ -151,6 +153,27 @@ public partial class Main : Node3D
         // No saved player: ask for one, over the main menu (not in development runs, or copies playing by themselves).
         bool askForHome = _settings.NeedsHomePlayer && _rememberChoices && !_fakeMonitor && _hud.MainMenu.IsOpen;
         if (askForHome || args.Any(a => a.StartsWith("--home-player"))) OpenHomePlayer(showClubs: args.Contains("--home-player=clubs"));
+        if (!devRun && !screenshot) FadeOutSplash();
+    }
+
+    /// <summary>
+    /// The engine's boot splash (project.godot) ends in a hard cut, so the same picture carries on over the first frames
+    /// and fades into the menu.
+    /// </summary>
+    private void FadeOutSplash()
+    {
+        var layer = new CanvasLayer { Layer = 100 };
+        var splash = new TextureRect
+        {
+            Texture = GD.Load<Texture2D>("res://assets/ui/splash.png"), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
+            StretchMode = TextureRect.StretchModeEnum.KeepAspectCovered, MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        layer.AddChild(splash);
+        AddChild(layer);
+        splash.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        var fade = CreateTween();
+        fade.TweenProperty(splash, "modulate:a", 0.0f, 0.6).SetDelay(0.3);
+        fade.TweenCallback(Callable.From(layer.QueueFree));
     }
 
     private void SetupMinimap()

@@ -13,7 +13,10 @@ public static class Brand
     private static Texture2D? _logo;
     private static bool _looked;
 
-    /// <summary>The Grimes Golf Simulator logo (white with a green glow, for dark backgrounds); null if it's missing.</summary>
+    /// <summary>
+    /// The Grimes Golf Simulator logo (a neon green script, about 4:1, for dark backgrounds; made by
+    /// <c>tools/make-brand-assets.py</c>); null if it's missing.
+    /// </summary>
     public static Texture2D? Logo
     {
         get
@@ -22,6 +25,13 @@ public static class Brand
             return _logo;
         }
     }
+
+    /// <summary>The logo at a size on screen. The image is much bigger than any of them, so it's drawn from its mipmaps to keep the fine script clean.</summary>
+    public static TextureRect LogoRect(Texture2D logo, Vector2 size, TextureRect.StretchModeEnum stretch) => new()
+    {
+        Texture = logo, ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = stretch,
+        TextureFilter = CanvasItem.TextureFilterEnum.LinearWithMipmaps, CustomMinimumSize = size,
+    };
 
     private static readonly Dictionary<string, Texture2D?> CourseLogos = new();
 

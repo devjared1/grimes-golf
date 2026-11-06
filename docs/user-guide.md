@@ -37,7 +37,7 @@ your target. The panel shows its angle live; pick **Use This Alignment** once it
 away. The button then shows the alignment you set ("Aligned R1.2°", with the time on its tooltip). It's only known
 for this session, and is forgotten if the monitor restarts. Cancel leaves the alignment as it was.
 
-**Ball position**: while the monitor sees a ball, a small panel shows where it is, from above, and whether it's on
+**Ball position** (hidden for now; the top bar still shows when the ball is ready): while the monitor sees a ball, a small panel shows where it is, from above, and whether it's on
 a tee or the mat, so you can tell why it isn't Ready. The green box is where balls have gone ready so far, as a
 guide: the monitor doesn't report its exact limits.
 
@@ -51,7 +51,7 @@ When a new player is up, the monitor is switched to their hand and the club sugg
 
 **Main menu** (where the app opens, under the Grimes Golf Simulator logo): **New Game** (a list of courses with
 their holes, par, length and a short description, and the **Player List** on the right, where changes apply straight
-away: **Add** picks a saved guest or adds a new player; then **Game Setup**, below, and **Start Round**), **Resume Game** (shown when a round is unfinished, with its course, game, hole and players), **Driving
+away: **Add** picks a saved guest or adds a new player, with **Game Setup**, below, under it; then **Start Round**), **Resume Game** (shown when a round is unfinished, with its course, game, hole and players), **Driving
 Range**, **Settings** and **Quit**, plus the
 launch monitor's status (with a button for the monitor drawer) and the version. New Game and Resume Game show a
 **loading screen** (the logo, the course's logo and what's being loaded) while the course map, elevation and 3D
@@ -131,7 +131,7 @@ everyone has finished a hole the next one starts by itself after 5 seconds (coun
 
 ## Game setup
 
-**Game Setup** (New Game's second page; every choice is a row of buttons, so a gamepad picks each with one press,
+**Game Setup** (on New Game, under the Player List; it scrolls if large text leaves it too little room; every choice is a row of buttons, so a gamepad picks each with one press,
 and the last setup is remembered):
 - **Game type**: **Stroke Play**; **Scramble** (everyone in a team hits from the same spot, the best shot is picked
   for them: holed first, then fewest strokes, then nearest the pin from the better lie, and the whole team plays
@@ -226,7 +226,7 @@ Add / Remove Players during a round. A player you don't save lasts until the app
 
 **Settings** (main menu, the in-game menu, numpad `*` or gamepad Back): the home player, players (1-4, name and left-handed),
 house rules, auto-connect, text size (Small / Normal / Large / Extra large: smaller for a laptop, bigger for
-reading from the mat or a projector), full screen, graphics quality (Low / Medium / High / Ultra: anti-aliasing,
+reading from the mat or a projector), full screen (the app always opens full screen; untick this for a window until you close it), graphics quality (Low / Medium / High / Ultra: anti-aliasing,
 shadow detail and reach, bounced light and reflections in the water, how far 3D grass reaches round the camera, and soft focus on grass right in front of a low camera;
 High is the default), the camera's hole flyover, and sound effects (club, ball, cup and crowd; turn them off if you'd rather just hear your own strike). The course last played and the camera mode are remembered too, so no command-line switches are
 needed. The whole UI also scales up with the window (a full-screen projector shows it bigger), and switches to a

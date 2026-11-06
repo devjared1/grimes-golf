@@ -398,6 +398,9 @@ public partial class Hud
         SetStat("Alignment", angle == null ? "Not this session" : $"{angle} at {when}");
     }
 
+    /// <summary>The ball position panel is hidden for now: set this to true to bring it back.</summary>
+    private static readonly bool ShowBallZone = false;
+
     private BallZone _ballZone = null!;
     private Core.Square.BallPosition? _ball;
     private bool _ballIsReady;
@@ -414,7 +417,7 @@ public partial class Hud
     /// <summary>Beside the leaderboard on a course, above the numbers on the range. Only while a monitor is seeing a ball.</summary>
     private void PlaceBallZone()
     {
-        _ballZone.Visible = _monitorLive && _ball != null && _topBar.Visible;
+        _ballZone.Visible = ShowBallZone && _monitorLive && _ball != null && _topBar.Visible;
         _ballZone.SetAnchorsPreset(LayoutPreset.BottomLeft);
         _ballZone.GrowHorizontal = GrowDirection.End;
         _ballZone.GrowVertical = GrowDirection.Begin;

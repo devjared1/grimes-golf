@@ -4,16 +4,14 @@ using GrimesGolf.Core.Course;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// New Game's second step, Game Setup: the game (stroke play, scramble, best ball, match play), which holes, the
-/// weather (wind, altitude, temperature and rain) and the course (fairway speed, green firmness and speed). Each
+/// New Game's Game Setup, under the player list: the game (stroke play, scramble, best ball, match play), which holes,
+/// the weather (wind, altitude, temperature and rain) and the course (fairway speed, green firmness and speed). Each
 /// choice is a row of buttons (one press with a gamepad), with a line saying what the game and holes mean for the
 /// players picked. Opens with the last setup used.
 /// </summary>
 public partial class MainMenu
 {
-    private VBoxContainer _setupPage = null!;
-    private Label _setupCourse = null!, _typeNote = null!, _holesNote = null!;
-    private Button _startRound = null!;
+    private Label _typeNote = null!, _holesNote = null!;
     private GameSetup _setup = GameSetup.Default;
     private IReadOnlyList<Golfer> _golfers = Array.Empty<Golfer>();
     private readonly Dictionary<int, IReadOnlyList<Hole>> _holes = new();
@@ -23,34 +21,21 @@ public partial class MainMenu
     /// <summary>Puts every row's buttons back to match <see cref="_setup"/>.</summary>
     private readonly List<Action> _syncRows = new();
 
-    /// <summary>Room for the setup page's rows: the menu column is widened while it's showing.</summary>
-    private const float SetupWidth = 860, MenuWidth = 560;
-    private MarginContainer _margin = null!;
+    private const float MenuWidth = 560;
 
-    private void BuildSetupPage(VBoxContainer column)
+    /// <summary>Game Setup, filling what the player list leaves of the column. It scrolls if it doesn't fit (large text, four players).</summary>
+    private void BuildSetupCard(VBoxContainer column)
     {
-        _setupPage = new VBoxContainer { Visible = false, SizeFlagsVertical = SizeFlags.ExpandFill };
-        _setupPage.AddThemeConstantOverride("separation", 8);
-        column.AddChild(_setupPage);
-        var head = new HBoxContainer();
-        head.AddThemeConstantOverride("separation", 14);
-        head.AddChild(UiTheme.Text("Game Setup", 26, UiTheme.Ink, bold: true));
-        _setupCourse = UiTheme.Text("", 16, UiTheme.Muted);
-        _setupCourse.SizeFlagsVertical = SizeFlags.ShrinkEnd;
-        head.AddChild(UiTheme.Pad(_setupCourse, 0, 4, mouse: false));
-        _setupPage.AddChild(head);
-
-        // The choices scroll if they don't fit (large text), so Start Round is always on the screen.
-        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
-        var card = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        card.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 12, 1, 16, 18));
+        var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true, SizeFlagsVertical = SizeFlags.ExpandFill };
+        var card = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill, SizeFlagsVertical = SizeFlags.ShrinkBegin };
+        card.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 12, 1, 18, 14));
         var v = new VBoxContainer();
-        v.AddThemeConstantOverride("separation", 7);
+        v.AddThemeConstantOverride("separation", 5);
         card.AddChild(v);
         scroll.AddChild(card);
-        _setupPage.AddChild(scroll);
+        column.AddChild(scroll);
 
-        v.AddChild(UiTheme.Caption("Game"));
+        v.AddChild(UiTheme.Text("Game Setup", 24, UiTheme.Ink, bold: true));
         var types = Row(v, "Game type", Enum.GetValues<GameType>(), GameSetup.Name, () => _setup.Type, t => _setup = _setup with { Type = t },
             t => t switch
             {
@@ -92,38 +77,13 @@ public partial class MainMenu
             g => g switch { GreenFirmness.Soft => "Approach shots stop and spin back", GreenFirmness.Firm => "Approach shots bounce and release", _ => "Normal" });
         Row(v, "Green speed", GameSetup.Stimps, s => $"{s:0}", () => _setup.Stimp, s => _setup = _setup with { Stimp = s },
             s => $"Stimp {s:0}: {(s <= 8 ? "slow" : s <= 10 ? "medium" : s <= 11 ? "quick" : "tournament fast")}");
-
-        var buttons = new HBoxContainer();
-        buttons.AddThemeConstantOverride("separation", 10);
-        _startRound = new Button { Text = "Start Round", ThemeTypeVariation = "PrimaryButton", CustomMinimumSize = new Vector2(200, 54) };
-        _startRound.AddThemeFontSizeOverride("font_size", 20);
-        _startRound.Pressed += () => StartCourse?.Invoke(_selected, _setup);
-        buttons.AddChild(_startRound);
-        var players = new Button { Text = "Players…", CustomMinimumSize = new Vector2(0, 54), TooltipText = "Change the players in Settings" };
-        players.Pressed += () => SettingsPressed?.Invoke();
-        buttons.AddChild(players);
-        buttons.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
-        var back = new Button { Text = "Back", ThemeTypeVariation = "FlatButton", CustomMinimumSize = new Vector2(0, 54), TooltipText = "Back to the courses  [Esc, gamepad B]" };
-        back.Pressed += ShowCourses;
-        buttons.AddChild(back);
-        _setupPage.AddChild(buttons);
-
-        // As tall as the choices if there's room, with the buttons straight under them; otherwise what's left.
-        void Fit()
-        {
-            float room = _setupPage.Size.Y - head.Size.Y - buttons.Size.Y - 2 * _setupPage.GetThemeConstant("separation");
-            if (_setupPage.Visible) scroll.CustomMinimumSize = new Vector2(0, Mathf.Max(0, Mathf.Min(card.GetCombinedMinimumSize().Y, room)));
-        }
-        _setupPage.Resized += Fit;
-        _setupPage.VisibilityChanged += () => Callable.From(Fit).CallDeferred();
-        card.MinimumSizeChanged += () => Callable.From(Fit).CallDeferred();
     }
 
     private static Label Note(VBoxContainer into)
     {
         var l = UiTheme.Text("", 14, UiTheme.Muted);
         l.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        l.CustomMinimumSize = new Vector2(600, 0);
+        l.CustomMinimumSize = new Vector2(400, 0);
         into.AddChild(l);
         return l;
     }
@@ -135,19 +95,25 @@ public partial class MainMenu
         var h = new HBoxContainer();
         h.AddThemeConstantOverride("separation", 6);
         var c = UiTheme.Text(caption, 16, UiTheme.Ink);
-        c.CustomMinimumSize = new Vector2(150, 0);
-        c.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        c.SizeFlagsVertical = SizeFlags.ShrinkBegin;
+        c.CustomMinimumSize = new Vector2(124, 38);
+        c.VerticalAlignment = VerticalAlignment.Center;
         h.AddChild(c);
+        // The buttons wrap when large text leaves too little width for them.
+        var flow = new HFlowContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        flow.AddThemeConstantOverride("h_separation", 6);
+        flow.AddThemeConstantOverride("v_separation", 6);
+        h.AddChild(flow);
         var group = new ButtonGroup();
         var buttons = new List<(T, Button)>();
         foreach (var value in values)
         {
             var b = new Button { Text = name(value), ToggleMode = true, ButtonGroup = group, ThemeTypeVariation = "TabButton",
-                                 CustomMinimumSize = new Vector2(96, 40), TooltipText = tip?.Invoke(value) ?? "" };
+                                 CustomMinimumSize = new Vector2(66, 34), TooltipText = tip?.Invoke(value) ?? "" };
             b.AddThemeFontSizeOverride("font_size", 16);
             var v = value;
             b.Toggled += on => { if (on && !EqualityComparer<T>.Default.Equals(current(), v)) { pick(v); RefreshSetupNotes(); } };
-            h.AddChild(b);
+            flow.AddChild(b);
             buttons.Add((value, b));
         }
         into.AddChild(h);
@@ -158,45 +124,8 @@ public partial class MainMenu
         return buttons;
     }
 
-    /// <summary>On the setup page (Esc / B goes back to the course list from there).</summary>
-    public bool OnSetupPage => Visible && _setupPage.Visible;
-
-    /// <summary>Esc / B: back a page (setup to courses, courses to the menu).</summary>
-    public void Back()
-    {
-        if (OnSetupPage) ShowCourses();
-        else ShowHome();
-    }
-
-    /// <summary>Straight to the setup page for the selected course (development: to check how it looks).</summary>
-    public void OpenSetupPage()
-    {
-        if (!Visible) return;
-        ShowCourses();
-        ShowSetup();
-    }
-
-    private void ShowSetup()
-    {
-        _courses.Visible = false;
-        _home.Visible = false;
-        _playerPanel.Visible = false;
-        _setupPage.Visible = true;
-        ShowColumnExtras(false);
-        _margin.OffsetRight = SetupWidth;
-        _setupCourse.Text = _selected < _cards.Count ? _cards[_selected].Name : "";
-        foreach (var sync in _syncRows) sync();
-        RefreshSetupNotes();
-        _startRound.GrabFocus();
-    }
-
-    /// <summary>The logo and launch monitor card: the setup page needs the height they take.</summary>
-    private void ShowColumnExtras(bool show)
-    {
-        _logoArea.Visible = show;
-        _columnGap.Visible = show;
-        _monitorCard.Visible = show;
-    }
+    /// <summary>Esc / B: from New Game back to the menu.</summary>
+    public void Back() => ShowHome();
 
     /// <summary>What the chosen game and holes mean here: the teams, or why the game can't be played; how long the round is.</summary>
     private void RefreshSetupNotes()
@@ -232,11 +161,11 @@ public partial class MainMenu
         _courseAltitude.Text = _altitudeFeet.TryGetValue(_selected, out var ft) ? $"Course ({ft:#,0} ft)" : "Course";
     }
 
-    /// <summary>A course's holes and height above sea level (ft), once it's loaded, for the setup page.</summary>
+    /// <summary>A course's holes and height above sea level (ft), once it's loaded, for Game Setup.</summary>
     public void SetCourseHoles(int index, IReadOnlyList<Hole> holes, double altitudeFeet)
     {
         _holes[index] = holes;
         _altitudeFeet[index] = altitudeFeet;
-        if (index == _selected && OnSetupPage) RefreshSetupNotes();
+        if (index == _selected && OnSubPage) RefreshSetupNotes();
     }
 }
