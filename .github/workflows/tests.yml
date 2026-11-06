@@ -1,0 +1,44 @@
+# Runs the same three test projects as tools/release.ps1 and builds the game, on every pull request and every push
+# to main. Windows, because that's what the game is built for and released on.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [GrimesGolf.Tests, GrimesGolf.Physics.Tests, GrimesGolf.Online.Tests]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          # GrimesGolf.Online.Tests and the relay are on .NET 10, everything else on .NET 8.
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Test ${{ matrix.project }}
+        run: dotnet test tests/${{ matrix.project }} -v q
+
+  # The tests don't compile the game itself, so UI code is only checked here.
+  build-game:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Build the game
+        run: dotnet build src/GrimesGolf.Godot/GrimesGolf.Godot.csproj -c Release -v q
