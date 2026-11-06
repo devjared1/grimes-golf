@@ -343,6 +343,25 @@ public static class TerrainGround
                     }
                 }
         }
+        else if (shape is Strip strip)
+        {
+            // A segment at a time, near it only: a long stream's box can be most of the course, and it has hundreds of segments.
+            double reach = strip.Width / 2 + 2 * Texel;
+            for (int i = 0; i + 1 < strip.Points.Count; i++)
+            {
+                P2 a = strip.Points[i], b = strip.Points[i + 1];
+                var segment = new Strip(new[] { a, b }, strip.Width);
+                int top = Math.Max(r0, (int)((Math.Min(a.X, b.X) - reach - area.Min.X) / Texel)), bottom = Math.Min(r1, (int)((Math.Max(a.X, b.X) + reach - area.Min.X) / Texel));
+                int left = Math.Max(c0, (int)((Math.Min(a.Z, b.Z) - reach - area.Min.Z) / Texel)), right = Math.Min(c1, (int)((Math.Max(a.Z, b.Z) + reach - area.Min.Z) / Texel));
+                for (int r = top; r <= bottom; r++)
+                    for (int c = left; c <= right; c++)
+                    {
+                        var p = new P2(area.Min.X + (r + 0.5) * Texel, area.Min.Z + (c + 0.5) * Texel);
+                        ref float value = ref cover[(r - r0) * cols + (c - c0)];
+                        value = Math.Max(value, (float)Math.Clamp(0.5 - segment.DistanceTo(p) / Texel, 0, 1));
+                    }
+            }
+        }
         else
         {
             // Other shapes: from distance to the edge (one texel of soft edge).

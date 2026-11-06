@@ -55,8 +55,9 @@ public partial class PlayersPanel : Control
 
     public bool IsOpen => Visible;
 
-    public void Open(IReadOnlyList<Golfer> players)
+    public void Open(IReadOnlyList<Golfer> players, IReadOnlyList<Golfer> saved)
     {
+        _players.SetSavedPlayers(saved);
         _players.Load(players);
         Visible = true;
         _save.GrabFocus();

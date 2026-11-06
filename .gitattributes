@@ -2,6 +2,7 @@
 
 # Binary data and assets
 *.dem binary
+*.gz binary
 *.hdr binary
 *.jpg binary
 *.png binary

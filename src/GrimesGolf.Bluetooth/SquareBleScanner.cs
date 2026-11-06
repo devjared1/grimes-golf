@@ -25,6 +25,10 @@ public sealed class SquareBleScanner : IDisposable
 
     public bool IsScanning => _watcher.Status == BluetoothLEAdvertisementWatcherStatus.Started;
 
+    /// <summary>False while a stop is still finishing: the watcher can't be started again until it has.</summary>
+    public bool CanStart => _watcher.Status is BluetoothLEAdvertisementWatcherStatus.Created
+        or BluetoothLEAdvertisementWatcherStatus.Stopped or BluetoothLEAdvertisementWatcherStatus.Aborted;
+
     public void Start() { if (!IsScanning) _watcher.Start(); }
     public void Stop() { if (IsScanning) _watcher.Stop(); }
 

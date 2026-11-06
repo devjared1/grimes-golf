@@ -59,6 +59,12 @@ public sealed class HoleRound
     private const double SlopeGravity = 5.0 / 7.0 * PhysicsConstants.Gravity;
     private const double RecordEvery = 0.02;
 
+    /// <summary>Trees a ball can hit (null = none in play).</summary>
+    public TreeField? Trees { get; set; }
+
+    /// <summary>What's left of a ball's speed after a branch (a range) or a trunk, and of its forward speed when it lands from one.</summary>
+    private const double BranchKeepsMin = 0.1, BranchKeepsMax = 0.35, TrunkKeeps = 0.4, LandingKeeps = 0.4;
+
     private static readonly GolfPhysicsEngine Engine = new();
 
     private readonly int?[] _scores;
@@ -259,6 +265,7 @@ public sealed class HoleRound
         double carryYd = 0, apexYd = 0, hang = 0, descent = 0;
         (P2 Stop, Lie Lie, bool Holed) end;
         LieAdjustment? lieEffect = null;
+        int? treeHit = null;
 
         try
         {
@@ -290,7 +297,13 @@ public sealed class HoleRound
                 apexYd = r.ApexYards;
                 hang = r.TimeOfFlight;
                 descent = r.LandingAngleDegrees;
-                end = Finish(path, rules.Event, CourseGround.ToCourse(r.FinalPosition), cup: true);
+                var random = ShotRandom(shot, start, headingRad);
+                if (Trees?.FirstContact(path, start, random) is { } tree)
+                {
+                    treeHit = tree.Index + 1;
+                    end = OffTheTree(path, tree, random, ref landing, ref carryYd, ref apexYd, ref hang, ref descent);
+                }
+                else end = Finish(path, rules.Event, CourseGround.ToCourse(r.FinalPosition), cup: true);
             }
         }
         catch (SimulationValidationException e)
@@ -344,12 +357,81 @@ public sealed class HoleRound
             if (pickedUp) { Holed = PickedUp = true; _scores[HoleIndex] = Strokes; }
         }
 
+        if (treeHit != null) message = "Off a tree. " + message;
         var flight = new FlightResult(path, landing, carryYd, start.DistanceTo(rest) * Units.MetresToYards, apexYd,
-            Offline(start, rest, headingRad) * Units.MetresToYards, hang, descent);
+            Offline(start, rest, headingRad) * Units.MetresToYards, hang, descent) { TreeHitIndex = treeHit };
         return new ShotOutcome(flight, start, rest, restLie, Ball, holed, penalty, Strokes, message) { LieEffect = lieEffect, PickedUp = pickedUp };
     }
 
     private FlightPoint OnGround(P2 p, double t) => new(t, p.X, GroundAt(p), p.Z);
+
+    /// <summary>Random numbers fixed by the shot, so a saved or replayed shot meets the same branches.</summary>
+    private static Random ShotRandom(RangeShot s, P2 start, double heading)
+    {
+        ulong h = 14695981039346656037;
+        foreach (double v in new[] { s.BallMph, s.LaunchDeg, s.DirectionDeg, s.SpinRpm, s.SpinAxisDeg, start.X, start.Z, heading })
+            h = (h ^ (ulong)BitConverter.DoubleToInt64Bits(v)) * 1099511628211;
+        return new Random((int)(h ^ (h >> 32)));
+    }
+
+    /// <summary>
+    /// The ball met a tree: the path stops there and carries on as what's left of it. A trunk throws it back the way it
+    /// came; a branch takes most of its speed and sends it off in a new direction. It falls from there and rolls out,
+    /// with the usual rules (hazards, the cup) applying from where it comes down.
+    /// </summary>
+    private (P2 Stop, Lie Lie, bool Holed) OffTheTree(List<FlightPoint> path, in TreeContact hit, Random random,
+        ref int landing, ref double carryYd, ref double apexYd, ref double hang, ref double descent)
+    {
+        bool stillInAir = hit.Index < landing;
+        path.RemoveRange(hit.Index + 1, path.Count - hit.Index - 1);
+        path.Add(hit.At);
+
+        double vx = hit.VelocityX, vy = hit.VelocityY, vz = hit.VelocityZ;
+        if (hit.Trunk)
+        {
+            var away = new P2(hit.At.X - hit.TreeAt.X, hit.At.Z - hit.TreeAt.Z);
+            double length = Math.Max(away.Length, 1e-6);
+            double nx = away.X / length, nz = away.Z / length, into = vx * nx + vz * nz;
+            vx = (vx - 2 * into * nx) * TrunkKeeps;
+            vz = (vz - 2 * into * nz) * TrunkKeeps;
+            vy *= TrunkKeeps;
+        }
+        else
+        {
+            double speed = Math.Sqrt(vx * vx + vy * vy + vz * vz) * (BranchKeepsMin + random.NextDouble() * (BranchKeepsMax - BranchKeepsMin));
+            double side = random.NextDouble() * 2 * Math.PI, up = random.NextDouble() * 1.4 - 0.9;
+            double flat = Math.Sqrt(Math.Max(0, 1 - Math.Min(1, up * up)));
+            vx = flat * Math.Cos(side) * speed;
+            vz = flat * Math.Sin(side) * speed;
+            vy = up * speed;
+        }
+
+        double x = hit.At.X, y = hit.At.Y, z = hit.At.Z, t = hit.At.T;
+        for (double fallen = 0; fallen < 20; fallen += RecordEvery)
+        {
+            vy -= PhysicsConstants.Gravity * RecordEvery;
+            x += vx * RecordEvery;
+            y += vy * RecordEvery;
+            z += vz * RecordEvery;
+            t += RecordEvery;
+            double ground = GroundAt(new P2(x, z));
+            bool down = y <= ground;
+            if (down) y = ground;
+            path.Add(new FlightPoint(t, x, y, z));
+            if (down) break;
+        }
+
+        var at = new P2(x, z);
+        if (stillInAir)
+        {
+            landing = path.Count - 1;
+            carryYd = new P2(path[0].X, path[0].Z).DistanceTo(at) * Units.MetresToYards;
+            apexYd = Math.Min(apexYd, (path.Max(p => p.Y) - path[0].Y) * Units.MetresToYards);
+            hang = t;
+            descent = Math.Atan2(-vy, Math.Max(new P2(vx, vz).Length, 1e-6)) * 180 / Math.PI;
+        }
+        return RollFrom(path, at, new P2(vx, vz) * LandingKeeps, t, cup: true);
+    }
 
     /// <summary>How far clear of a cart path the relief point is (the ball and the golfer's stance), m.</summary>
     public const double ReliefClearance = 0.6;

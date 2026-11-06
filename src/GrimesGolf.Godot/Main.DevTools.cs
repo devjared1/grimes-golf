@@ -25,11 +25,26 @@ public partial class Main
         if (double.TryParse(Arg("--screenshot-delay"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d)) _screenshotAt = d;
         if (int.TryParse(Arg("--demo-shots"), out var n)) _demoShotsLeft = n;
         if (args.Contains("--monitor-drawer")) _hud.ToggleDrawer();
+        // --monitor-ui: the layout used with a monitor connected (to check how it looks without one).
+        if (args.Contains("--monitor-ui")) _hud.SetMonitorLive(true);
+        // --ball=-40,-30,-33,ready: the ball position panel with this ball (mm), and --stick=1.5: the alignment panel with this reading.
+        if (Arg("--ball") is { } ball && ball.Split(',') is { Length: >= 3 } b)
+            _hud.SetBall(new Core.Square.BallPosition(Number(b[0]), Number(b[1]), Number(b[2])), ready: b.Length > 3);
+        if (Arg("--stick") is { } stick)
+        {
+            _hud.Alignment.Open();
+            _hud.Alignment.ShowReading(new Core.Square.StickEvent(Core.Square.StickStatus.Stable, Number(stick), 0, 0, 0));
+        }
+        if (Arg("--aligned") is { } aligned) { _alignedAngle = Number(aligned); _alignedAt = DateTime.Now; ShowAlignment(); }
         if (args.Contains("--tuner")) _tuner.Toggle();
         if (args.Contains("--green-read")) SetGreenOverlay(true, true);
         if (args.Contains("--settings")) _openSettingsAtStart = true;
         if (args.Contains("--menu")) _openMenuAtStart = true;
         _showScorecardForScreenshot = args.Contains("--scorecard");
+        // --ball-closeup: hold the camera right beside the ball (to check how it looks).
+        _ballCloseUp = args.Contains("--ball-closeup");
+        // --landing-view: press Zoom just before the screenshot (to check how the landing ring looks).
+        _landingViewForScreenshot = args.Contains("--landing-view");
         // --reconnecting: show the banner a dropped monitor gets (to check how it looks without a monitor).
         if (args.Contains("--reconnecting")) _hud.SetBanner("Launch monitor disconnected — reconnecting…");
         // --loading-screen and --celebrate=Birdie: show the loading screen, or a hole's score announcement (to check how they look).
@@ -73,14 +88,17 @@ public partial class Main
             _devTune = (key, v);
     }
 
+    private static double Number(string s) => double.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
+
     private (string Key, double Value)? _devTune;
     /// <summary>--scorecard: open the scorecard just before the screenshot.</summary>
-    private bool _showScorecardForScreenshot, _openMenuAtStart, _openSetupAtStart;
+    private bool _showScorecardForScreenshot, _openMenuAtStart, _openSetupAtStart, _ballCloseUp, _landingViewForScreenshot;
     private Queue<double>? _hitPresses;
 
     /// <summary>Hits the requested demo shots one after another, then takes the screenshot and quits.</summary>
     private void RunDevTools(double delta)
     {
+        if (_ballCloseUp) _camera.CloseUp(_player.BallPosition);
         if (_screenshotPath == null && _demoShotsLeft == 0 && _hitPresses == null) return;
         _devClock += delta;
         if (_hitPresses is { Count: > 0 } presses && _devClock >= presses.Peek())
@@ -106,6 +124,7 @@ public partial class Main
         // (A hole flyover doesn't hold up the screenshot, so one can be taken part-way through it.)
         if (_screenshotPath != null && _demoShotsLeft == 0 && !_player.IsPlaying && _outcome == null && _devClock >= _screenshotAt && _player.IdleSeconds > 1.2)
         {
+            if (_landingViewForScreenshot) { _landingViewForScreenshot = false; ToggleLandingView(); _screenshotAt = _devClock + 3; return; }
             if (_showScorecardForScreenshot) { _showScorecardForScreenshot = false; _hud.ShowScorecard(true); _screenshotAt = _devClock + 0.3; return; }
             string path = _screenshotPath;
             _screenshotPath = null;

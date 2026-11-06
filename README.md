@@ -94,7 +94,12 @@ friends. See [Deploying the relay](docs/deploying-the-relay.md).
 
 ## Installation
 
-There are no published releases yet. Build one from source:
+Download `GrimesGolf-Setup-<version>.exe` from the [releases page](https://github.com/devjared1/grimes-golf/releases)
+and run it. It needs no administrator password. To update, run the new version's installer over the old one; the
+main menu says when there's a new one. The installer isn't code-signed, so Windows may warn about it: choose
+**More info**, then **Run anyway**.
+
+To build one from source instead:
 
 ```powershell
 ./tools/export.ps1
@@ -102,10 +107,10 @@ There are no published releases yet. Build one from source:
 
 This exports the Windows build to `dist\Grimes Golf` and puts a **Grimes Golf** shortcut on the desktop. Pass
 `-Godot "C:\path\to\Godot_v4.7.2-stable_mono_win64.exe"` if Godot isn't on the `PATH`, and `-NoShortcut` to skip the
-shortcut. Copy the `dist\Grimes Golf` folder to any other PC that should run it.
+shortcut. To make the installer as well, see [Publishing a release](docs/development.md#publishing-a-release).
 
-Settings, saved rounds and shots live in `%APPDATA%\Square Range 3D` (the app's earlier name, kept so existing data
-stays where it is). Re-exporting or reinstalling doesn't touch them.
+Settings, saved rounds, shots and downloaded courses live in `%APPDATA%\Square Range 3D` (the app's earlier name,
+kept so existing data stays where it is). Updating or uninstalling doesn't touch them.
 
 ## Quick start
 
@@ -170,7 +175,8 @@ Command-line switches for development, the code layout of the game, and how to r
 | `src/GrimesGolf.Online` | Online play: the relay connection, the messages, the host and guest sessions |
 | `src/GrimesGolf.Relay` | The relay server (.NET 10, standalone), with a Dockerfile and `fly.toml` |
 | `tests/` | xUnit tests for each of the above |
-| `tools/` | The release export and the scripts that fetch course map, elevation and tree data |
+| `tools/` | The release build, and the scripts that find, make and publish courses |
+| `installer/` | The Windows installer script |
 | `docs/` | User guide, development guide, relay deployment, design documents |
 
 ## Documentation

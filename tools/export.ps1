@@ -4,8 +4,8 @@
 
 .DESCRIPTION
   Exports the "Windows Desktop" preset (src/GrimesGolf.Godot/export_presets.cfg) with the Godot .NET editor,
-  copies the physics tuning presets next to the exe (the app reads tuning/startup.json from there), and creates
-  "Grimes Golf" on the desktop. Needs the Godot export templates for the same version as the editor, installed
+  copies the physics tuning presets (the app reads tuning/startup.json from there) and the courses next to the exe, and
+  creates "Grimes Golf" on the desktop. Needs the Godot export templates for the same version as the editor, installed
   once from the editor: Editor > Manage Export Templates > Download and Install.
 
   Saved rounds, shots, settings.json and crash.log live in %APPDATA%\Square Range 3D (the app's old name, kept so existing
@@ -45,6 +45,11 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path $exe)) { throw "Godot export failed 
 New-Item -ItemType Directory -Force "$Out/tuning" | Out-Null
 Get-ChildItem "$project/tuning/*.json" | Where-Object { -not (Test-Path (Join-Path "$Out/tuning" $_.Name)) } |
     Copy-Item -Destination "$Out/tuning"
+
+# The courses that ship with the app, also beside the exe (where the app looks for them): exactly what's in the project.
+if (Test-Path "$Out/courses") { Remove-Item -Recurse -Force "$Out/courses" }
+Copy-Item -Recurse "$project/courses" "$Out/courses"
+Remove-Item -ErrorAction SilentlyContinue "$Out/courses/.gdignore"
 
 if (-not $NoShortcut) {
     $desktop = [Environment]::GetFolderPath("Desktop")

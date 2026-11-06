@@ -21,6 +21,11 @@ public sealed record Course(string Name, IReadOnlyList<Hole> Holes)
     /// </summary>
     public IReadOnlyList<CourseTree>? Trees { get; init; }
 
+    private TreeField? _obstacles;
+
+    /// <summary>The surveyed trees as things a ball can hit (null when they weren't surveyed: planted scenery isn't in play).</summary>
+    public TreeField? Obstacles => Trees == null ? null : _obstacles ??= new TreeField(Trees, Terrain);
+
     /// <summary>Ground heights, if elevation data was loaded (null = flat).</summary>
     public Terrain? Terrain { get; init; }
 
@@ -29,28 +34,4 @@ public sealed record Course(string Name, IReadOnlyList<Hole> Holes)
 
     /// <summary>Problems found while importing (and how they were handled).</summary>
     public IReadOnlyList<string> Notes { get; init; } = Array.Empty<string>();
-}
-
-/// <summary>The courses the app offers. Mapped courses are loaded on first use, then kept.</summary>
-public static class CourseLibrary
-{
-    /// <param name="Description">A line or two about the course, for the course list.</param>
-    public sealed record Entry(string Name, string Description, Func<Course> Build)
-    {
-        private Course? _loaded;
-        private readonly object _gate = new();
-
-        /// <summary>The course, built the first time it's asked for (safe from any thread). Throws if it can't be built.</summary>
-        public Course Load()
-        {
-            lock (_gate) return _loaded ??= Build();
-        }
-    }
-
-    public static readonly IReadOnlyList<Entry> All = new[]
-    {
-        new Entry("Deer Run (Moulton, AL)",
-            "18 holes mapped from OpenStreetMap with real elevation: rolling fairways, bunkers, water hazards and woods.",
-            () => OsmCourse.FromResource("deer-run.osm", "Deer Run", "deer-run.dem", "deer-run.trees.csv.gz")),
-    };
 }

@@ -31,6 +31,16 @@ to the strongest one it hears if that one isn't found within 8 s. If the link dr
 "Launch monitor disconnected — reconnecting…" and it keeps retrying (every few seconds) until it's back; Disconnect
 in the drawer stops that.
 
+**Aligning with the stick**: the **Align** button (beside the club, once a monitor is connected) or **Align with
+Stick** in the menu, any time between shots, even mid round. Lay the monitor's white stick on the mat pointing at
+your target. The panel shows its angle live; pick **Use This Alignment** once it's within 5°, then take the stick
+away. The button then shows the alignment you set ("Aligned R1.2°", with the time on its tooltip). It's only known
+for this session, and is forgotten if the monitor restarts. Cancel leaves the alignment as it was.
+
+**Ball position**: while the monitor sees a ball, a small panel shows where it is, from above, and whether it's on
+a tee or the mat, so you can tell why it isn't Ready. The green box is where balls have gone ready so far, as a
+guide: the monitor doesn't report its exact limits.
+
 **Monitor drawer** (`L` or the status chip): every Square it can hear over Bluetooth (with signal strength), Connect
 / Disconnect, the monitor's serial, hardware, firmware (LM / MMI / launcher), uptime, state, ball-in-position
 status and battery, the left-handed setting, and the log.
@@ -40,8 +50,8 @@ When a new player is up, the monitor is switched to their hand and the club sugg
 ## Main menu and in-game menu
 
 **Main menu** (where the app opens, under the Grimes Golf Simulator logo): **New Game** (a list of courses with
-their holes, par, length and a short description, and who's playing; then **Game Setup**, below, and **Start
-Round**), **Resume Game** (shown when a round is unfinished, with its course, game, hole and players), **Driving
+their holes, par, length and a short description, and the **Player List** on the right, where changes apply straight
+away: **Add** picks a saved guest or adds a new player; then **Game Setup**, below, and **Start Round**), **Resume Game** (shown when a round is unfinished, with its course, game, hole and players), **Driving
 Range**, **Settings** and **Quit**, plus the
 launch monitor's status (with a button for the monitor drawer) and the version. New Game and Resume Game show a
 **loading screen** (the logo, the course's logo and what's being loaded) while the course map, elevation and 3D
@@ -65,7 +75,8 @@ putter, of the roll shown beside it), **shape** (Draw / Straight / Fade: starts 
 right-hander, or the opposite) and **spin** (Low / Medium / High: lower flight with more roll, or higher with more
 stopping), then **HIT SHOT** (`Space`). On a course the power is set for each new shot (the distance it plays, from
 that lie; putts get the pace from the green read) and can be changed (`↑ / ↓`, Shift = 5%). Shape and spin go
-back to Straight and Medium after every shot.
+back to Straight and Medium after every shot. These controls go away while a monitor is connected, and come back
+if it drops.
 
 **Results wait for the ball**: the shot's numbers (range) and the result card, the next shot's distance, lie and
 club (course) only appear once the ball has stopped.
@@ -96,6 +107,11 @@ Pick a course with **New Game**:
   holes 1-4; on the others 35-yd fairways are generated along each hole line. The trees are the real ones, where
   they stand and as tall and wide as they are, measured from lidar.
 
+**Get More Courses** on that screen lists the courses you can download, with their holes, par, length and download
+size. Press **Download** and the course joins the New Game list; **Update** appears when a newer version of one is
+published, and **Remove** deletes a downloaded course. It needs the internet only while you're using it. A course
+you've downloaded plays offline like any other. To play a course online, everyone needs the same version of it.
+
 The course screen is laid out round the ball, with the panels kept to the edges. Top left, the hole badge: the
 course logo, hole number, par and length, the stroke being played and the score (to par, "thru 4"); under it whose
 turn it is and the Mulligan button. Top right, the hole overview: the hole from above with the ball ringed in the
@@ -106,6 +122,8 @@ the lie card: the lie, the side and up / down slope angles, and the shot penalty
 carries from there than from a clean, level lie); on the green, the green read with the flag, heat map and grid
 buttons instead. Bottom right, the shot panel: distance to the pin with the rise or fall to it ("153 yds", "up 2'",
 and what it plays), the club (its tooltip gives the carry from here), the aim, power, shape, spin and HIT SHOT.
+With a monitor connected the swing does that work: the shot panel holds the distance, the club and the lie card,
+and a small leaderboard takes the bottom left. Aim with `← / →` or by clicking the map.
 A line across the top after each shot says where it finished and what happens next; holing out announces the
 score ("BIRDIE!") across the screen; the scorecard opens with `S`, from the menu, and after each hole. Once
 everyone has finished a hole the next one starts by itself after 5 seconds (counting down on the NEXT HOLE button;
@@ -144,6 +162,11 @@ shot ("into, from the left"), the flag on the green streams with it, and the pla
 suggestion allow for it (about 1% longer per mph into the wind, half that downwind).
 
 ## Lies, penalties and putting
+
+**Trees are in play** on courses with surveyed trees (Deer Run). A trunk stops the ball and throws it back. A ball
+through a crown may get through or may meet a branch, more likely the farther it travels inside and in thick woods;
+a branch takes most of its speed and it drops near the tree. The result line says "Off a tree". The driving range's
+trees are scenery.
 
 Each shot is played from where the last one stopped. The app suggests a club for the distance and lie (and switches
 the monitor to it). Lies are tee, fairway, fringe (the collar around greens), rough (a first cut beside the
@@ -188,11 +211,24 @@ starts again.
 
 ## Settings
 
-**Settings** (main menu, the in-game menu, numpad `*` or gamepad Back): players (1-4, name and left-handed),
+**Home player**: the app asks who's playing the first time it starts (**Not now** skips it, and it asks again next
+time), and loads that player every time after. Give a name and a hand; the launch monitor type is read from the
+monitor when it connects. Under **Club distances (optional)**, enter the carries you know in yards: the grey numbers
+are estimates for the rest, worked out from yours. The distances set the caddie's club suggestions, the aim line and
+how far swings from the screen go. Shots from a launch monitor are never changed, and guests use the typical
+distances. Edit all of this from **Settings**.
+
+**Saved guests** (Settings): friends you play with often, kept after the app closes (name and hand only). Add one
+with **+ New guest**, or **Save** on their row in the players list; press **Save** at the bottom of Settings to keep
+the change (**Save** on a row of New Game's Player List keeps them at once). The app still starts with just the home
+player: put a guest in the round with **Add** on New Game's Player List, or **+ Saved player** in Settings or under
+Add / Remove Players during a round. A player you don't save lasts until the app closes.
+
+**Settings** (main menu, the in-game menu, numpad `*` or gamepad Back): the home player, players (1-4, name and left-handed),
 house rules, auto-connect, text size (Small / Normal / Large / Extra large: smaller for a laptop, bigger for
 reading from the mat or a projector), full screen, graphics quality (Low / Medium / High / Ultra: anti-aliasing,
 shadow detail and reach, bounced light and reflections in the water, how far 3D grass reaches round the camera, and soft focus on grass right in front of a low camera;
-High is the default), and the camera's hole flyover. The course last played and the camera mode are remembered too, so no command-line switches are
+High is the default), the camera's hole flyover, and sound effects (club, ball, cup and crowd; turn them off if you'd rather just hear your own strike). The course last played and the camera mode are remembered too, so no command-line switches are
 needed. The whole UI also scales up with the window (a full-screen projector shows it bigger), and switches to a
 compact layout when large text leaves less room.
 

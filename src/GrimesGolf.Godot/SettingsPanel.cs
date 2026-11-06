@@ -5,7 +5,7 @@ using GrimesGolf.Core.Storage;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// The settings screen, over everything: players (1-4: name and handedness), house rules, the launch monitor,
+/// The settings screen, over everything: the home player, players (1-4: name and handedness), house rules, the launch monitor,
 /// text size, full screen and graphics quality, and the camera's hole flyover and landing zoom. Works with a mouse, the keyboard or a gamepad (arrows /
 /// D-pad move between fields, Enter / A presses; Esc / B closes without saving). Nothing changes until it's saved.
 /// </summary>
@@ -13,12 +13,17 @@ public partial class SettingsPanel : Control
 {
     /// <summary>Saved: the new settings, and whether to start a new round with them now.</summary>
     public event Action<AppSettings, bool>? Applied;
+    /// <summary>Edit the home player (their panel opens over this one, and saves by itself).</summary>
+    public event Action? HomePressed;
 
     private AppSettings _current = AppSettings.Defaults;
+    private Label _home = null!;
+    private Button _editHome = null!;
     private PlayerListEditor _players = null!;
+    private GuestListEditor _guests = null!;
     private Button _save = null!, _saveNewRound = null!;
     private SpinBox _mulligans = null!, _gimme = null!;
-    private CheckBox _doublePar = null!, _autoConnect = null!, _fullScreen = null!, _flyover = null!;
+    private CheckBox _doublePar = null!, _autoConnect = null!, _fullScreen = null!, _flyover = null!, _soundEffects = null!, _checkForUpdates = null!;
     private OptionButton _textSize = null!, _graphics = null!;
     private Label _roundNote = null!;
 
@@ -54,10 +59,31 @@ public partial class SettingsPanel : Control
         head.AddChild(close);
         v.AddChild(head);
 
+        // Home player
+        v.AddChild(UiTheme.Caption("Home player (loaded every time the app starts)"));
+        _editHome = new Button { CustomMinimumSize = new Vector2(100, 0) };
+        _editHome.Pressed += () => HomePressed?.Invoke();
+        var homeRow = Row("", _editHome);
+        _home = (Label)homeRow.GetChild(0);
+        _home.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        v.AddChild(homeRow);
+        v.AddChild(new HSeparator());
+
         // Players
-        v.AddChild(UiTheme.Caption("Players (in teeing order for the first hole)"));
+        v.AddChild(UiTheme.Caption("Players this session (in teeing order for the first hole)"));
         _players = new PlayerListEditor();
+        _players.SaveGuest += g =>
+        {
+            if (_current.NeedsHomePlayer || !g.Name.Equals(_current.Home!.Name, StringComparison.OrdinalIgnoreCase)) _guests.AddOrUpdate(g);
+        };
         v.AddChild(_players);
+        v.AddChild(new HSeparator());
+
+        // Saved guests
+        v.AddChild(UiTheme.Caption("Saved guests (kept after the app closes: name and hand)"));
+        _guests = new GuestListEditor();
+        _guests.Changed += UpdateSavedPlayers;
+        v.AddChild(_guests);
         v.AddChild(new HSeparator());
 
         // House rules
@@ -78,6 +104,9 @@ public partial class SettingsPanel : Control
         v.AddChild(UiTheme.Caption("Launch monitor"));
         _autoConnect = new CheckBox { Text = "Connect automatically (to the last monitor used, or the first one found)" };
         v.AddChild(_autoConnect);
+        v.AddChild(UiTheme.Caption("Updates"));
+        _checkForUpdates = new CheckBox { Text = "Tell me when there's a new version (checks GitHub when the app starts)" };
+        v.AddChild(_checkForUpdates);
         v.AddChild(UiTheme.Caption("Display"));
         _textSize = new OptionButton { CustomMinimumSize = new Vector2(170, 0) };
         _textSize.AddItem("Small");   // in TextSize order
@@ -97,6 +126,9 @@ public partial class SettingsPanel : Control
         v.AddChild(UiTheme.Caption("Camera"));
         _flyover = new CheckBox { Text = "Fly down each hole before the first tee shot (Space skips it)" };
         v.AddChild(_flyover);
+        v.AddChild(UiTheme.Caption("Sound"));
+        _soundEffects = new CheckBox { Text = "Sound effects (club, ball, cup and crowd)" };
+        v.AddChild(_soundEffects);
         v.AddChild(new HSeparator());
 
         _roundNote = UiTheme.Text("A round is in progress: player and rule changes apply from the next round.", 13, UiTheme.Muted);
@@ -144,22 +176,38 @@ public partial class SettingsPanel : Control
     /// <summary>Shows the settings as they are now.</summary>
     public void Open(AppSettings current, bool roundInProgress)
     {
-        _current = current;
-        _players.Load(current.Golfers);
+        _guests.Load(current.Guests);
+        RefreshHome(current);
         var r = current.Rules;
         _mulligans.Value = r.Mulligans;
         _gimme.Value = Math.Round(r.GimmeMetres * 3.281 * 2) / 2;
         _doublePar.ButtonPressed = r.PickUpAtDoublePar;
         _autoConnect.ButtonPressed = current.AutoConnect;
+        _checkForUpdates.ButtonPressed = current.CheckForUpdates;
         _textSize.Selected = (int)current.TextSize;
         _fullScreen.ButtonPressed = current.FullScreen;
         _graphics.Selected = (int)current.Graphics;
         _flyover.ButtonPressed = current.HoleFlyover;
+        _soundEffects.ButtonPressed = current.SoundEffects;
         _roundNote.Visible = roundInProgress;
         _saveNewRound.Text = roundInProgress ? "Save and start a new round" : "Save and start a round";
         Visible = true;
         _save.GrabFocus();   // a gamepad can start straight away
     }
+
+    /// <summary>Shows the home player and the players in <paramref name="current"/> (a change to the home player can rename one).</summary>
+    public void RefreshHome(AppSettings current)
+    {
+        _current = current;
+        _home.Text = current.NeedsHomePlayer ? "None saved yet" : HomePlayerPanel.Summary(current.Home!);
+        _editHome.Text = current.NeedsHomePlayer ? "Set up…" : "Edit…";
+        _players.NotSavable = current.Home?.Name;
+        _players.Load(current.Golfers);
+        UpdateSavedPlayers();
+    }
+
+    /// <summary>The pick list follows the guests as they're edited here, before they're saved.</summary>
+    private void UpdateSavedPlayers() => _players.SetSavedPlayers(_current.WithGuests(_guests.Golfers).SavedPlayers);
 
     public void Close()
     {
@@ -169,15 +217,17 @@ public partial class SettingsPanel : Control
 
     private void Apply(bool newRound)
     {
-        var s = _current with
+        var s = _current.WithGuests(_guests.Golfers) with
         {
             Players = _players.Golfers,
             HouseRules = new HouseRules((int)_mulligans.Value, _gimme.Value / 3.281, _doublePar.ButtonPressed),
             AutoConnect = _autoConnect.ButtonPressed,
+            CheckForUpdates = _checkForUpdates.ButtonPressed,
             TextSize = (TextSize)Math.Max(0, _textSize.Selected),
             FullScreen = _fullScreen.ButtonPressed,
             Graphics = (GraphicsQuality)Math.Max(0, _graphics.Selected),
             HoleFlyover = _flyover.ButtonPressed,
+            SoundEffects = _soundEffects.ButtonPressed,
         };
         Close();
         Applied?.Invoke(s, newRound);

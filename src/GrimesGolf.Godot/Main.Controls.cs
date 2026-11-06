@@ -108,13 +108,35 @@ public partial class Main
     {
         // A course is loading: nothing to do until it's ready.
         if (_loading) { GetViewport().SetInputAsHandled(); return; }
+        // The home player panel (it can open over the settings): like the settings, the UI has everything but closing it.
+        if (_hud.Home.IsOpen)
+        {
+            if (CommandFor(e) is Command.Back) { _hud.Home.Close(); GetViewport().SetInputAsHandled(); }
+            return;
+        }
+        // Get More Courses: the same (Esc / B closes it, once any download is finished or cancelled).
+        if (_hud.Store.IsOpen)
+        {
+            if (CommandFor(e) is Command.Back) { _hud.Store.Close(); GetViewport().SetInputAsHandled(); }
+            return;
+        }
         // Settings open, or typing in a text box: let the UI have everything (gamepad and arrows move between fields).
         if (_hud.SettingsOpen)
         {
             if (CommandFor(e) is Command.Back or Command.Settings) { _hud.CloseSettings(); GetViewport().SetInputAsHandled(); }
             return;
         }
-        if (GetViewport().GuiGetFocusOwner() is LineEdit) return;
+        if (GetViewport().GuiGetFocusOwner() is LineEdit line)
+        {
+            // New Game's player list: Esc / B still goes back a page from a name box.
+            if (CommandFor(e) is Command.Back && _hud.MainMenu.OnSubPage)
+            {
+                line.ReleaseFocus();
+                _hud.MainMenu.Back();
+                GetViewport().SetInputAsHandled();
+            }
+            return;
+        }
         // A menu or panel: it gets the input, apart from closing it (and the drawer, which can open over the main menu).
         if (_hud.ModalOpen)
         {
@@ -130,7 +152,8 @@ public partial class Main
     /// <summary>Esc / B with a panel open: closes the top one (false if there's nothing it closes, e.g. the main menu's home page).</summary>
     private bool CloseTopPanel()
     {
-        if (_hud.DrawerOpen) _hud.ToggleDrawer();
+        if (_hud.Alignment.IsOpen) _hud.Alignment.Cancel();
+        else if (_hud.DrawerOpen) _hud.ToggleDrawer();
         else if (_hud.Players.IsOpen) _hud.Players.Close();
         else if (_hud.Overlay.IsOpen) _hud.Overlay.Close();
         else if (_hud.MainMenu.OnSubPage) _hud.MainMenu.Back();
@@ -151,7 +174,8 @@ public partial class Main
                 return true;
             case Command.LandingView: ToggleLandingView(); return true;
             case Command.PowerUp or Command.PowerDown or Command.PowerUpBig or Command.PowerDownBig:
-                _hud.Shot.NudgePower(c switch { Command.PowerUp => 1, Command.PowerDown => -1, Command.PowerUpBig => 5, _ => -5 });
+                if (!_monitorLive)   // the swing sets the power
+                    _hud.Shot.NudgePower(c switch { Command.PowerUp => 1, Command.PowerDown => -1, Command.PowerUpBig => 5, _ => -5 });
                 return true;
             case Command.Hit: HitPress(); return true;
             case Command.Back:

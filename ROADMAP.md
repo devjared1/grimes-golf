@@ -104,6 +104,38 @@ balls or play a round with me, and never see a console, a command-line flag or a
             - Course Settings: Fairway Speed, Green Firmness, Green Stimp
 - [x] Smooth the outer edge lines between surface types (see attached screenshot)
 
+## 0.9.6
+
+- [x] Mark any roadmap items complete if able
+- [x] The Square LM comes with an aligment stick (white). In the Square software and GSPro software, you cannot see your alignment or realign mid round. You have to stop and go to a different screen and come back. Would be nice if this software showed the current alignment (if an alignment has been done during the current session / gameplay) and allowed you to realign mid game.
+      (built from Square's protocol; still to try with the real stick)
+- [x] **Ball position display:** when the monitor reads the ball, show it on screen (where it sits in the hitting
+      zone, and how much of the ball the cameras can see) so a guest can tell why it isn't "Ready". First find out
+      what the Square reports: the sensor packet decoded today only says detected / ready (`0x11 0x01`), so a
+      recorded session (0.8) is needed to look for position data; if there is none, this needs our own camera
+      (the sensor packet does carry the position. The monitor doesn't report its ready limits or how much of the
+      ball it sees, so the zone drawn is where balls have gone ready so far; still to check on the real monitor)
+- [x] Trees that balls actually hit
+- [x] Sound: impact, cup, crowd (made in code; still to judge by ear)
+
+## 0.9.7
+
+- [x] **Home player:** a saved player, loaded every time the app starts; if there isn't one, the app asks for it
+      - Name, right / left hand, launch monitor type (detected from the monitor when it connects)
+      - Optional club distances: enter the carries you know, the rest are estimated from them. They set the caddie's
+        suggestions, the aim line and how far on-screen swings go; launch monitor shots aren't changed
+- [x] **Saved guests:** kept after a restart (name and hand only), and picked for a round from the player list
+- [x] **Installer:** one per-user installer (`tools/release.ps1`), published as a GitHub release; updates keep saved data
+- [x] **New version notice:** a button on the main menu when GitHub has a newer version (can be turned off in Settings)
+- [x] **Courses are folders:** a course is a folder of files, not part of the program; Deer Run ships as the first
+- [x] **Get More Courses:** download, update and remove courses from New Game. Each download is checked against the
+      course list's hash and proven to load before it replaces anything
+- [x] **Stricter course check online:** the fingerprint now covers every shape, height and tree, so a moved bunker is noticed
+- [x] **Making a course takes one command:** `tools/find-course.ps1`, `make-course.ps1` and `publish-courses.ps1`
+- [x] **Payne's Valley** is the first downloadable course: pars match the scorecard, and it's 7,312 yd against 7,370 from the back tees
+- [x] **Faster loading:** drawing streams and cart paths took most of the loading time; Deer Run's round now starts in seconds
+- [x] **Game Setup fits the screen:** Start Round is always visible, and the choices scroll at large text sizes
+
 ## 1.0 — Release checklist
 
 - [ ] Real-shot captures checked in as regression tests; all tests green
@@ -123,8 +155,9 @@ balls or play a round with me, and never see a console, a command-line flag or a
 
 ## 1.2 - Online Play
 
-- [ ] Play with friends from different locations across network. Generate lobby to join. Creator of lobby picks course, sets game settings, and clicks to start game once everyone is connected
-- [ ] Only for users with Square launch monitor. Future: support other launch monitors natively (no 3rd party connector access)
+- [x] Play with friends from different locations across network. Generate lobby to join. Creator of lobby picks course, sets game settings, and clicks to start game once everyone is connected
+- [x] Only for users with Square launch monitor
+- [ ] Future: support other launch monitors natively (no 3rd party connector access)
 - [ ] *After v1:* **live text and video chat** in online games. Text chat first: small messages through the relay
       it already has, shown over the game and readable from the mat. Video is a much bigger step: it goes peer to
       peer (WebRTC), not through the relay, needs a webcam and a TURN server for PCs behind strict routers, and
@@ -152,14 +185,12 @@ Hooks into the "shot finished" event through one `Commentator` service; the game
 - [ ] **AI coach:** after a range session it reads path, face, spin axis, attack angle and carry/direction spread,
       and explains patterns ("7-iron misses are face-closed-to-path, so the hooks are a face problem").
       Code calculates the stats; the model only explains them. A larger model is fine here (it runs rarely).
-- [ ] **Ball position display:** when the monitor reads the ball, show it on screen (where it sits in the hitting
-      zone, and how much of the ball the cameras can see) so a guest can tell why it isn't "Ready". First find out
-      what the Square reports: the sensor packet decoded today only says detected / ready (`0x11 0x01`), so a
-      recorded session (0.8) is needed to look for position data; if there is none, this needs our own camera
 - [ ] **Other cameras for swing replays:** a webcam or phone (down the line and face on) recording each swing,
       cut to the moment the monitor reports the shot, replayed in slow motion beside the numbers. The Square
       itself doesn't hand over its images (its Bluetooth link only sends measurements), so the video comes from
-      cameras we add. That video can then feed the AI coach (pose estimation for posture, tempo and positions)
+      cameras we add. That video can then feed the AI coach (pose estimation for posture, tempo and positions).
+      Measured on the EasyCam 501: 30 fps is its top rate, and it ran 15 fps in a dim room (MJPEG; 60 fps is
+      refused, raw YUY2 is far slower). So half speed at best, enough for tempo and positions but not ball impact
 - [ ] **Asking questions about stats:** "average 8-iron carry this month?", "who's won more closest-to-pin games,
       me or Mike?" The model turns the question into a query over the saved data.
 
@@ -172,21 +203,15 @@ Hooks into the "shot finished" event through one `Commentator` service; the game
 
 ## 1.6 — Courses and the world
 
-- [ ] Pick and import any OpenStreetMap course from inside the app (no script + rebuild)
-- [ ] **One course-data tool:** combine `fetch-osm-course.ps1`, `fetch-elevation.ps1` and `fetch-canopy.ps1` (+
-      `fetch-canopy.py`) into one command with a module per source (map, elevation, trees), the same bounding box
-      for all three, and one output folder per course. Needed for importing courses from the app, and so it can
-      run off Windows (PowerShell + Python today)
-- [ ] **Where generated courses live:** Deer Run is about 7 MB (elevation 6.5 MB, trees 0.6 MB, map 0.4 MB),
-      embedded in the app today. The elevation grid is raw floats that don't compress; stored as centimetres in
-      16 bits it would be about half. So roughly 3-7 MB a course, 0.3-0.7 GB for 100. Plan: stop embedding them,
-      keep each course as its own download (a release asset or a cheap object store such as Cloudflare R2 or S3),
-      fetched once and cached in the data folder, with the course fingerprint as its version. Online, every PC
-      must have the same course version, which the fingerprint check already enforces
+- [ ] Pick and import any OpenStreetMap course from inside the app, rather than publishing it first with the scripts.
+      The map and elevation could move into the app; the trees need Python and hundreds of MB of lidar
+- [x] **One course-data command:** `tools/make-course.ps1` makes one folder per course from one bounding box (0.9.7)
+- [x] **Where generated courses live:** each is a zip on the `courses` GitHub release, downloaded once into the data
+      folder (0.9.7). Zips are about 2-7 MB (Deer Run 7.2 MB), so about 200-700 MB for 100
+- [ ] Deer Run's box is far bigger than the course: a tighter one would make its download smaller
+- [ ] Online: offer the host's course to a friend who doesn't have it, rather than telling them to get it first
 - [x] Trace Deer Run's fairways for holes 5-18 on OpenStreetMap
-- [ ] Trees that balls actually hit
 - [x] Weather presets (calm, breezy, wet); green speed and firmness on the setup screen (0.9.5, Game Setup)
-- [ ] Sound: impact, cup, crowd
 - [ ] **AI import check:** compare the OpenStreetMap import log with the course's published scorecard and flag
       mismatched pars or yardages, or holes that are probably out of order
 - [ ] **AI rules help** ("lateral hazard, where do I drop?") once hazards go beyond stroke-and-distance

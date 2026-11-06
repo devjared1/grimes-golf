@@ -17,4 +17,10 @@
     <ProjectReference Include="..\..\src\GrimesGolf.Core\GrimesGolf.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The courses that ship with the app (CourseLibrary finds them beside the tests). -->
+    <None Include="..\..\src\GrimesGolf.Godot\courses\**\*" Exclude="..\..\src\GrimesGolf.Godot\courses\.gdignore"
+          Link="courses\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

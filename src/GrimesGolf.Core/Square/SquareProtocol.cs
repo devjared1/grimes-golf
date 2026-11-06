@@ -14,6 +14,15 @@ public static class SquareUuids
 /// <summary>Identity read from the EXGOLF service's read-only characteristics. Any field may be null if the read failed.</summary>
 public sealed record SquareDeviceInfo(string? Serial, string? HardwareVersion, string? FirmwareRaw)
 {
+    /// <summary>
+    /// Which monitor this is, as far as its hardware version says: "3.1" is the Omni, "1.5" is the earlier Square
+    /// (the only two seen so far, so other versions count as the earlier one).
+    /// </summary>
+    public string Model => int.TryParse(HardwareVersion?.Split('.')[0], out int major) && major >= 3 ? "Square Omni" : "Square Golf";
+
+    /// <summary>"Square Golf (hardware 1.5)".</summary>
+    public string Description => string.IsNullOrWhiteSpace(HardwareVersion) ? Model : $"{Model} (hardware {HardwareVersion})";
+
     /// <summary>Firmware components, e.g. {"launcher":"1.0.1","mmi":"1.4.0","lm":"1.5.8"}. Empty if the payload is not JSON.</summary>
     public IReadOnlyDictionary<string, string> FirmwareComponents { get; } = ParseFirmware(FirmwareRaw);
 
@@ -45,7 +54,17 @@ public enum SquareDeviceState : byte
 
 public abstract record SquareEvent;
 
-public sealed record SensorEvent(bool BallReady, bool BallDetected) : SquareEvent;
+/// <summary>Where the monitor sees the ball, in millimetres (X along the target line, Y across it, Z height).</summary>
+public readonly record struct BallPosition(double X, double Y, double Z);
+
+/// <param name="Position">Null when the monitor has no ball in view.</param>
+public sealed record SensorEvent(bool BallReady, bool BallDetected, BallPosition? Position = null) : SquareEvent;
+
+/// <summary>What the monitor makes of the alignment stick while it's looking for one.</summary>
+public enum StickStatus { Unstable = 0, Stable = 1, Finished = 2 }
+
+/// <summary>An alignment stick reading: its angle in degrees (negative = pointing left) and where it lies, in millimetres.</summary>
+public sealed record StickEvent(StickStatus Status, double AngleDeg, double X, double Y, double Z) : SquareEvent;
 
 /// <summary>Raw device values: m/s, degrees, rpm. Spin axis / side spin use the DEVICE sign convention (negative = curves right).</summary>
 public sealed record BallMetricsEvent(
@@ -78,6 +97,10 @@ public static class SquarePacketParser
 {
     private const short Sentinel = -1; // 0xFFFF (Omni notes)
     private const short Invalid = short.MinValue; // 0x8000: Square's own software treats this as "no value"
+    private const byte NoSensorData = 100;
+
+    /// <summary>A little-endian 32-bit field in hundredths.</summary>
+    private static double Hundredths(byte[] d, int offset) => BitConverter.ToInt32(d, offset) / 100.0;
 
     public static SquareEvent Parse(byte[] d)
     {
@@ -94,7 +117,9 @@ public static class SquarePacketParser
             switch (d[1])
             {
                 case 0x01 when d.Length >= 5:
-                    return new SensorEvent(BallReady: d[3] == 0x01 || d[3] == 0x02, BallDetected: d[4] == 0x01);
+                    return new SensorEvent(BallReady: d[3] == 0x01 || d[3] == 0x02, BallDetected: d[4] == 0x01,
+                        d.Length >= 17 && d[3] != NoSensorData && d[4] == 0x01
+                            ? new BallPosition(Hundredths(d, 5), Hundredths(d, 9), Hundredths(d, 13)) : null);
 
                 case 0x02 when d.Length >= 17:
                     return new BallMetricsEvent(
@@ -108,6 +133,9 @@ public static class SquarePacketParser
 
                 case 0x03 when d.Length >= 4:
                     return new HeartbeatAckEvent((SquareDeviceState)d[3]);
+
+                case 0x04 when d.Length >= 21:
+                    return new StickEvent((StickStatus)d[3], Hundredths(d, 5), Hundredths(d, 9), Hundredths(d, 13), Hundredths(d, 17));
 
                 case 0x07 when d.Length >= 11: // hardware 1.5 sends only the first four fields
                     byte mask = d[2];
@@ -144,7 +172,7 @@ public sealed class SquareCommandBuilder
     private readonly object _lock = new();
 
     public const byte CmdDetectBall = 0x81, CmdClubSelect = 0x82, CmdHeartbeat = 0x83,
-                      CmdQuery = 0x86, CmdRequestClubMetrics = 0x87, CmdSessionInfo = 0x92;
+                      CmdStick = 0x85, CmdQuery = 0x86, CmdRequestClubMetrics = 0x87, CmdSessionInfo = 0x92;
 
     public byte[] Heartbeat() => Build(CmdHeartbeat);
     public byte[] Query() => Build(CmdQuery);
@@ -155,6 +183,16 @@ public sealed class SquareCommandBuilder
     /// <param name="advancedSpin">0x11 advanced spin, 0x10 standard.</param>
     public byte[] DetectBall(bool on, bool advancedSpin = true) =>
         Build(CmdDetectBall, on ? (byte)0x01 : (byte)0x00, advancedSpin ? (byte)0x11 : (byte)0x10);
+
+    /// <summary>Looks for the alignment stick instead of a ball (after selecting <see cref="SquareClubMap.AimingStick"/>).</summary>
+    public byte[] DetectStick(bool advancedSpin = true) => Build(CmdDetectBall, 0x02, advancedSpin ? (byte)0x11 : (byte)0x10);
+
+    /// <summary>Ends a stick reading: keeps this angle as the target line or, not confirmed, leaves the alignment as it was.</summary>
+    public byte[] StickResult(bool confirm, double angleDeg)
+    {
+        var a = BitConverter.GetBytes((int)Math.Round(angleDeg * 100));
+        return Build(CmdStick, confirm ? (byte)1 : (byte)0, a[0], a[1], a[2], a[3]);
+    }
 
     public byte[] ClubSelect(SquareClub club, bool leftHanded) =>
         Build(CmdClubSelect, club.Number, club.Category, leftHanded ? (byte)1 : (byte)0);
@@ -178,6 +216,9 @@ public readonly record struct SquareClub(byte Number, byte Category);
 /// </summary>
 public static class SquareClubMap
 {
+    /// <summary>What the monitor is set to while it reads the alignment stick.</summary>
+    public static readonly SquareClub AimingStick = new(0x01, 8);
+
     private static readonly Dictionary<string, SquareClub> Map = new(StringComparer.OrdinalIgnoreCase)
     {
         ["DR"] = new(0x01, 4),

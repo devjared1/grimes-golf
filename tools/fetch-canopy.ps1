@@ -23,7 +23,7 @@
 #>
 param(
     [string]$Bbox = "-87.335,34.415,-87.298,34.442",   # west,south,east,north (same box as fetch-osm-course.ps1)
-    [string]$Out = "$PSScriptRoot/../src/GrimesGolf.Core/Course/Data/deer-run.trees.csv.gz",
+    [string]$Out = "$PSScriptRoot/../src/GrimesGolf.Godot/courses/deer-run/trees.csv.gz",
     [string]$Project = "",                             # lidar survey (EPT name); default: the newest over the box
     [double]$Metres = 1.0,                             # canopy grid cell size
     [double]$Density = 6,                              # lidar points per square metre to download

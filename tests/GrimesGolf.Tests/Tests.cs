@@ -600,7 +600,7 @@ public class TuningTests
 
 public class OsmCourseTests
 {
-    private static readonly Lazy<GrimesGolf.Core.Course.Course> DeerRun = new(() => OsmCourse.FromResource("deer-run.osm", "Deer Run"));
+    private static readonly Lazy<GrimesGolf.Core.Course.Course> DeerRun = new(() => CourseLibrary.All.Single(e => e.Pack.Id == "deer-run").Pack.Load(ground: false, trees: false, shapeWater: true));
 
     [Fact]
     public void DeerRunImportsEighteenHolesInOrder()
@@ -671,7 +671,7 @@ public class OsmCourseTests
         Assert.True(round.Holed);
     }
 
-    private static readonly Lazy<GrimesGolf.Core.Course.Course> DeerRunWithGround = new(() => OsmCourse.FromResource("deer-run.osm", "Deer Run", "deer-run.dem"));
+    private static readonly Lazy<GrimesGolf.Core.Course.Course> DeerRunWithGround = new(() => CourseLibrary.All.Single(e => e.Pack.Id == "deer-run").Pack.Load(ground: true, trees: false, shapeWater: true));
 
     private static IEnumerable<P2> Inside(Polygon poly, int n = 30)
     {
@@ -701,7 +701,7 @@ public class OsmCourseTests
         // Ponds are flattened in lidar elevation models: inside the mapped outline the ground should be level
         // (if the grid were shifted against the map, the banks would show up as spread). Checked before the
         // app carves its own pond beds.
-        var raw = OsmCourse.FromResource("deer-run.osm", "Deer Run", "deer-run.dem", shapeWater: false);
+        var raw = CourseLibrary.All.Single(e => e.Pack.Id == "deer-run").Pack.Load(ground: true, trees: false, shapeWater: false);
         foreach (var pond in raw.Holes[0].Water.OfType<Polygon>())
         {
             var inside = Inside(pond).Select(raw.Terrain!.HeightAt).ToList();
@@ -960,7 +960,7 @@ public class CartPathTests
     [Fact]
     public void DeerRunCartPathsAreImported()
     {
-        var h = OsmCourse.FromResource("deer-run.osm", "Deer Run").Holes[0];
+        var h = CourseLibrary.All.Single(e => e.Pack.Id == "deer-run").Pack.Load(ground: false, trees: false, shapeWater: true).Holes[0];
         var paths = h.CartPaths.OfType<Strip>().ToList();
         Assert.True(paths.Count >= 14);
         // Untagged paths get the default width; one is tagged width=1.25.

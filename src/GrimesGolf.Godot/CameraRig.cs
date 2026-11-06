@@ -13,7 +13,7 @@ public partial class CameraRig : Camera3D
     private const double HoldSeconds = 2.5;
     private const float FovDegrees = 55;
     /// <summary>Landing view: how far short of the landing spot (m) and how high above it the camera sits.</summary>
-    private const float LandingBack = 38, LandingUp = 20;
+    public const float LandingBack = 38, LandingUp = 20;
     /// <summary>Flyover: height above the ground (m), how far ahead it looks (m), speed (m/s) and how long it holds over the green (s).</summary>
     private const float FlyHeight = 30, FlyLookAhead = 90, FlySpeed = 55;
     private const double FlyHold = 1.2;
@@ -145,6 +145,16 @@ public partial class CameraRig : Camera3D
             _look = _homeLook;
             LookAt(_look, Vector3.Up);
         }
+    }
+
+    /// <summary>Puts the camera right beside <paramref name="ball"/>, looking at it (--ball-closeup, to check how the ball looks).</summary>
+    public void CloseUp(Vector3 ball)
+    {
+        _homePos = ball + new Vector3(0.08f, 0.1f, 0.22f);
+        _homeLook = ball;
+        Position = _homePos;
+        _look = _homeLook;
+        LookAt(_look, Vector3.Up);
     }
 
     public override void _Process(double delta)

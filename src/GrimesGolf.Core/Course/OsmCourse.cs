@@ -40,25 +40,12 @@ public static class OsmCourse
 
     private sealed record HoleLine(long WayId, int? Ref, int? Par, string Name, List<P2> Route);
 
-    /// <param name="elevationFile">Optional embedded .dem with the course's ground heights.</param>
-    /// <param name="treesFile">Optional embedded trees CSV (<see cref="TreeSurvey"/>) with the course's real trees.</param>
-    public static Course FromResource(string file, string name, string? elevationFile = null, string? treesFile = null) =>
-        FromResource(file, name, elevationFile, shapeWater: true, treesFile);
-
-    /// <param name="shapeWater">False leaves ponds as the elevation data has them (tests check the map against them).</param>
-    internal static Course FromResource(string file, string name, string? elevationFile, bool shapeWater, string? treesFile = null)
-    {
-        using var s = typeof(OsmCourse).Assembly.GetManifestResourceStream("GrimesGolf.Core.Course.Data." + file)
-            ?? throw new FileNotFoundException($"Course data '{file}' is not embedded in GrimesGolf.Core.");
-        return Load(s, name, elevationFile == null ? null : ElevationGrid.FromResource(elevationFile), shapeWater,
-            treesFile == null ? null : TreeSurvey.FromResource(treesFile));
-    }
-
     /// <param name="trees">Surveyed trees (any that are far outside the course are left out).</param>
     public static Course Load(Stream osm, string? name = null, ElevationGrid? elevation = null, IReadOnlyList<TreeSurvey.Tree>? trees = null) =>
         Load(osm, name, elevation, shapeWater: true, trees);
 
-    private static Course Load(Stream osm, string? name, ElevationGrid? elevation, bool shapeWater, IReadOnlyList<TreeSurvey.Tree>? survey)
+    /// <param name="shapeWater">False leaves ponds as the elevation data has them (tests check the map against them).</param>
+    internal static Course Load(Stream osm, string? name, ElevationGrid? elevation, bool shapeWater, IReadOnlyList<TreeSurvey.Tree>? survey)
     {
         XDocument doc;
         using (var reader = XmlReader.Create(osm, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null }))
@@ -107,8 +94,19 @@ public static class OsmCourse
         var lines = holeWays.Select(w => new HoleLine(
             w.Id, Int(w.Tag("ref")), Int(w.Tag("par")), w.Tag("name") ?? "", w.Nodes.Select(Project).ToList())).ToList();
 
-        var extent = Bounds.Of(lines.SelectMany(l => l.Route));
         var boundary = outlines.Select(a => Poly(a.Ring)).Where(p => p.Points.Count >= 3).ToList();
+        // Courses often sit side by side, and a box round one catches its neighbours' holes: only the named course's count.
+        if (name != null && boundary.Count > 0 && outlines.Any(a => Named(a.Tags, name)))
+        {
+            bool Inside(HoleLine l) => l.Route.Count(p => boundary.Any(b => b.Contains(p))) * 2 >= l.Route.Count;
+            var ours = lines.Where(Inside).ToList();
+            if (ours.Count > 0 && ours.Count < lines.Count)
+            {
+                notes.Add($"Left out {lines.Count - ours.Count} hole lines outside the outline of {name} (a neighbouring course's).");
+                lines = ours;
+            }
+        }
+        var extent = Bounds.Of(lines.SelectMany(l => l.Route));
         if (boundary.Count > 0) extent = boundary.Aggregate(extent, (e, p) => e.Union(p.Box));
         var near = extent.Expand(150);
         bool Near(Polygon p) => p.Box.Max.X >= near.Min.X && p.Box.Min.X <= near.Max.X && p.Box.Max.Z >= near.Min.Z && p.Box.Min.Z <= near.Max.Z;
@@ -154,6 +152,7 @@ public static class OsmCourse
             return backwards ? l with { Route = Enumerable.Reverse(l.Route).ToList() } : l;
         }).ToList();
 
+        lines = WithoutSecondCourse(lines, notes);
         var numbered = Renumber(lines, notes);
 
         if (boundary.Count == 0)
@@ -260,6 +259,38 @@ public static class OsmCourse
     /// Keeps unique hole numbers; holes with a duplicate or missing number fill the gaps in routing order (the hole
     /// whose tee is nearest the previous hole's green comes next).
     /// </summary>
+    /// <summary>
+    /// Sometimes a second course is inside the same outline (a par-3 course at a resort), so with more than 18 lines some
+    /// numbers are there twice. Golfers walk from each green to the next tee: starting from the highest number there's
+    /// only one of, each duplicate is settled by which line is nearest its neighbour on the way round, and the rest go.
+    /// </summary>
+    private static List<HoleLine> WithoutSecondCourse(List<HoleLine> lines, List<string> notes)
+    {
+        if (lines.Count <= 18) return lines;
+        var byRef = lines.Where(l => l.Ref != null).GroupBy(l => l.Ref!.Value).ToDictionary(g => g.Key, g => g.ToList());
+        var single = byRef.Where(g => g.Value.Count == 1).Select(g => g.Key).ToList();
+        if (single.Count == 0 || single.Count == byRef.Count) return lines;
+
+        static double Apart(P2 a, P2 b) => Math.Sqrt((a.X - b.X) * (a.X - b.X) + (a.Z - b.Z) * (a.Z - b.Z));
+        var chosen = single.ToDictionary(n => n, n => byRef[n][0]);
+        int start = single.Max(), last = byRef.Keys.Max(), first = byRef.Keys.Min();
+        var next = chosen[start];
+        for (int n = start - 1; n >= first; n--)
+        {
+            if (!byRef.TryGetValue(n, out var options)) continue;
+            next = chosen[n] = options.MinBy(l => Apart(l.Route[^1], next.Route[0]))!;
+        }
+        var previous = chosen[start];
+        for (int n = start + 1; n <= last; n++)
+        {
+            if (!byRef.TryGetValue(n, out var options)) continue;
+            previous = chosen[n] = options.MinBy(l => Apart(previous.Route[^1], l.Route[0]))!;
+        }
+        var kept = lines.Where(l => l.Ref == null || chosen[l.Ref.Value] == l).ToList();
+        notes.Add($"Left out {lines.Count - kept.Count} hole lines with the same numbers as this course's (a second course inside its outline).");
+        return kept;
+    }
+
     private static List<(int Number, HoleLine Line)> Renumber(List<HoleLine> lines, List<string> notes)
     {
         var result = new Dictionary<int, HoleLine>();

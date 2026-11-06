@@ -11,12 +11,12 @@
 
 .EXAMPLE
   ./tools/fetch-osm-course.ps1                       # Deer Run, Moulton AL (the default)
-  ./tools/fetch-osm-course.ps1 -Bbox "-87.335,34.415,-87.298,34.442" -Out src/GrimesGolf.Core/Course/Data/deer-run.osm
+  ./tools/fetch-osm-course.ps1 -Bbox "-87.335,34.415,-87.298,34.442" -Out src/GrimesGolf.Godot/courses/deer-run/map.osm
   ./tools/fetch-osm-course.ps1 -Source saved.osm     # trim a file you already downloaded
 #>
 param(
     [string]$Bbox = "-87.335,34.415,-87.298,34.442",   # west,south,east,north
-    [string]$Out = "$PSScriptRoot/../src/GrimesGolf.Core/Course/Data/deer-run.osm",
+    [string]$Out = "$PSScriptRoot/../src/GrimesGolf.Godot/courses/deer-run/map.osm",
     [string]$Source
 )
 $ErrorActionPreference = "Stop"

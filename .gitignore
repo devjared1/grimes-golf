@@ -26,3 +26,6 @@ desktop.ini
 # Local secrets (e.g. a future AI API key)
 *.secrets.json
 .env
+
+# Courses made with tools/make-course.ps1 (they can be downloaded again; published as release assets)
+/courses/

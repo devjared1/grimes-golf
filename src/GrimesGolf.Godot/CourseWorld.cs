@@ -14,8 +14,7 @@ public partial class CourseWorld : Node3D
 {
     private readonly Course _courseDef;
     private Hole _hole;
-    private MeshInstance3D _aimLine = null!;
-    private MeshInstance3D _aimRing = null!;
+    private AimGuide _aim = null!;
     private MeshInstance3D _mapPin = null!;
     private readonly Dictionary<Hole, (MeshInstance3D Disc, Node3D Cup, Flagstick Flag)> _pins = new();
     private GrassPatch _grass = null!;
@@ -77,23 +76,8 @@ public partial class CourseWorld : Node3D
         _grass = new GrassPatch();
         AddChild(_grass);
 
-        var guide = new StandardMaterial3D
-        {
-            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-            AlbedoColor = new Color(1, 1, 1, 0.75f),
-            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-        };
-        _aimLine = new MeshInstance3D { Mesh = new ImmediateMesh(), MaterialOverride = guide, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
-        _aimRing = new MeshInstance3D
-        {
-            Mesh = new TorusMesh { InnerRadius = 2.2f, OuterRadius = 2.6f, Rings = 32, RingSegments = 4 },
-            Scale = new Vector3(1, 0.05f, 1),
-            MaterialOverride = guide,
-            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-        };
-        AddChild(_aimLine);
-        AddChild(_aimRing);
+        _aim = new AimGuide(lineColor: new Color(1, 1, 1, 0.6f), ringColor: new Color(1, 1, 1, 0.75f));
+        AddChild(_aim);
     }
 
     /// <summary>Flat ground: deep rough everywhere, with the playing areas as flat shapes layered a few cm apart.</summary>
@@ -160,32 +144,15 @@ public partial class CourseWorld : Node3D
         _ => 0,
     };
 
-    /// <summary>Dashed line on the ground from the ball along the aim heading, with a ring at the target distance.</summary>
-    public void SetAim(P2 ball, double heading, double length, bool visible, bool showRing = true)
+    /// <summary>The aim line on the ground from the ball along the aim heading, with a ring at the target distance.</summary>
+    public void SetAim(P2 ball, double heading, double length, bool visible, bool showRing = true, bool landingView = false)
     {
-        _aimLine.Visible = visible;
-        _aimRing.Visible = visible && showRing;
+        _aim.Visible = visible;
         if (!visible) return;
-        var dir = new P2(Math.Cos(heading), Math.Sin(heading));
-        var side = new P2(-dir.Z, dir.X) * Math.Clamp(length / 500, 0.025, 0.15); // thinner for short putts
-        var mesh = (ImmediateMesh)_aimLine.Mesh;
-        mesh.ClearSurfaces();
-        double dash = Math.Max(1.0, length / 40);
-        if (length - dash <= 1.0) return;   // too short for any dashes (a tap-in)
-        mesh.SurfaceBegin(Mesh.PrimitiveType.Triangles);
-        // Draped over the ground (each dash end sits just above it).
-        Vector3 On(P2 p) => Scenery.ToGodot(p, GroundAt(p) + 0.2f);
-        for (double s = 1.0; s < length - dash; s += dash * 2)
-        {
-            P2 a = ball + dir * s, b = ball + dir * (s + dash);
-            Vector3 a1 = On(a + side), a2 = On(a - side), b1 = On(b + side), b2 = On(b - side);
-            mesh.SurfaceAddVertex(a1); mesh.SurfaceAddVertex(b1); mesh.SurfaceAddVertex(b2);
-            mesh.SurfaceAddVertex(a1); mesh.SurfaceAddVertex(b2); mesh.SurfaceAddVertex(a2);
-        }
-        mesh.SurfaceEnd();
-        float ring = (float)Math.Clamp(length / 40, 0.15, 2.0);
-        _aimRing.Scale = new Vector3(ring, 0.05f, ring);
-        _aimRing.Position = On(ball + dir * length);
+        double ring = showRing ? 2.6 * Math.Clamp(length / 40, 0.15, 2.0) : 0;
+        // Close up, a line held above the ground looks off to one side of the ball and the cup, so a putt's lies right on it.
+        bool putt = !showRing && Ground != null;
+        _aim.Set(ball, heading, length, ring, p => Scenery.ToGodot(p, putt ? TerrainGround.MeshHeightAt(Ground!, p) + 0.03f : GroundAt(p) + 0.2f), landingView);
     }
 
     /// <summary>Moves the minimap pin marker to this hole (a mapped course is drawn once for all its holes).</summary>

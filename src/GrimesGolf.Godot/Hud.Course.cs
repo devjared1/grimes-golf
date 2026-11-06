@@ -9,7 +9,8 @@ namespace GrimesGolf.Game;
 /// (built in <c>Hud.cs</c>) with the wind under it, the last shot's numbers down the left, the lie card bottom left
 /// (the lie, the slopes and the shot penalty; on the green, the read and green aids), and the shot panel bottom right
 /// (to the pin with the elevation, club, aim, power, shape, spin and HIT SHOT). The result line runs across the top,
-/// and the scorecard opens over it all.
+/// and the scorecard opens over it all. With a launch monitor connected the swing replaces the on-screen shot controls:
+/// the shot panel becomes to the pin, club and the lie card, and a small leaderboard takes the bottom left.
 /// </summary>
 public partial class Hud
 {
@@ -24,6 +25,7 @@ public partial class Hud
         BuildHoleCard();
         BuildLastShotCard();
         BuildLiePanel();
+        BuildLeaderboard();
         BuildShotPanel();
         BuildResultCard();
         BuildScorecard();
@@ -177,7 +179,7 @@ public partial class Hud
         panel.OffsetTop = panel.OffsetBottom = -16;
         _courseView.AddChild(panel);
 
-        var v = new VBoxContainer { CustomMinimumSize = new Vector2(200, 0) };
+        var v = _lieContent = new VBoxContainer { CustomMinimumSize = new Vector2(200, 0) };
         v.AddThemeConstantOverride("separation", 6);
         _lieChip = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
         _lieName = UiTheme.Text("Tee", 17, new Color(0.06f, 0.08f, 0.06f), bold: true);
@@ -305,6 +307,7 @@ public partial class Hud
         clubRow.AddChild(_courseClub);
         clubBlock.AddChild(clubRow);
         var aimRow = new HBoxContainer();
+        _courseAimRow = aimRow;
         aimRow.AddThemeConstantOverride("separation", 6);
         var aimCaption = UiTheme.Caption("Aim");
         aimCaption.SizeFlagsVertical = SizeFlags.ShrinkCenter;
@@ -316,17 +319,155 @@ public partial class Hud
         _aim.ClipText = true;
         _aim.CustomMinimumSize = new Vector2(200, 0);
         clubBlock.AddChild(_aim);
+        clubBlock.AddChild(AlignButton());
         top.AddChild(clubBlock);
 
         // The power, shape and spin controls and HIT SHOT are moved in here on a course (see PlaceShotControls).
         _courseShotSlot = new HBoxContainer();
         v.AddChild(_courseShotSlot);
-        // Club, aim and the shot's details only matter while there's a shot to play.
-        _planDetails = new Control[] { clubBlock, Shot };
+        _clubBlock = clubBlock;
+
+        // With a monitor connected the lie card moves in here, beside the club (see UpdateShotLayout).
+        _lieSlot = new HBoxContainer { Visible = false };
+        _lieSlot.AddThemeConstantOverride("separation", 18);
+        _lieSlot.AddChild(new VSeparator());
+        h.AddChild(_lieSlot);
     }
 
-    private Control[] _planDetails = Array.Empty<Control>();
-    private bool _holeDone;
+    private Control _clubBlock = null!, _courseAimRow = null!, _lieContent = null!;
+    private HBoxContainer _lieSlot = null!;
+    private bool _holeDone, _monitorLive;
+    private string _standingsText = "";
+
+    /// <summary>A launch monitor is connected and talking: real swings replace the on-screen shot controls.</summary>
+    public void SetMonitorLive(bool live)
+    {
+        if (_monitorLive == live) return;
+        _monitorLive = live;
+        UpdateShotLayout();
+    }
+
+    /// <summary>
+    /// Shows what the moment calls for. No monitor: the on-screen shot controls, with the lie card bottom left. With a
+    /// monitor: no shot controls, the lie card in the shot panel and the leaderboard bottom left. Either way, club and
+    /// the shot's details only matter while there's a shot to play, and NEXT HOLE (on the HIT SHOT button) stays.
+    /// </summary>
+    private void UpdateShotLayout()
+    {
+        Shot.Visible = !_monitorLive && !_holeDone;
+        Shot.Hit.Visible = !_monitorLive || _holeDone;
+        _courseShotSlot.Visible = !_monitorLive || _holeDone;
+        _clubBlock.Visible = !_holeDone;
+        _courseAimRow.Visible = !_monitorLive;
+        foreach (var b in _aimButtons) b.Visible = !_monitorLive;
+        foreach (var b in _alignButtons) b.Visible = _monitorLive;
+        _rangeShotSlot.Visible = _rangeView.Visible && !_monitorLive;
+        PlaceBallZone();
+
+        Node lieParent = _monitorLive ? _lieSlot : _liePanel;
+        if (_lieContent.GetParent() != lieParent)
+        {
+            _lieContent.GetParent().RemoveChild(_lieContent);
+            lieParent.AddChild(_lieContent);
+        }
+        _liePanel.Visible = !_monitorLive;
+        _lieSlot.Visible = _monitorLive;
+        _leaderboard.Visible = _monitorLive;
+        SetNote(_standings, _monitorLive ? "" : _standingsText);
+    }
+
+    private readonly List<Button> _alignButtons = new();
+    private string _alignmentShort = "Align", _alignmentLong = "Not aligned this session";
+
+    /// <summary>Shows the alignment and opens the panel to change it (with a monitor connected).</summary>
+    private Button AlignButton()
+    {
+        var b = new Button { Text = _alignmentShort, Visible = false, CustomMinimumSize = new Vector2(0, 36), SizeFlagsHorizontal = SizeFlags.ShrinkBegin,
+                             TooltipText = _alignmentLong, FocusMode = FocusModeEnum.None };
+        b.Pressed += () => AlignPressed?.Invoke();
+        _alignButtons.Add(b);
+        return b;
+    }
+
+    /// <summary>The alignment set this session: "R1.2°" and when (null: none yet).</summary>
+    public void SetAlignment(string? angle, string when)
+    {
+        _alignmentShort = angle == null ? "Align" : $"Aligned {angle}";
+        _alignmentLong = (angle == null ? "Not aligned this session" : $"Aligned {angle} at {when}") + ". Click to align with the white stick.";
+        foreach (var b in _alignButtons) { b.Text = _alignmentShort; b.TooltipText = _alignmentLong; }
+        SetStat("Alignment", angle == null ? "Not this session" : $"{angle} at {when}");
+    }
+
+    private BallZone _ballZone = null!;
+    private Core.Square.BallPosition? _ball;
+    private bool _ballIsReady;
+
+    /// <summary>The ball the monitor sees (null: none), for the ball position panel.</summary>
+    public void SetBall(Core.Square.BallPosition? ball, bool ready = false)
+    {
+        _ball = ball;
+        _ballIsReady = ready;
+        _ballZone.Show(ball, ready);
+        PlaceBallZone();
+    }
+
+    /// <summary>Beside the leaderboard on a course, above the numbers on the range. Only while a monitor is seeing a ball.</summary>
+    private void PlaceBallZone()
+    {
+        _ballZone.Visible = _monitorLive && _ball != null && _topBar.Visible;
+        _ballZone.SetAnchorsPreset(LayoutPreset.BottomLeft);
+        _ballZone.GrowHorizontal = GrowDirection.End;
+        _ballZone.GrowVertical = GrowDirection.Begin;
+        _ballZone.OffsetLeft = _ballZone.OffsetRight = _courseMode ? 272 : 16;
+        _ballZone.OffsetTop = _ballZone.OffsetBottom = _courseMode ? -16 : -RangeBarHeight - 12;
+    }
+
+    private PanelContainer _leaderboard = null!;
+    private Label _leaderboardCaption = null!;
+    private GridContainer _leaderboardRows = null!;
+
+    private void BuildLeaderboard()
+    {
+        _leaderboard = new PanelContainer { Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+        _leaderboard.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 14, 1, 12));
+        _leaderboard.SetAnchorsPreset(LayoutPreset.BottomLeft);
+        _leaderboard.GrowVertical = GrowDirection.Begin;
+        _leaderboard.OffsetLeft = _leaderboard.OffsetRight = 16;
+        _leaderboard.OffsetTop = _leaderboard.OffsetBottom = -16;
+        _courseView.AddChild(_leaderboard);
+
+        var v = new VBoxContainer { CustomMinimumSize = new Vector2(220, 0) };
+        v.AddThemeConstantOverride("separation", 6);
+        _leaderboardCaption = UiTheme.Caption("Leaderboard");
+        v.AddChild(_leaderboardCaption);
+        _leaderboardRows = new GridContainer { Columns = 3 };
+        _leaderboardRows.AddThemeConstantOverride("h_separation", 12);
+        _leaderboardRows.AddThemeConstantOverride("v_separation", 2);
+        v.AddChild(_leaderboardRows);
+        _leaderboard.AddChild(v);
+    }
+
+    /// <summary>The small leaderboard's rows, best first (shown with a monitor connected).</summary>
+    public void SetLeaderboard(string caption, IReadOnlyList<LeaderboardRow> rows)
+    {
+        _leaderboardCaption.Text = caption;
+        foreach (var c in _leaderboardRows.GetChildren()) { _leaderboardRows.RemoveChild(c); c.QueueFree(); }
+        foreach (var r in rows)
+        {
+            var name = UiTheme.Text(r.Name, 16, r.Color, bold: r.Up);
+            name.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            name.CustomMinimumSize = new Vector2(110, 0);
+            name.ClipText = true;
+            _leaderboardRows.AddChild(name);
+            var score = UiTheme.Text(r.Score, 16, UiTheme.Ink, bold: true);
+            score.HorizontalAlignment = HorizontalAlignment.Right;
+            _leaderboardRows.AddChild(score);
+            var note = UiTheme.Text(r.Note, 13, UiTheme.Muted);
+            note.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+            note.CustomMinimumSize = new Vector2(44, 0);
+            _leaderboardRows.AddChild(note);
+        }
+    }
 
     /// <summary>The result line across the top: where the ball finished, and what happens next.</summary>
     private void BuildResultCard()
@@ -406,7 +547,8 @@ public partial class Hud
         _turn.Visible = player != null;
         _turn.Text = player == null ? "" : $"{player.ToUpperInvariant()} TO PLAY";
         _turn.AddThemeColorOverride("font_color", color);
-        SetNote(_standings, standings);
+        _standingsText = standings;
+        SetNote(_standings, _monitorLive ? "" : standings);   // with a monitor, the leaderboard shows this
     }
 
     /// <summary>The mulligan button: hidden when the house rules give none, greyed out when it can't be used now.</summary>
@@ -452,7 +594,7 @@ public partial class Hud
         _aim.Text = p.Aim;
         // Hole finished: the panel becomes "Holed" plus a NEXT HOLE action.
         _holeDone = p.HoleDone;
-        foreach (var c in _planDetails) c.Visible = !p.HoleDone;
+        UpdateShotLayout();
         Shot.Hit.Text = p.HoleDone ? NextHoleText : "HIT SHOT";
         Shot.Hit.TooltipText = p.HoleDone ? "Go to the next hole  [Space, N]" : HitTip;
         Shot.Hit.Disabled = !p.CanHit && !p.HoleDone;

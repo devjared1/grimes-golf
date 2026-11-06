@@ -157,6 +157,16 @@ public static class Scenery
     /// </summary>
     private static readonly Vector3 SkyRotation = new(0, Mathf.Pi, 0), SunRotationDegrees = new(-48, -34.2f, 0);
 
+    /// <summary>The way shadows fall along the ground, away from the sun (a horizontal unit vector).</summary>
+    public static Vector3 ShadowFalls
+    {
+        get
+        {
+            var shines = Basis.FromEuler(SunRotationDegrees * Mathf.Pi / 180) * Vector3.Forward;
+            return new Vector3(shines.X, 0, shines.Z).Normalized();
+        }
+    }
+
     /// <summary>Adds the sky, its lighting and the sun; <see cref="Graphics"/> sets their quality.</summary>
     public static (WorldEnvironment World, DirectionalLight3D Sun) AddSkyAndSun(Node3D parent)
     {

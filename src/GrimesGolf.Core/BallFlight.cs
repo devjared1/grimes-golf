@@ -8,7 +8,11 @@ public readonly record struct FlightPoint(double T, double X, double Y, double Z
 
 public sealed record FlightResult(
     IReadOnlyList<FlightPoint> Points, int LandingIndex,
-    double CarryYards, double TotalYards, double ApexYards, double LateralYards, double HangTimeSec, double DescentDeg);
+    double CarryYards, double TotalYards, double ApexYards, double LateralYards, double HangTimeSec, double DescentDeg)
+{
+    /// <summary>The point on the path where the ball hit a tree, if it did.</summary>
+    public int? TreeHitIndex { get; init; }
+}
 
 /// <summary>
 /// Range shots on flat ground through the physics engine (<see cref="GrimesGolf.Physics"/>): aerodynamic flight,

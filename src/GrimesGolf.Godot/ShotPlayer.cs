@@ -34,10 +34,18 @@ public partial class ShotPlayer : Node3D
         public required MeshInstance3D Trail;
         public required MeshInstance3D MapPath;
         public required Node3D Markers;
+        public bool TreeReached;
     }
+
+    /// <summary>The ball came down on this lie (not for putts).</summary>
+    public event Action<Lie>? Landed;
+    public event Action? TreeHit;
+    /// <summary>The ball reached the end of its path.</summary>
+    public event Action? Stopped;
 
     private readonly List<Shot> _shots = new();
     private MeshInstance3D _ball = null!, _mapBall = null!;
+    private Decal _contactShadow = null!;
     private Label3D _carryLabel = null!;
     private StandardMaterial3D _ribbonMat = null!;
     private Vector3? _placed;
@@ -76,11 +84,14 @@ public partial class ShotPlayer : Node3D
         };
         _ball = new MeshInstance3D
         {
-            Mesh = new SphereMesh { Radius = BallRadius, Height = BallRadius * 2, RadialSegments = 20, Rings = 10 },
-            MaterialOverride = new StandardMaterial3D { AlbedoColor = Colors.White, Roughness = 0.3f, EmissionEnabled = true, Emission = new Color(0.25f, 0.25f, 0.25f) },
+            Mesh = BallLook.Mesh(BallRadius),
+            MaterialOverride = BallLook.Material(),
             Position = new Vector3(0, GroundTop + BallRadius, 0),
+            Layers = TrailLayer,   // the main view only, and clear of its own contact shadow
         };
         AddChild(_ball);
+        _contactShadow = BallLook.ContactShadow();
+        AddChild(_contactShadow);
         _mapBall = new MeshInstance3D
         {
             Mesh = new SphereMesh { Radius = 3, Height = 6 },
@@ -174,8 +185,8 @@ public partial class ShotPlayer : Node3D
             const float r = BallRadius * 2.5f;
             _others.AddChild(new MeshInstance3D
             {
-                Mesh = new SphereMesh { Radius = r, Height = r * 2, RadialSegments = 16, Rings = 8 },
-                MaterialOverride = new StandardMaterial3D { AlbedoColor = b.Color, Roughness = 0.4f, EmissionEnabled = true, Emission = b.Color * 0.35f },
+                Mesh = BallLook.Mesh(r),
+                MaterialOverride = BallLook.Material(b.Color, glowNear: 0.35f),
                 Position = b.Ground + new Vector3(0, GroundTop + r, 0),
             });
             _others.AddChild(new Label3D
@@ -215,14 +226,21 @@ public partial class ShotPlayer : Node3D
             if (IsPlaying)
             {
                 _t += delta;
-                if (_t >= pts[^1].T) { _t = pts[^1].T; IsPlaying = false; }
+                if (_t >= pts[^1].T) { _t = pts[^1].T; IsPlaying = false; Stopped?.Invoke(); }
             }
             else IdleSeconds += delta;
 
             int i = IndexAt(pts, _t);
             var head = Interpolate(pts, _t);
+            if (!cur.TreeReached && cur.Flight.TreeHitIndex is { } tree && i >= tree)
+            {
+                cur.TreeReached = true;
+                TreeHit?.Invoke();
+            }
             // The path is drawn Lift up; the ball itself sits on the surface (and drops below it into the cup).
+            var was = _ball.Position;
             _ball.Position = _placed is { } placed ? placed + new Vector3(0, GroundTop + BallRadius, 0) : head + new Vector3(0, GroundTop - Lift + BallRadius, 0);
+            if (IsPlaying) Roll(_ball.Position - was);
 
             if (i >= cur.Flight.LandingIndex && !cur.Markers.Visible)
             {
@@ -233,7 +251,11 @@ public partial class ShotPlayer : Node3D
                 // Beside the landing spot, off the descending trail.
                 _carryLabel.Position = land + new Vector3(0, 0.5f, 0) + ShotDirection.Cross(Vector3.Up) * 3.5f;
                 _carryLabel.Visible = true;
-                if (cur.Flight.LandingIndex > 0) Splash(pts, cur.Flight.LandingIndex, land);
+                if (cur.Flight.LandingIndex > 0)
+                {
+                    Splash(pts, cur.Flight.LandingIndex, land);
+                    Landed?.Invoke(LieAt?.Invoke(land) ?? Lie.Fairway);
+                }
             }
 
             for (int s = 0; s < _shots.Count; s++)
@@ -272,7 +294,25 @@ public partial class ShotPlayer : Node3D
             grow = Mathf.Lerp(1f, grow, Mathf.Clamp((toCup - CupTrueSize) / CupBlend, 0f, 1f));
         }
         _ball.Scale = Vector3.One * grow;
+        // Falls a little away from the sun; tall enough to reach the ground from the ball's centre, and no further.
+        float r = BallRadius * grow;
+        _contactShadow.Position = _ball.Position + Scenery.ShadowFalls * r * 0.6f;
+        _contactShadow.Size = new Vector3(r * 3.6f, r * 4, r * 3.6f);
         _mapBall.Position = _ball.Position + new Vector3(0, 1, 0);
+    }
+
+    /// <summary>The most the ball turns in one frame (radians): true flight speeds would only strobe.</summary>
+    private const float MaxTurnPerFrame = 0.5f;
+
+    /// <summary>Turns the ball as if rolling over the ground it just crossed, so its markings move with it.</summary>
+    private void Roll(Vector3 moved)
+    {
+        moved.Y = 0;
+        float distance = moved.Length();
+        if (distance < 1e-5f) return;
+        var axis = Vector3.Up.Cross(moved / distance);
+        float turn = Mathf.Min(distance / BallRadius, MaxTurnPerFrame);
+        _ball.Quaternion = (new Quaternion(axis, turn) * _ball.Quaternion).Normalized();
     }
 
     private void BuildMarkers(Shot shot)

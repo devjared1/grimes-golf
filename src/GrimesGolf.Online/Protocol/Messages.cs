@@ -148,18 +148,18 @@ public sealed record RoundOver(bool Paused, string Summary, MatchSnapshot? Snaps
 public sealed record OutcomeData(
     string Path, int LandingIndex, double CarryYards, double TotalYards, double ApexYards, double LateralYards, double HangTimeSec, double DescentDeg,
     double StartX, double StartZ, double RestX, double RestZ, Lie RestLie, double NextX, double NextZ,
-    bool Holed, bool PickedUp, int Penalty, int Strokes, string Message, string LieNote)
+    bool Holed, bool PickedUp, int Penalty, int Strokes, string Message, string LieNote, int? TreeHitIndex = null)
 {
     public static OutcomeData Of(ShotOutcome o) =>
         new(EncodePath(o.Flight.Points), o.Flight.LandingIndex, o.Flight.CarryYards, o.Flight.TotalYards, o.Flight.ApexYards,
             o.Flight.LateralYards, o.Flight.HangTimeSec, o.Flight.DescentDeg, o.Start.X, o.Start.Z, o.Rest.X, o.Rest.Z, o.RestLie,
-            o.NextBall.X, o.NextBall.Z, o.Holed, o.PickedUp, o.Penalty, o.Strokes, o.Message, o.LieText);
+            o.NextBall.X, o.NextBall.Z, o.Holed, o.PickedUp, o.Penalty, o.Strokes, o.Message, o.LieText, o.Flight.TreeHitIndex);
 
     public ShotOutcome ToOutcome()
     {
         var points = DecodePath(Path);
         int landing = Math.Clamp(LandingIndex, 0, Math.Max(0, points.Count - 1));
-        var flight = new FlightResult(points, landing, CarryYards, TotalYards, ApexYards, LateralYards, HangTimeSec, DescentDeg);
+        var flight = new FlightResult(points, landing, CarryYards, TotalYards, ApexYards, LateralYards, HangTimeSec, DescentDeg) { TreeHitIndex = TreeHitIndex };
         return new ShotOutcome(flight, new P2(StartX, StartZ), new P2(RestX, RestZ), RestLie, new P2(NextX, NextZ), Holed, Penalty, Strokes, Message)
         {
             PickedUp = PickedUp, LieNote = LieNote,
