@@ -10,12 +10,12 @@ namespace GrimesGolf.Game;
 /// </summary>
 public partial class AimGuide : Node3D
 {
-    /// <summary>Where the line starts, this far (m) past the ball.</summary>
-    private const double LineStart = 1.0;
+    /// <summary>Where the line starts, this far (m) past the ball: clear of the ball for a full shot, just in front of it for a putt.</summary>
+    private const double LineStart = 1.0, PuttLineStart = 0.08;
     /// <summary>The line's half width: this much per metre from the camera keeps it about the same width on screen, within these limits (m).</summary>
     private const double WidthPerMetre = 0.0011, MinHalfWidth = 0.016, MaxHalfWidth = 0.3;
     /// <summary>Behind the ball, the camera sits about this far (m) back.</summary>
-    private const double CameraBack = 9;
+    private const double CameraBack = 8;
     /// <summary>The ring's band, as a share of its radius.</summary>
     private const double RingBand = 0.15;
     private const int RingSegments = 64;
@@ -47,26 +47,27 @@ public partial class AimGuide : Node3D
     /// ending at a ring of <paramref name="ringRadius"/> metres (0: no ring). <paramref name="on"/> gives the point to
     /// draw at for a spot on the ground. <paramref name="landingView"/>: the camera is up near the landing spot
     /// (<see cref="CameraRig.SetLandingView"/>), not behind the ball, which sets how wide the line needs to be.
+    /// <paramref name="putt"/>: the line starts just in front of the ball.
     /// </summary>
-    public void Set(P2 ball, double heading, double length, double ringRadius, Func<P2, Vector3> on, bool landingView = false)
+    public void Set(P2 ball, double heading, double length, double ringRadius, Func<P2, Vector3> on, bool landingView = false, bool putt = false)
     {
         var dir = new P2(Math.Cos(heading), Math.Sin(heading));
         var (cameraAt, cameraUp) = landingView ? (length - CameraRig.LandingBack, (double)CameraRig.LandingUp) : (-CameraBack, 0.0);
-        BuildLine(ball, dir, length - ringRadius * (1 - RingBand), cameraAt, cameraUp, on);
+        BuildLine(ball, dir, putt ? PuttLineStart : LineStart, length - ringRadius * (1 - RingBand), cameraAt, cameraUp, on);
         BuildRing(ball + dir * length, ringRadius, on);
     }
 
-    private void BuildLine(P2 ball, P2 dir, double end, double cameraAt, double cameraUp, Func<P2, Vector3> on)
+    private void BuildLine(P2 ball, P2 dir, double start, double end, double cameraAt, double cameraUp, Func<P2, Vector3> on)
     {
         var mesh = (ImmediateMesh)_line.Mesh;
         mesh.ClearSurfaces();
-        if (end <= LineStart) return;   // a tap-in
+        if (end <= start) return;   // a tap-in
         var across = new P2(-dir.Z, dir.X);
-        int steps = (int)Math.Clamp((end - LineStart) / 0.75, 1, 160);   // short enough to follow the ground
+        int steps = (int)Math.Clamp((end - start) / 0.75, 1, 160);   // short enough to follow the ground
         mesh.SurfaceBegin(Mesh.PrimitiveType.TriangleStrip);
         for (int i = 0; i <= steps; i++)
         {
-            double s = LineStart + (end - LineStart) * i / steps;
+            double s = start + (end - start) * i / steps;
             double half = Math.Clamp(Math.Sqrt((s - cameraAt) * (s - cameraAt) + cameraUp * cameraUp) * WidthPerMetre, MinHalfWidth, MaxHalfWidth);
             mesh.SurfaceAddVertex(on(ball + dir * s + across * half));
             mesh.SurfaceAddVertex(on(ball + dir * s - across * half));

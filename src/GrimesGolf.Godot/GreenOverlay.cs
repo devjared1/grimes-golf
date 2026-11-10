@@ -15,12 +15,12 @@ public partial class GreenOverlay : Node3D
 {
     /// <summary>Grid spacing (m).</summary>
     private const float Spacing = 1f;
-    /// <summary>Heat map cell size (m).</summary>
-    private const float HeatCell = 0.5f;
+    /// <summary>Heat map cell size (m): fine enough for its edge to follow the green's.</summary>
+    private const float HeatCell = 0.25f;
     /// <summary>Heights the layers are drawn above the surface (m), so they never z-fight with it.</summary>
-    private const float HeatLift = 0.03f, LineLift = 0.035f, DotLift = 0.06f;
-    /// <summary>Thin enough not to crowd the ball from the putting camera (dots a little smaller than the ball).</summary>
-    private const float LineWidth = 0.018f, DotRadius = 0.026f;
+    private const float HeatLift = 0.03f, LineLift = 0.035f, DotLift = 0.05f;
+    /// <summary>Thin enough not to crowd the ball from the putting camera (dots well under the ball's size).</summary>
+    private const float LineWidth = 0.018f, DotRadius = 0.015f;
     /// <summary>Dot speed (m/s) per unit slope along the segment, and its limits; below <see cref="FlatSlope"/> a dot stays put.</summary>
     private const float SpeedPerSlope = 25f, MinSpeed = 0.08f, MaxSpeed = 1.5f, FlatSlope = 0.002f;
     /// <summary>Height range (m) that spans the full colour ramp at least, so a nearly flat green doesn't look dramatic.</summary>
@@ -90,19 +90,22 @@ public partial class GreenOverlay : Node3D
 
     private ArrayMesh BuildHeatMap()
     {
-        int n = (int)Math.Ceiling(_reach / HeatCell);
-        // Heights at the cell corners (shared by neighbouring cells), and which cells are on the green.
-        var h = new float[2 * n + 1, 2 * n + 1];
+        int n = (int)Math.Ceiling(_reach / HeatCell), size = 2 * n + 1;
+        // Heights at the cell corners (shared by neighbouring cells), and which corners are on the green.
+        var h = new float[size, size];
+        var on = new bool[size, size];
         float lo = float.MaxValue, hi = float.MinValue;
-        for (int a = 0; a <= 2 * n; a++)
-            for (int b = 0; b <= 2 * n; b++)
+        for (int a = 0; a < size; a++)
+            for (int b = 0; b < size; b++)
             {
                 var p = At((a - n) * HeatCell, (b - n) * HeatCell);
                 h[a, b] = _height(p);
-                if (_green.Contains(p)) { lo = Math.Min(lo, h[a, b]); hi = Math.Max(hi, h[a, b]); }
+                on[a, b] = _green.Contains(p);
+                if (on[a, b]) { lo = Math.Min(lo, h[a, b]); hi = Math.Max(hi, h[a, b]); }
             }
         if (lo > hi) lo = hi = 0;
         float mid = (lo + hi) / 2, half = Math.Max(hi - lo, MinRelief) / 2;
+        bool OnGreen(int a, int b) => a >= 0 && b >= 0 && a < size && b < size && on[a, b];
 
         var verts = new List<Vector3>();
         var colors = new List<Color>();
@@ -113,16 +116,18 @@ public partial class GreenOverlay : Node3D
             if (corner.TryGetValue((a, b), out int i)) return i;
             var p = At((a - n) * HeatCell, (b - n) * HeatCell);
             verts.Add(Scenery.ToGodot(p, h[a, b] + HeatLift));
-            // Corners off the green are transparent, so the edge fades out over a cell instead of stair-stepping.
-            colors.Add(new Color(Ramp((h[a, b] - mid) / half), _green.Contains(p) ? 1 : 0));
+            // The outermost corners (next to one off the green) are transparent, so the colour fades out over the
+            // last cell inside the edge instead of stair-stepping, and never spills past the green (or the grid on it).
+            bool inner = OnGreen(a - 1, b) && OnGreen(a + 1, b) && OnGreen(a, b - 1) && OnGreen(a, b + 1);
+            colors.Add(new Color(Ramp((h[a, b] - mid) / half), inner ? 1 : 0));
             corner[(a, b)] = verts.Count - 1;
             return verts.Count - 1;
         }
-        bool OnGreen(int a, int b) => _green.Contains(At((a - n) * HeatCell, (b - n) * HeatCell));
         for (int a = 0; a < 2 * n; a++)
             for (int b = 0; b < 2 * n; b++)
             {
-                if (!OnGreen(a, b) && !OnGreen(a + 1, b) && !OnGreen(a, b + 1) && !OnGreen(a + 1, b + 1)) continue;
+                // Only cells wholly on the green.
+                if (!OnGreen(a, b) || !OnGreen(a + 1, b) || !OnGreen(a, b + 1) || !OnGreen(a + 1, b + 1)) continue;
                 int k00 = Vertex(a, b), k10 = Vertex(a + 1, b), k01 = Vertex(a, b + 1), k11 = Vertex(a + 1, b + 1);
                 indices.AddRange(new[] { k00, k10, k11, k00, k11, k01 });
             }

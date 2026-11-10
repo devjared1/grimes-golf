@@ -152,7 +152,63 @@ public partial class CourseWorld : Node3D
         double ring = showRing ? 2.6 * Math.Clamp(length / 40, 0.15, 2.0) : 0;
         // Close up, a line held above the ground looks off to one side of the ball and the cup, so a putt's lies right on it.
         bool putt = !showRing && Ground != null;
-        _aim.Set(ball, heading, length, ring, p => Scenery.ToGodot(p, putt ? TerrainGround.MeshHeightAt(Ground!, p) + 0.03f : GroundAt(p) + 0.2f), landingView);
+        _aim.Set(ball, heading, length, ring, p => Scenery.ToGodot(p, putt ? TerrainGround.MeshHeightAt(Ground!, p) + 0.03f : GroundAt(p) + 0.2f), landingView,
+                 putt: !showRing);
+    }
+
+    // ---- gimme circles -------------------------------------------------------------------------
+
+    private MeshInstance3D? _gimme;
+    private double _gimmeRadius, _secondRadius;
+
+    /// <summary>
+    /// Circles on the green round the hole being played: the gimme circle (<paramref name="radius"/> m) and, with
+    /// auto-putting, its second circle (<paramref name="second"/> m; 0 = none). 0 for both hides them.
+    /// </summary>
+    public void SetGimmeCircles(double radius, double second)
+    {
+        _gimmeRadius = radius;
+        _secondRadius = second;
+        BuildGimmeCircles();
+    }
+
+    private void BuildGimmeCircles()
+    {
+        _gimme?.QueueFree();
+        _gimme = null;
+        if (_gimmeRadius <= 0 && _secondRadius <= 0) return;
+        var mesh = new ImmediateMesh();
+        var pin = _hole.Pin;
+        // Draped on the drawn green, over the heat map and grid lines (see GreenOverlay) but under its rolling dots.
+        Vector3 On(P2 p) => Scenery.ToGodot(p, (Ground != null ? TerrainGround.MeshHeightAt(Ground, p) : GreenAt(p)) + 0.042f);
+        foreach (var (radius, alpha) in new[] { (_gimmeRadius, 0.75f), (_secondRadius, 0.45f) })
+        {
+            if (radius <= 0) continue;
+            const double band = 0.035;   // m
+            int segments = (int)Math.Clamp(radius * 40, 64, 240);
+            mesh.SurfaceBegin(Mesh.PrimitiveType.TriangleStrip);
+            for (int i = 0; i <= segments; i++)
+            {
+                double a = Math.Tau * i / segments;
+                var round = new P2(Math.Cos(a), Math.Sin(a));
+                mesh.SurfaceSetColor(new Color(1, 1, 1, alpha));
+                mesh.SurfaceAddVertex(On(pin + round * (radius + band / 2)));
+                mesh.SurfaceSetColor(new Color(1, 1, 1, alpha));
+                mesh.SurfaceAddVertex(On(pin + round * (radius - band / 2)));
+            }
+            mesh.SurfaceEnd();
+        }
+        _gimme = new MeshInstance3D
+        {
+            Mesh = mesh, Layers = ShotPlayer.TrailLayer, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            MaterialOverride = new StandardMaterial3D
+            {
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, VertexColorUseAsAlbedo = true,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+                RenderPriority = 1,   // drawn after the heat map, which is transparent too
+            },
+        };
+        AddChild(_gimme);
     }
 
     /// <summary>Moves the minimap pin marker to this hole (a mapped course is drawn once for all its holes).</summary>
@@ -173,6 +229,7 @@ public partial class CourseWorld : Node3D
         Scenery.SetCupHole(Scenery.ToGodot(hole.Pin, GreenAt(hole.Pin)));
         _cupOwner = this;
         BuildGreenOverlay();
+        BuildGimmeCircles();
     }
 
     private GreenOverlay? _greenOverlay;
