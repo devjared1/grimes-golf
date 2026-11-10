@@ -17,6 +17,7 @@ namespace GrimesGolf.Game;
 /// <item><term>Mulligan</term><description>U, numpad 0, gamepad X</description></item>
 /// <item><term>Scorecard</term><description>S, numpad ., gamepad Y, clicker "back" (Page Up)</description></item>
 /// <item><term>Next hole</term><description>N, numpad +</description></item>
+/// <item><term>Range, replaying a capture: next / previous captured shot</term><description>N / Shift+N (and HIT SHOT for the next)</description></item>
 /// <item><term>Menu</term><description>M, Esc (with nothing to close), gamepad Start</description></item>
 /// <item><term>Camera</term><description>C, numpad -, gamepad right stick click</description></item>
 /// <item><term>Settings</term><description>numpad *, gamepad Back/Select</description></item>
@@ -30,7 +31,7 @@ public partial class Main
     {
         Hit, AimLeft, AimRight, AimLeftBig, AimRightBig, PowerUp, PowerDown, PowerUpBig, PowerDownBig, ClubLonger, ClubShorter,
         Mulligan, Scorecard, NextHole, Camera, Settings, Back, Menu, Demo, Drawer, Tuner, Replay, Flag, FlagBack, HeatMap, Grid, RestartHole,
-        LandingView,
+        LandingView, PreviousCapturedShot,
     }
 
     /// <summary>The command for an input event (null if it isn't one, or is a release or key repeat that shouldn't repeat).</summary>
@@ -62,7 +63,8 @@ public partial class Main
                     Key.Kp8 => Command.ClubLonger, Key.Kp2 => Command.ClubShorter,
                     Key.U or Key.Kp0 => Command.Mulligan,
                     Key.S or Key.KpPeriod => Command.Scorecard,
-                    Key.N or Key.KpAdd => Command.NextHole,
+                    Key.N => shift ? Command.PreviousCapturedShot : Command.NextHole,
+                    Key.KpAdd => Command.NextHole,
                     Key.C or Key.KpSubtract => Command.Camera,
                     Key.KpMultiply => Command.Settings,
                     Key.Escape or Key.KpDivide => Command.Back,
@@ -203,6 +205,9 @@ public partial class Main
             case Command.Scorecard or Command.Flag when !course: CycleRangeTarget(1); return true;
             case Command.FlagBack when !course: CycleRangeTarget(-1); return true;
             case Command.NextHole when course: NextHole(); return true;
+            // On the range with a capture loaded: the next / previous captured shot.
+            case Command.NextHole when _capture != null: return PlayCapture(1);
+            case Command.PreviousCapturedShot when !course && _capture != null: return PlayCapture(-1);
             case Command.Mulligan when course: Mulligan(); return true;
             case Command.Flag when course: ToggleFlag(); return true;
             case Command.HeatMap when course: SetGreenOverlay(!_heatMap, _grid); return true;

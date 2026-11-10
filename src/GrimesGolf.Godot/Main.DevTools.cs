@@ -85,6 +85,13 @@ public partial class Main
         if (Arg("--hit-at") is { } at)
             _hitPresses = new Queue<double>(at.Split(',').Select(t => double.Parse(t, System.Globalization.CultureInfo.InvariantCulture)));
         if (Arg("--tuner-tab") is { } tab) _tuner.ShowTab(tab);
+        // --replay=folder (or --replay=latest): load a shot recorder capture on the range (HIT SHOT / --hit-at flies its shots).
+        if (Arg("--replay") is { } replay)
+            GetTree().CreateTimer(0.2).Timeout += () =>
+            {
+                string? folder = replay == "latest" ? CaptureFolders().FirstOrDefault() : ProjectSettings.GlobalizePath(replay);
+                if (folder != null) LoadCapture(folder); else Log("--replay: no captures found.");
+            };
         // --tune=key=value: after the demo shots, change one tuning value and replay the last shot.
         if (Arg("--tune") is { } tune && tune.Split('=') is [var key, var value] && PhysicsTuning.Parameters.Any(p => p.Key == key) &&
             double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var v))

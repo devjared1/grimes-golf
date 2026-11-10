@@ -144,6 +144,9 @@ public partial class Main
         {
             items.Add(new("Settings", OpenSettings, "Players, house rules, monitor, text size"));
             items.Add(new("Clear Session", ClearRange, "Clear the shots on the range"));
+            if (_online == null)
+                items.Add(new(_capture == null ? "Replay a Capture" : "Replay a Capture (on)", OpenCaptureList,
+                              "Fly shots recorded beside GSPro with your physics, with GSPro's numbers beside them"));
             items.Add(new("Main Menu", ShowMainMenu, "New game, resume, settings, quit"));
         }
         items.Add(new(_camera.Follow ? "Camera: Follow Ball" : "Camera: Stay Behind", ToggleCamera, "Follow the ball or stay behind it  [C]"));
