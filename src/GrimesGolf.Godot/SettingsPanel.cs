@@ -5,7 +5,8 @@ using GrimesGolf.Core.Storage;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// The settings screen, over everything: the home player, players (1-4: name and handedness), house rules, the launch monitor,
+/// The settings screen, over everything: the home player, players (1-4: name and handedness), house rules (with the gimme
+/// circle, auto-aligned putts and auto-putting), the "Ready" chime, the launch monitor,
 /// text size, full screen and graphics quality, and the camera's hole flyover and landing zoom. Works with a mouse, the keyboard or a gamepad (arrows /
 /// D-pad move between fields, Enter / A presses; Esc / B closes without saving). Nothing changes until it's saved.
 /// </summary>
@@ -22,9 +23,10 @@ public partial class SettingsPanel : Control
     private PlayerListEditor _players = null!;
     private GuestListEditor _guests = null!;
     private Button _save = null!, _saveNewRound = null!;
-    private SpinBox _mulligans = null!, _gimme = null!;
-    private CheckBox _doublePar = null!, _autoConnect = null!, _fullScreen = null!, _flyover = null!, _soundEffects = null!, _checkForUpdates = null!;
-    private OptionButton _textSize = null!, _graphics = null!;
+    private SpinBox _mulligans = null!;
+    private CheckBox _doublePar = null!, _autoConnect = null!, _fullScreen = null!, _flyover = null!, _soundEffects = null!, _checkForUpdates = null!,
+                     _autoAlign = null!, _autoPutt = null!, _readySound = null!;
+    private OptionButton _textSize = null!, _graphics = null!, _gimme = null!;
     private Label _roundNote = null!;
 
     public override void _Ready()
@@ -90,11 +92,17 @@ public partial class SettingsPanel : Control
         v.AddChild(UiTheme.Caption("House rules"));
         _mulligans = new SpinBox { MinValue = 0, MaxValue = 9, Step = 1, CustomMinimumSize = new Vector2(110, 0) };
         v.AddChild(Row("Mulligans per player, per round", _mulligans));
-        _gimme = new SpinBox { MinValue = 0, MaxValue = 6, Step = 0.5, Suffix = "ft", CustomMinimumSize = new Vector2(110, 0),
-                               TooltipText = "Putts that finish this close are tapped in for one more stroke (0 = hole everything out)" };
-        v.AddChild(Row("Gimme distance (0 = hole everything out)", _gimme));
+        _gimme = new OptionButton { CustomMinimumSize = new Vector2(110, 0),
+                                    TooltipText = "A circle drawn round the hole: putts that finish inside it are tapped in for one more stroke" };
+        foreach (int feet in HouseRules.GimmeFeetChoices) _gimme.AddItem($"{feet} ft");
+        v.AddChild(Row("Gimme circle (radius round the hole)", _gimme));
         _doublePar = new CheckBox { Text = "Pick up at double par (a hole never costs more than twice its par)" };
         v.AddChild(_doublePar);
+        _autoAlign = new CheckBox { Text = "Auto-align putts (aim along the read, allowing for the break; off: aim at the hole)" };
+        v.AddChild(_autoAlign);
+        _autoPutt = new CheckBox { Text = "Auto-putting (no putting: 1 putt inside the gimme circle, 2 inside twice that, 2 or 3 beyond)",
+                                   TooltipText = "Once the ball stops on the green, the hole is finished with the putts its distance from the hole calls for" };
+        v.AddChild(_autoPutt);
         var setupNote = UiTheme.Text("The game, holes, wind, weather and course conditions are picked for each round under Game Setup on New Game.", 13, UiTheme.Muted);
         setupNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         v.AddChild(setupNote);
@@ -180,8 +188,12 @@ public partial class SettingsPanel : Control
         RefreshHome(current);
         var r = current.Rules;
         _mulligans.Value = r.Mulligans;
-        _gimme.Value = Math.Round(r.GimmeMetres * 3.281 * 2) / 2;
+        // The nearest of the circles offered.
+        var circles = HouseRules.GimmeFeetChoices;
+        _gimme.Selected = Array.IndexOf(circles, circles.MinBy(f => Math.Abs(f - r.GimmeFeet)));
         _doublePar.ButtonPressed = r.PickUpAtDoublePar;
+        _autoAlign.ButtonPressed = r.AutoAlignPutts;
+        _autoPutt.ButtonPressed = r.AutoPutt;
         _autoConnect.ButtonPressed = current.AutoConnect;
         _checkForUpdates.ButtonPressed = current.CheckForUpdates;
         _textSize.Selected = (int)current.TextSize;
@@ -220,7 +232,8 @@ public partial class SettingsPanel : Control
         var s = _current.WithGuests(_guests.Golfers) with
         {
             Players = _players.Golfers,
-            HouseRules = new HouseRules((int)_mulligans.Value, _gimme.Value / 3.281, _doublePar.ButtonPressed),
+            HouseRules = new HouseRules((int)_mulligans.Value, HouseRules.GimmeFeetChoices[Math.Max(0, _gimme.Selected)] * Units.FeetToMetres,
+                                        _doublePar.ButtonPressed, _autoAlign.ButtonPressed, _autoPutt.ButtonPressed),
             AutoConnect = _autoConnect.ButtonPressed,
             CheckForUpdates = _checkForUpdates.ButtonPressed,
             TextSize = (TextSize)Math.Max(0, _textSize.Selected),

@@ -109,6 +109,66 @@ public class HouseRulesTests
         Assert.True(o.Holed, o.Message);
         Assert.Equal(3, generous.Strokes);
     }
+
+    private const double SixFeet = 6 * Units.FeetToMetres;
+
+    [Fact]
+    public void AutoPuttsComeFromTheCircles()
+    {
+        var rules = new HouseRules(GimmeMetres: SixFeet, AutoPutt: true);
+        var random = new Random(1);
+        Assert.Equal(2 * SixFeet, rules.SecondCircleMetres);
+        Assert.Equal(1, rules.AutoPutts(1.5, random));     // inside 6 ft
+        Assert.Equal(2, rules.AutoPutts(3.0, random));     // between 6 and 12 ft
+        var far = Enumerable.Range(0, 200).Select(_ => rules.AutoPutts(10, random)).ToList();
+        Assert.All(far, p => Assert.InRange(p, 2, 3));
+        Assert.Contains(2, far);
+        Assert.Contains(3, far);
+    }
+
+    [Fact]
+    public void AutoPuttingFinishesTheHoleWhenTheBallStopsOnTheGreen()
+    {
+        var rules = new HouseRules(GimmeMetres: SixFeet, AutoPutt: true);
+        var round = OnParThree(rules);
+        var o = Hit(round, GoodIron);
+        Assert.Equal(Lie.Green, o.RestLie);
+        Assert.True(o.Holed && round.Holed, o.Message);
+        double left = o.Rest.DistanceTo(round.Hole.Pin);
+        int putts = round.Strokes - 1;
+        if (left <= SixFeet) Assert.Equal(1, putts);
+        else if (left <= 2 * SixFeet) Assert.Equal(2, putts);
+        else Assert.InRange(putts, 2, 3);
+        Assert.Equal(round.Strokes, round.Scores[1]);
+
+        // The same shot always takes the same putts (a replay, or another PC).
+        var again = OnParThree(rules);
+        Hit(again, GoodIron);
+        Assert.Equal(round.Strokes, again.Strokes);
+    }
+
+    [Fact]
+    public void AutoPuttingStillPicksUpAtDoublePar()
+    {
+        // A tiny gimme circle, so the iron onto the green needs 2 or 3 putts: 4 + 1 + 2 is past double par (6).
+        var round = OnParThree(new HouseRules(GimmeMetres: 0.05, PickUpAtDoublePar: true, AutoPutt: true));
+        Hit(round, Topped);
+        Hit(round, Topped);
+        var o = Hit(round, GoodIron);
+        Assert.True(o.PickedUp && !o.Holed, o.Message);
+        Assert.Equal(6, round.Scores[1]);
+    }
+
+    [Fact]
+    public void SettingsFromBeforeTheGimmeCircleGetTheNewDefault()
+    {
+        var old = AppSettings.Defaults with { HouseRules = new HouseRules(Mulligans: 1, GimmeMetres: HouseRules.DefaultGimmeMetres) };
+        Assert.Equal(6.0, old.Upgraded().Rules.GimmeFeet, 6);
+        Assert.Equal(1, old.Upgraded().Rules.Mulligans);
+        var chosen = AppSettings.Defaults with { HouseRules = new HouseRules(GimmeMetres: 10 * Units.FeetToMetres) };
+        Assert.Equal(chosen, chosen.Upgraded());
+        Assert.Equal(HouseRules.DefaultGimmeFeet, AppSettings.GarageRules.GimmeFeet, 6);
+    }
 }
 
 public class GolfDataTests : IDisposable

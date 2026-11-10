@@ -146,11 +146,8 @@ public partial class Main
         _match.StartHole(0);
         _roundStarted = DateTime.Now;
         _lastRecord = null;
-        var r = _settings.Rules;
         Log($"New round ({_game.Summary(_match.Players.Count)}): {string.Join(", ", _match.Players.Select(p => p.Name + (p.LeftHanded ? " (LH)" : "")))}. " +
-            $"House rules: {(r.Mulligans > 0 ? $"{r.Mulligans} mulligan{(r.Mulligans == 1 ? "" : "s")} each" : "no mulligans")}, " +
-            $"{(r.GimmeMetres > 0 ? $"gimmes inside {r.GimmeMetres * 3.281:0.#} ft" : "hole everything out")}" +
-            $"{(r.PickUpAtDoublePar ? ", pick up at double par" : "")}.");
+            $"House rules: {_settings.Rules.Summary()}.");
     }
 
     /// <summary>
@@ -274,6 +271,9 @@ public partial class Main
             AddChild(_course);
         }
         SetGreenOverlay(_heatMap, _grid);
+        // The gimme circle round the hole, and auto-putting's second circle (twice as wide).
+        var rules = match.Rules;
+        _course?.SetGimmeCircles(rules.GimmeMetres, rules.AutoPutt ? rules.SecondCircleMetres : 0);
         _course?.SetFlagWind(match.Wind.IsCalm ? null : match.Wind.FromHeading + Math.PI);
         // With real ground the ball sits on it; on a flat course it sits on the raised green layer.
         var terrain = course.Terrain;
@@ -540,7 +540,9 @@ public partial class Main
         var match = _match!;
         var round = match.Current;
         var golfer = match.Golfer;
-        _aimHeading = round.DefaultAimHeading();
+        // On the green the aim follows the read only with auto-aligned putts (house rules); otherwise it's at the hole.
+        _aimHeading = round.Lie == Lie.Green && !round.Holed && !match.Rules.AutoAlignPutts
+            ? HoleRound.Heading(round.Ball, round.Hole.Pin) : round.DefaultAimHeading();
         string club = round.Holed ? _hud.ClubCode : Caddie.Suggest(round.PlaysLike(round.DefaultTarget), round.Lie, round.StanceAt(round.Ball, _aimHeading, golfer.LeftHanded), KnownYards);
         _hud.SetPlayerClub(club, golfer.LeftHanded);
         SuggestPower();

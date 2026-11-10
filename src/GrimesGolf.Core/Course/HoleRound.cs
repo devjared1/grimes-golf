@@ -329,6 +329,18 @@ public sealed class HoleRound
             message = restLie == Lie.Water ? "In the water. 1 stroke penalty, replay from the previous spot."
                                            : "Out of bounds. 1 stroke penalty, replay from the previous spot.";
         }
+        else if (restLie == Lie.Green && Rules.AutoPutt)
+        {
+            // House rules: nobody putts. The putts come from how far it finished from the hole (beyond double par it's picked up below).
+            int putts = Rules.AutoPutts(rest.DistanceTo(Hole.Pin), ShotRandom(shot, start, headingRad));
+            if (max is { } most && Strokes + putts > most) { Strokes = most; message = ""; }
+            else
+            {
+                Strokes += putts;
+                holed = true;
+                message = putts == 1 ? $"Tapped in. {ScoreName(Strokes, Hole.Par)}" : $"On the green: {putts} putts. {ScoreName(Strokes, Hole.Par)}";
+            }
+        }
         else if (restLie == Lie.Green && rest.DistanceTo(Hole.Pin) <= Rules.GimmeMetres && Strokes + 1 <= (max ?? int.MaxValue))
         {
             Strokes++;
@@ -347,7 +359,8 @@ public sealed class HoleRound
             // House rules: that's the most a hole can cost. Pick up and score double par.
             pickedUp = true;
             Strokes = max.Value;
-            message = (penalty > 0 ? message.Split('.')[0] + ". " : "") + $"Picked up: double par, {Strokes}.";
+            message = (penalty > 0 ? message.Split('.')[0] + ". " : "") + (restLie == Lie.Green && Rules.AutoPutt ? "On the green. " : "")
+                    + $"Picked up: double par, {Strokes}.";
         }
 
         if (holed) { Holed = true; Ball = Hole.Pin; Lie = Lie.Green; _scores[HoleIndex] = Strokes; }

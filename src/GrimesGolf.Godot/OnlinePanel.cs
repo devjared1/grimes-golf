@@ -208,9 +208,7 @@ public partial class OnlinePanel : Control
         _start.Disabled = !s.CanStart;
     }
 
-    private static string Rules(HouseRules r) =>
-        $"{(r.Mulligans > 0 ? $"{r.Mulligans} mulligan{(r.Mulligans == 1 ? "" : "s")}" : "no mulligans")}, " +
-        $"{(r.GimmeMetres > 0 ? $"gimmes inside {r.GimmeMetres * 3.281:0.#} ft" : "hole everything out")}{(r.PickUpAtDoublePar ? ", pick up at double par" : "")}";
+    private static string Rules(HouseRules r) => r.Summary();
 
     public void Close()
     {
