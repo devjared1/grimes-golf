@@ -12,7 +12,7 @@ namespace GrimesGolf.Game;
 /// <item><term>Range: next / previous target flag</term><description>F / Shift+F, gamepad Y</description></item>
 /// <item><term>Aim 2°</term><description>Shift + ← →, numpad 7 9, gamepad LB/RB</description></item>
 /// <item><term>Landing view on / off</term><description>Z, numpad 1, gamepad left stick click</description></item>
-/// <item><term>Power 1% / 5%</term><description>↑ ↓, Shift + ↑ ↓</description></item>
+/// <item><term>Power 1% / 5% (with a launch monitor: the aim 1 / 5 yd further or shorter)</term><description>↑ ↓, Shift + ↑ ↓</description></item>
 /// <item><term>Club longer / shorter</term><description>numpad 8 2, D-pad up/down, Page Up/Down with Shift</description></item>
 /// <item><term>Mulligan</term><description>U, numpad 0, gamepad X</description></item>
 /// <item><term>Scorecard</term><description>S, numpad ., gamepad Y, clicker "back" (Page Up)</description></item>
@@ -174,8 +174,7 @@ public partial class Main
                 return true;
             case Command.LandingView: ToggleLandingView(); return true;
             case Command.PowerUp or Command.PowerDown or Command.PowerUpBig or Command.PowerDownBig:
-                if (!_monitorLive)   // the swing sets the power
-                    _hud.Shot.NudgePower(c switch { Command.PowerUp => 1, Command.PowerDown => -1, Command.PowerUpBig => 5, _ => -5 });
+                NudgeAim(c switch { Command.PowerUp => 1, Command.PowerDown => -1, Command.PowerUpBig => 5, _ => -5 });
                 return true;
             case Command.Hit: HitPress(); return true;
             case Command.Back:

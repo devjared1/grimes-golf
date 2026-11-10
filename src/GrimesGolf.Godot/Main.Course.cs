@@ -863,7 +863,9 @@ public partial class Main
         _course.ShowGrassAround(round.Ball);
 
         var dir = new Vector3((float)Math.Sin(_aimHeading), 0, (float)-Math.Cos(_aimHeading));
-        _camera.SetHome(BallAt(round.Ball), dir, putting || round.Lie == Lie.Green, snapCamera);
+        // Framed for the shot being played: the aim's length, or the target if that's nearer (a monitor's aim is the club's full carry).
+        float framing = (float)(round.Holed ? length : Math.Min(length, round.Ball.DistanceTo(round.DefaultTarget)));
+        _camera.SetHome(BallAt(round.Ball), dir, putting || round.Lie == Lie.Green, snapCamera, framing);
         if (round.Holed) EndLandingView(); else AimLandingView(BallAt(aimPoint), dir);
         // Pull the flag once on the green (unless it's wanted in); it goes back in when the hole is finished.
         bool onGreen = round.Lie == Lie.Green && !round.Holed;
