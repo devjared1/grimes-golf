@@ -123,8 +123,12 @@ public partial class Hud : Control
     private bool _connected, _courseMode, _syncingClubs;
 
     // Shared chrome
+    /// <summary>The range's top bar (a course has none: its hole badge carries Menu, the Ready light and the monitor status).</summary>
     private PanelContainer _topBar = null!;
     private HBoxContainer _topRow = null!;
+    /// <summary>The Ready light, in the middle of the top bar on the range and under the hole badge on a course.</summary>
+    private Control _readyLight = null!, _readyHome = null!;
+    private bool _menuShown;
     private Label _where = null!;
     private Button _monitorChip = null!, _playerChip = null!;
     private PanelContainer _banner = null!, _toast = null!;
@@ -183,7 +187,10 @@ public partial class Hud : Control
 
     /// <summary>Screen area covered by UI in the current mode (left, top, right, bottom), for centring the 3D view.</summary>
     public (float Left, float Top, float Right, float Bottom) ViewInsets =>
-        _courseMode ? (0, TopBarHeight, 0, ShotPanelHeight + 24) : (0, TopBarHeight, RightColumnWidth + 24, RangeBarHeight);
+        _courseMode ? (0, TopInset, 0, ShotPanelHeight + 24) : (0, TopInset, RightColumnWidth + 24, RangeBarHeight);
+
+    /// <summary>What the top bar covers in the current mode (nothing on a course, which has no top bar).</summary>
+    private int TopInset => _courseMode ? 0 : TopBarHeight;
 
     public override void _Ready()
     {
@@ -276,7 +283,9 @@ public partial class Hud : Control
         var middle = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
         middle.SetAnchorsAndOffsetsPreset(LayoutPreset.TopWide);
         middle.OffsetBottom = TopBarHeight;
-        middle.AddChild(Shot.BuildReadyLight());
+        _readyLight = Shot.BuildReadyLight();
+        _readyHome = middle;
+        middle.AddChild(_readyLight);
         bar.AddChild(middle);
 
         // Who is playing (course: whose turn; range: who the shots are saved under, click for the next player).
@@ -418,7 +427,8 @@ public partial class Hud : Control
     /// <summary>The main menu is up: the game's HUD is hidden behind it (the drawer can still open over it).</summary>
     public void ShowMainMenu(bool show)
     {
-        _topBar.Visible = !show;
+        _menuShown = show;
+        _topBar.Visible = !show && !_courseMode;
         _minimapFrame.Visible = !show;
         _rangeView.Visible = !show && !_courseMode;
         _courseView.Visible = !show && _courseMode;
@@ -481,8 +491,8 @@ public partial class Hud : Control
         _minimapFrame.SetAnchorsPreset(LayoutPreset.TopRight);
         _minimapFrame.OffsetRight = -16;
         _minimapFrame.OffsetLeft = -16 - size.X - 12;
-        _minimapFrame.OffsetTop = TopBarHeight + TopGap;
-        _minimapFrame.OffsetBottom = TopBarHeight + TopGap + size.Y + 12;
+        _minimapFrame.OffsetTop = TopInset + TopGap;
+        _minimapFrame.OffsetBottom = TopInset + TopGap + size.Y + 12;
         // The wind sits under the map, at the same right edge.
         _wind.OffsetRight = _wind.OffsetLeft = -16;
         _wind.OffsetTop = _wind.OffsetBottom = _minimapFrame.OffsetBottom + 8;
@@ -526,6 +536,7 @@ public partial class Hud : Control
         // Large text leaves less room: go compact when the UI is narrower than it was laid out for.
         bool compact = GetViewportRect().Size.X < CompactBelow;
         if (compact != _compact) SetCompact(compact);
+        KeepLastShotClear();
     }
 
     /// <summary>UI width (in UI units) below which the compact layout is used.</summary>
@@ -551,9 +562,11 @@ public partial class Hud : Control
     private static IEnumerable<Control> Descendants(Node n) =>
         n.GetChildren().OfType<Control>().SelectMany(c => new[] { c }.Concat(Descendants(c)));
 
-    private OptionButton ClubPicker()
+    /// <summary>A club picker: a new one, or <paramref name="picker"/> (from a scene) filled in and wired up.</summary>
+    private OptionButton ClubPicker(OptionButton? picker = null)
     {
-        var o = new OptionButton { CustomMinimumSize = new Vector2(190, 40), TooltipText = "Club (sent to the monitor)  [numpad 8 / 2, D-pad ↑ / ↓]" };
+        var o = picker ?? new OptionButton { CustomMinimumSize = new Vector2(190, 40) };
+        o.TooltipText = "Club (sent to the monitor)  [numpad 8 / 2, D-pad ↑ / ↓]";
         foreach (var c in ClubPresets.All) o.AddItem(c.Label);
         o.Selected = ClubPresets.IndexOf("I7");
         o.ItemSelected += i => SelectClubIndex((int)i);
@@ -587,6 +600,17 @@ public partial class Hud : Control
             Shot.Hit.Text = "HIT SHOT";
             Shot.Hit.Disabled = false;
         }
+        // A course has no top bar: the Ready light moves under the hole badge, and the drawer reaches the top.
+        _topBar.Visible = !course && !_menuShown;
+        Control readyParent = course ? _statusRow : _readyHome;
+        if (_readyLight.GetParent() != readyParent)
+        {
+            _readyLight.GetParent().RemoveChild(_readyLight);
+            readyParent.AddChild(_readyLight);
+            if (course) readyParent.MoveChild(_readyLight, 0);
+        }
+        _readyLight.CustomMinimumSize = course ? new Vector2(130, 30) : new Vector2(200, 34);
+        _drawer.OffsetTop = TopInset;
         UpdateShotLayout();
         HideMapMarkers();
         PlaceShotControls();

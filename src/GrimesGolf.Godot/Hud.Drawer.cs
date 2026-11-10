@@ -140,12 +140,18 @@ public partial class Hud
     {
         _chipColor = accent;
         _monitorChip.Text = ChipText();
+        _courseStatus.Text = ChipText();
         foreach (var (state, bg) in new[] { ("normal", UiTheme.Control), ("hover", UiTheme.ControlHover), ("pressed", UiTheme.ControlPressed) })
         {
             var box = UiTheme.Box(bg, 8, 0, 8, 14);
             box.BorderWidthLeft = 5;
             box.BorderColor = accent;
             _monitorChip.AddThemeStyleboxOverride(state, box);
+            // The course's slimmer status line under the hole badge (see-through, so it sits lightly on the view).
+            var slim = UiTheme.Box(new Color(bg, 0.85f), 8, 0, 4, 10);
+            slim.BorderWidthLeft = 4;
+            slim.BorderColor = accent;
+            _courseStatus.AddThemeStyleboxOverride(state, slim);
         }
         if (MainMenu?.IsInsideTree() == true) MainMenu.SetMonitorStatus(ChipText(), accent);
     }

@@ -1,0 +1,777 @@
+[gd_scene format=3]
+
+[sub_resource type="SystemFont" id="Bold"]
+font_names = PackedStringArray("Segoe UI", "Inter", "Roboto", "Helvetica Neue", "Arial", "Sans-Serif")
+font_weight = 700
+
+[sub_resource type="StyleBoxFlat" id="HoleCardBox"]
+content_margin_left = 14.0
+content_margin_top = 10.0
+content_margin_right = 14.0
+content_margin_bottom = 10.0
+bg_color = Color(0.11, 0.125, 0.15, 0.94)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.07)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+
+[sub_resource type="StyleBoxFlat" id="LastShotBox"]
+content_margin_left = 16.0
+content_margin_top = 12.0
+content_margin_right = 16.0
+content_margin_bottom = 12.0
+bg_color = Color(0.11, 0.125, 0.15, 0.94)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.07)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+
+[sub_resource type="StyleBoxFlat" id="BottomCardBox"]
+content_margin_left = 12.0
+content_margin_top = 12.0
+content_margin_right = 12.0
+content_margin_bottom = 12.0
+bg_color = Color(0.075, 0.086, 0.106, 0.93)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.07)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+
+[sub_resource type="StyleBoxFlat" id="ShotPanelBox"]
+content_margin_left = 14.0
+content_margin_top = 14.0
+content_margin_right = 14.0
+content_margin_bottom = 14.0
+bg_color = Color(0.075, 0.086, 0.106, 0.93)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.07)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[sub_resource type="StyleBoxFlat" id="ResultBox"]
+content_margin_left = 20.0
+content_margin_top = 8.0
+content_margin_right = 20.0
+content_margin_bottom = 8.0
+bg_color = Color(0.05, 0.06, 0.07, 0.88)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.07)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="StyleBoxFlat" id="HintBox"]
+content_margin_left = 20.0
+content_margin_top = 10.0
+content_margin_right = 20.0
+content_margin_bottom = 10.0
+bg_color = Color(0.05, 0.06, 0.07, 0.85)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.07)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="ScorecardBox"]
+content_margin_left = 22.0
+content_margin_top = 22.0
+content_margin_right = 22.0
+content_margin_bottom = 22.0
+bg_color = Color(0.075, 0.086, 0.106, 0.93)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(1, 1, 1, 0.07)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[node name="CourseView" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="HoleColumn" type="VBoxContainer" parent="."]
+layout_mode = 0
+offset_left = 16.0
+offset_top = 16.0
+offset_right = 16.0
+offset_bottom = 16.0
+theme_override_constants/separation = 8
+
+[node name="HoleCard" type="PanelContainer" parent="HoleColumn"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("HoleCardBox")
+
+[node name="Stack" type="VBoxContainer" parent="HoleColumn/HoleCard"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Head" type="HBoxContainer" parent="HoleColumn/HoleCard/Stack"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="CourseMenu" type="Button" parent="HoleColumn/HoleCard/Stack/Head"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 30)
+layout_mode = 2
+tooltip_text = "Settings, holes, players, camera, end the game  [M, Esc, gamepad Start]"
+focus_mode = 0
+theme_type_variation = &"FlatButton"
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 14
+text = "☰  Menu"
+
+[node name="BrandSlot" type="HBoxContainer" parent="HoleColumn/HoleCard/Stack/Head"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+alignment = 1
+
+[node name="Row" type="HBoxContainer" parent="HoleColumn/HoleCard/Stack"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="CourseLogo" type="TextureRect" parent="HoleColumn/HoleCard/Stack/Row"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(76, 54)
+layout_mode = 2
+size_flags_vertical = 4
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Hole" type="VBoxContainer" parent="HoleColumn/HoleCard/Stack/Row"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 0
+
+[node name="HoleNumber" type="Label" parent="HoleColumn/HoleCard/Stack/Row/Hole"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 26
+text = "HOLE 1"
+
+[node name="HoleFacts" type="Label" parent="HoleColumn/HoleCard/Stack/Row/Hole"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_font_sizes/font_size = 13
+
+[node name="HoleName" type="Label" parent="HoleColumn/HoleCard/Stack/Row/Hole"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="VSeparator" type="VSeparator" parent="HoleColumn/HoleCard/Stack/Row"]
+layout_mode = 2
+
+[node name="StrokeFigure" type="VBoxContainer" parent="HoleColumn/HoleCard/Stack/Row"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 0
+
+[node name="Caption" type="Label" parent="HoleColumn/HoleCard/Stack/Row/StrokeFigure"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 11
+text = "STROKE"
+
+[node name="Values" type="HBoxContainer" parent="HoleColumn/HoleCard/Stack/Row/StrokeFigure"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Stroke" type="Label" parent="HoleColumn/HoleCard/Stack/Row/StrokeFigure/Values"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 28
+text = "—"
+
+[node name="StrokeNote" type="Label" parent="HoleColumn/HoleCard/Stack/Row/StrokeFigure/Values"]
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="ScoreFigure" type="VBoxContainer" parent="HoleColumn/HoleCard/Stack/Row"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 0
+
+[node name="Caption" type="Label" parent="HoleColumn/HoleCard/Stack/Row/ScoreFigure"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 11
+text = "SCORE"
+
+[node name="Values" type="HBoxContainer" parent="HoleColumn/HoleCard/Stack/Row/ScoreFigure"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Score" type="Label" parent="HoleColumn/HoleCard/Stack/Row/ScoreFigure/Values"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 28
+text = "—"
+
+[node name="ScoreNote" type="Label" parent="HoleColumn/HoleCard/Stack/Row/ScoreFigure/Values"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_font_sizes/font_size = 12
+
+[node name="StatusRow" type="HBoxContainer" parent="HoleColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="MonitorStatus" type="Button" parent="HoleColumn/StatusRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+tooltip_text = "Launch monitor  [L]"
+focus_mode = 0
+theme_override_font_sizes/font_size = 13
+text = "Not connected"
+alignment = 0
+
+[node name="Turn" type="Label" parent="HoleColumn"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 20
+text = "ANN TO PLAY"
+
+[node name="Standings" type="Label" parent="HoleColumn"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_font_sizes/font_size = 13
+autowrap_mode = 3
+
+[node name="Mulligan" type="Button" parent="HoleColumn"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(0, 36)
+layout_mode = 2
+size_flags_horizontal = 0
+tooltip_text = "Take the last shot again without counting it (house rules)  [U, gamepad X]"
+text = "Mulligan  (2 left)"
+
+[node name="Credit" type="Label" parent="HoleColumn"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 0.8)
+theme_override_font_sizes/font_size = 10
+
+[node name="LastShot" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_left = 16.0
+offset_top = -20.0
+offset_right = 16.0
+offset_bottom = -20.0
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("LastShotBox")
+
+[node name="ResultStats" type="VBoxContainer" parent="LastShot"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(104, 0)
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ShotColumn" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -16.0
+offset_right = -16.0
+offset_bottom = -16.0
+grow_horizontal = 0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="LiePanel" type="PanelContainer" parent="ShotColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 8
+tooltip_text = "Shot penalty: how much shorter the club carries from this lie and stance than from a clean, level one"
+theme_override_styles/panel = SubResource("BottomCardBox")
+
+[node name="LieContent" type="VBoxContainer" parent="ShotColumn/LiePanel"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="LieChip" type="PanelContainer" parent="ShotColumn/LiePanel/LieContent"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="LieName" type="Label" parent="ShotColumn/LiePanel/LieContent/LieChip"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.06, 0.08, 0.06, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 17
+text = "Tee"
+
+[node name="StanceRows" type="VBoxContainer" parent="ShotColumn/LiePanel/LieContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="Stance" type="GridContainer" parent="ShotColumn/LiePanel/LieContent/StanceRows"]
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 2
+columns = 2
+
+[node name="SideCaption" type="Label" parent="ShotColumn/LiePanel/LieContent/StanceRows/Stance"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 11
+text = "SIDE"
+
+[node name="SideSlope" type="Label" parent="ShotColumn/LiePanel/LieContent/StanceRows/Stance"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 16
+text = "—"
+horizontal_alignment = 2
+
+[node name="SlopeCaption" type="Label" parent="ShotColumn/LiePanel/LieContent/StanceRows/Stance"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 11
+text = "SLOPE"
+
+[node name="UpSlope" type="Label" parent="ShotColumn/LiePanel/LieContent/StanceRows/Stance"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 16
+text = "—"
+horizontal_alignment = 2
+
+[node name="PenaltyCaption" type="Label" parent="ShotColumn/LiePanel/LieContent/StanceRows/Stance"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 11
+text = "PENALTY"
+
+[node name="Penalty" type="Label" parent="ShotColumn/LiePanel/LieContent/StanceRows/Stance"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 18
+text = "—"
+horizontal_alignment = 2
+
+[node name="LieNote" type="Label" parent="ShotColumn/LiePanel/LieContent/StanceRows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_font_sizes/font_size = 12
+autowrap_mode = 3
+
+[node name="GreenRows" type="VBoxContainer" parent="ShotColumn/LiePanel/LieContent"]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="ReadRow" type="HBoxContainer" parent="ShotColumn/LiePanel/LieContent/GreenRows"]
+layout_mode = 2
+
+[node name="ReadCaption" type="Label" parent="ShotColumn/LiePanel/LieContent/GreenRows/ReadRow"]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 11
+text = "READ"
+
+[node name="GreenRead" type="Label" parent="ShotColumn/LiePanel/LieContent/GreenRows/ReadRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 17
+horizontal_alignment = 2
+
+[node name="GreenReadNote" type="Label" parent="ShotColumn/LiePanel/LieContent/GreenRows"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_font_sizes/font_size = 12
+autowrap_mode = 3
+
+[node name="Aids" type="HBoxContainer" parent="ShotColumn/LiePanel/LieContent/GreenRows"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="Flag" type="Button" parent="ShotColumn/LiePanel/LieContent/GreenRows/Aids"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Leave the flag in the hole, or pull it (the default)  [F]"
+theme_type_variation = &"FlatButton"
+text = "Flag: out"
+
+[node name="HeatMap" type="Button" parent="ShotColumn/LiePanel/LieContent/GreenRows/Aids"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Colour the green by height: blue low, red high  [H]"
+theme_type_variation = &"FlatButton"
+toggle_mode = true
+text = "Heat map"
+
+[node name="Grid" type="Button" parent="ShotColumn/LiePanel/LieContent/GreenRows/Aids"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Grid on the green, with dots rolling downhill along it (faster = steeper)  [G]"
+theme_type_variation = &"FlatButton"
+toggle_mode = true
+text = "Grid"
+
+[node name="Leaderboard" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 16.0
+offset_top = -16.0
+offset_right = 16.0
+offset_bottom = -16.0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("BottomCardBox")
+
+[node name="Column" type="VBoxContainer" parent="Leaderboard"]
+custom_minimum_size = Vector2(220, 0)
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="LeaderboardCaption" type="Label" parent="Leaderboard/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 11
+text = "LEADERBOARD"
+
+[node name="LeaderboardRows" type="GridContainer" parent="Leaderboard/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 12
+theme_override_constants/v_separation = 2
+columns = 3
+
+[node name="ShotPanel" type="PanelContainer" parent="ShotColumn"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 8
+theme_override_styles/panel = SubResource("ShotPanelBox")
+
+[node name="Row" type="HBoxContainer" parent="ShotColumn/ShotPanel"]
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Column" type="VBoxContainer" parent="ShotColumn/ShotPanel/Row"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Top" type="BoxContainer" parent="ShotColumn/ShotPanel/Row/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 18
+
+[node name="Pin" type="VBoxContainer" parent="ShotColumn/ShotPanel/Row/Column/Top"]
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="Caption" type="Label" parent="ShotColumn/ShotPanel/Row/Column/Top/Pin"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 11
+text = "TO THE PIN"
+
+[node name="PinRow" type="HBoxContainer" parent="ShotColumn/ShotPanel/Row/Column/Top/Pin"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="ToPin" type="Label" parent="ShotColumn/ShotPanel/Row/Column/Top/Pin/PinRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 34
+text = "—"
+
+[node name="ElevationPad" type="MarginContainer" parent="ShotColumn/ShotPanel/Row/Column/Top/Pin/PinRow"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 6
+theme_override_constants/margin_right = 0
+theme_override_constants/margin_bottom = 6
+
+[node name="Elevation" type="Label" parent="ShotColumn/ShotPanel/Row/Column/Top/Pin/PinRow/ElevationPad"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_font_sizes/font_size = 15
+
+[node name="PlaysLike" type="Label" parent="ShotColumn/ShotPanel/Row/Column/Top/Pin"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(150, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.22, 0.78, 0.47, 1)
+theme_override_font_sizes/font_size = 13
+autowrap_mode = 3
+
+[node name="ClubBlock" type="VBoxContainer" parent="ShotColumn/ShotPanel/Row/Column/Top"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="ClubRow" type="HBoxContainer" parent="ShotColumn/ShotPanel/Row/Column/Top/ClubBlock"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="ClubCaption" type="Label" parent="ShotColumn/ShotPanel/Row/Column/Top/ClubBlock/ClubRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 11
+text = "CLUB"
+
+[node name="CourseClub" type="OptionButton" parent="ShotColumn/ShotPanel/Row/Column/Top/ClubBlock/ClubRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(170, 38)
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="AimRow" type="HBoxContainer" parent="ShotColumn/ShotPanel/Row/Column/Top/ClubBlock"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="AimCaption" type="Label" parent="ShotColumn/ShotPanel/Row/Column/Top/ClubBlock/AimRow"]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 11
+text = "AIM"
+
+[node name="Aim" type="Label" parent="ShotColumn/ShotPanel/Row/Column/Top/ClubBlock"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(200, 0)
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_font_sizes/font_size = 12
+clip_text = true
+
+[node name="CourseShotSlot" type="HBoxContainer" parent="ShotColumn/ShotPanel/Row/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Result" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_top = 16.0
+offset_bottom = 16.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("ResultBox")
+
+[node name="Column" type="VBoxContainer" parent="Result"]
+layout_mode = 2
+theme_override_constants/separation = 2
+
+[node name="ResultHeadline" type="Label" parent="Result/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 19
+text = "In the fairway, 162 yds to go"
+horizontal_alignment = 1
+
+[node name="ResultNote" type="Label" parent="Result/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
+theme_override_font_sizes/font_size = 13
+horizontal_alignment = 1
+
+[node name="Scorecard" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("ScorecardBox")
+
+[node name="Column" type="VBoxContainer" parent="Scorecard"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Head" type="HBoxContainer" parent="Scorecard/Column"]
+layout_mode = 2
+
+[node name="ScorecardTitle" type="Label" parent="Scorecard/Column/Head"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 20
+text = "Scorecard"
+
+[node name="NewRound" type="Button" parent="Scorecard/Column/Head"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Start a new round from the first tee (this one is not kept)"
+theme_type_variation = &"FlatButton"
+text = "New round"
+
+[node name="CloseScorecard" type="Button" parent="Scorecard/Column/Head"]
+unique_name_in_owner = true
+layout_mode = 2
+tooltip_text = "Close  [S]"
+theme_type_variation = &"FlatButton"
+text = "✕"
+
+[node name="ScorecardGrid" type="GridContainer" parent="Scorecard/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/h_separation = 18
+theme_override_constants/v_separation = 6
+
+[node name="ScorecardNote" type="Label" parent="Scorecard/Column"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.22, 0.78, 0.47, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 16
+
+[node name="Hint" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_top = 16.0
+offset_bottom = 16.0
+grow_horizontal = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("HintBox")
+
+[node name="HintText" type="Label" parent="Hint"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
+theme_override_fonts/font = SubResource("Bold")
+theme_override_font_sizes/font_size = 20
+text = "Hole 1 flyover · Space to skip"

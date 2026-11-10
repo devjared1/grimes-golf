@@ -381,7 +381,8 @@ public partial class Main
         {
             // The engine couldn't simulate it (impossible numbers from the monitor): nothing happened.
             Log(o.Message);
-            _hud.ShowResult("Shot not counted", Array.Empty<Stat>(), o.Message);
+            _hud.HideResult();
+            _hud.ShowResult("Shot not counted", o.Message);
             return null;
         }
         _outcome = o;
@@ -389,9 +390,12 @@ public partial class Main
         _player.Play(o.Flight);
         _course?.SetAim(round.Ball, heading, 0, visible: false);
         CountShot(s, o.Flight, replay);
-        // Nothing about where it went (or the next shot) until the ball has stopped: FinishShot shows it all.
+        // The launch numbers straight away; nothing about where it went (or the next shot) until the ball has
+        // stopped: FinishShot shows the rest.
         _hud.HideMapMarkers();
         _hud.HideResult();
+        _shotLaunch = LaunchStats(s, putt);
+        _hud.ShowShotNumbers(_shotLaunch, Array.Empty<Stat>());
         _hud.LockHit();
         RaiseShotFinished(new ShotFinished(DateTime.Now, golfer, club, s, o.Flight, replay)
         {
@@ -424,8 +428,11 @@ public partial class Main
         // Holed (or tapped in): the ball rests at the bottom of the cup, against the flagstick.
         else if (o.Holed) _player.PlaceBall(CupBall(round.Hole));
         if (o.Holed) CelebrateScore(match, round, o);
-        string headline = who + o.Message, note = o.LieText;
-        if (pick is { Message.Length: > 0 } p && !o.HoleOver) note = note.Length == 0 ? p.Message : $"{p.Message}   ·   {note}";
+        // The line across the top is for what needs saying: a plain "Fairway, 142 yd to the pin" is already on the
+        // lie card and in the numbers, and so is what the lie did to the shot (it goes to the log).
+        bool plain = !o.HoleOver && o.Penalty == 0 && o.NextBall == o.Rest && o.Flight.TreeHitIndex == null;
+        string headline = plain ? "" : who + o.Message, note = "";
+        if (pick is { Message.Length: > 0 } p && !o.HoleOver) note = p.Message;
         if (match.HoleComplete && match.RoundComplete)
         {
             note = $"Round complete: {match.Summary()}. NEXT HOLE plays again; Menu > End Game to finish.";
@@ -443,17 +450,21 @@ public partial class Main
         else if (match.CanMulligan && o.Penalty > 0) note = $"Mulligan? Press U ({round.MulligansLeft} left).";
 
         var stats = new List<Stat>();
-        if (o.Flight.LandingIndex == 0)
+        var f = o.Flight;
+        if (f.LandingIndex == 0)
         {
-            stats.Add(Distance("Rolled", o.Flight.TotalYards * Units.YardsToMetres, short_: true));
-            if (!o.Holed && o.Penalty == 0) stats.Add(Distance("To the hole", o.NextBall.DistanceTo(round.Hole.Pin), short_: true));
+            stats.Add(Distance("Rolled", f.TotalYards * Units.YardsToMetres, short_: true));
+            if (!o.HoleOver && o.Penalty == 0) stats.Add(Distance("To the hole", o.NextBall.DistanceTo(round.Hole.Pin), short_: true));
         }
         else
         {
-            stats.Add(new Stat("Carry", $"{o.Flight.CarryYards:0}", "yd"));
-            stats.Add(new Stat("Total", $"{o.Flight.TotalYards:0}", "yd"));
-            stats.Add(new Stat("Offline", RangeShot.Side(o.Flight.LateralYards, "0"), "yd"));
-            if (!o.Holed && o.Penalty == 0) stats.Add(Distance("To the pin", o.NextBall.DistanceTo(round.Hole.Pin), short_: round.Lie == Lie.Green));
+            stats.Add(new Stat("Carry", $"{f.CarryYards:0}", "yd"));
+            stats.Add(new Stat("Total", $"{f.TotalYards:0}", "yd"));
+            stats.Add(new Stat("Offline", RangeShot.Side(f.LateralYards, "0"), "yd"));
+            stats.Add(new Stat("Roll", $"{Math.Max(0, f.TotalYards - f.CarryYards):0}", "yd"));
+            stats.Add(new Stat("Apex", $"{f.ApexYards * 3:0}", "ft"));
+            stats.Add(new Stat("Descent", $"{f.DescentDeg:0}°"));
+            if (!o.HoleOver && o.Penalty == 0) stats.Add(Distance("To the pin", o.NextBall.DistanceTo(round.Hole.Pin), short_: round.Lie == Lie.Green));
         }
 
         // Next player up (the same one if they're still farthest away).
@@ -465,8 +476,9 @@ public partial class Main
             string up = $"{match.Golfer.Name} to play" + (match.Current.Strokes == 0 || match.Type == GameType.Scramble ? "" : ", farthest from the hole");
             note = note.Length == 0 ? up : $"{note}   ·   {up}";
         }
-        _hud.ShowResult(headline, stats, note);
-        Log(headline + (note.Length > 0 ? "  " + note : ""));
+        _hud.ShowResult(headline, note);
+        _hud.ShowShotNumbers(_shotLaunch, stats);
+        Log(string.Join("  ", new[] { who + o.Message, o.LieText, note }.Where(t => t.Length > 0)));
         PrepareNextShot(snapCamera: match.Turn != hitter);
         _online?.ShotShown();   // after the turn has moved on here: the host's next turn is taken from this match
         if (!match.HoleComplete) return;
@@ -522,6 +534,26 @@ public partial class Main
         // Online rounds never touch the offline save: the host keeps online-round.json (see Main.Online.cs).
         if (_data == null || _match == null || _online != null) return;
         _data.SaveRound(SavedRound.From(_match, CourseName, _roundStarted, _game));
+    }
+
+    /// <summary>The launch numbers of the shot in play, shown from impact and kept beside its result.</summary>
+    private IReadOnlyList<Stat> _shotLaunch = Array.Empty<Stat>();
+
+    /// <summary>What the monitor (or the screen) measured: speed and start line for a putt; speeds, launch and spin for a full shot.</summary>
+    private static List<Stat> LaunchStats(RangeShot s, bool putt)
+    {
+        var stats = new List<Stat> { new("Ball speed", $"{s.BallMph:0.0}", "mph") };
+        if (putt)
+        {
+            stats.Add(new Stat("Start line", RangeShot.Side(s.DirectionDeg) + "°"));
+            return stats;
+        }
+        if (s.ClubMph is > 0 and var club) stats.Add(new Stat("Club speed", $"{club:0.0}", "mph"));
+        stats.Add(new Stat("Launch", $"{s.LaunchDeg:0.0}°"));
+        stats.Add(new Stat("Direction", RangeShot.Side(s.DirectionDeg) + "°"));
+        stats.Add(new Stat("Spin", $"{s.SpinRpm:0}", "rpm"));
+        stats.Add(new Stat("Spin axis", RangeShot.Side(s.SpinAxisDeg) + "°"));
+        return stats;
     }
 
     /// <summary>A distance in yards, or feet when short (putts, around the green).</summary>
