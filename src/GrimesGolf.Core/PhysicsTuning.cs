@@ -106,10 +106,21 @@ public sealed class PhysicsTuning
         var values = Parameters.ToDictionary(p => p.Key, p => p.Default);
         if (root["values"] is JsonObject saved)
             foreach (var (key, node) in saved)
-                if (ByKey.TryGetValue(key, out var p) && node is JsonValue v && v.TryGetValue<double>(out var d)) values[key] = p.Clamp(d);
+                if (ByKey.TryGetValue(key, out var p) && node is JsonValue v && v.TryGetValue<double>(out var d))
+                    values[key] = RetiredDefaults.TryGetValue(key, out var old) && Math.Abs(d - old) < p.Step / 2 ? p.Default : p.Clamp(d);
         string name = root["name"] is JsonValue n && n.TryGetValue<string>(out var s) && s.Length > 0 ? s : "Tuning";
         return new PhysicsTuning(name, values);
     }
+
+    /// <summary>
+    /// Defaults that have since changed. A saved tuning holds every value, so one saved at an old default is read as
+    /// the new default (it was never tuned; the old value is what's being replaced).
+    /// </summary>
+    private static readonly Dictionary<string, double> RetiredDefaults = new()
+    {
+        ["ground.sand.bounce"] = Surfaces.OldSandBounce, ["ground.sand.crater"] = Surfaces.OldSandCrater,
+        ["ground.sand.rolling"] = Surfaces.OldSandRolling, ["ground.sand.drag"] = Surfaces.OldSandDrag,
+    };
 
     private static List<TuningParameter> BuildParameters()
     {

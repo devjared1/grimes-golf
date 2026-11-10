@@ -178,6 +178,7 @@ public class SoundTests
     [InlineData(SoundEffect.Cup)]
     [InlineData(SoundEffect.Applause)]
     [InlineData(SoundEffect.Cheer)]
+    [InlineData(SoundEffect.Ready)]
     public void Sounds_are_audible_unclipped_and_end_cleanly(SoundEffect effect)
     {
         var s = SoundSynth.Make(effect);

@@ -117,14 +117,19 @@ course logo, hole number, par and length, the stroke being played and the score 
 turn it is and the Mulligan button. Top right, the hole overview: the hole from above with the ball ringed in the
 player's colour, a line from it to where the shot is aimed (it swings with the aim and stretches or shrinks with
 the power) with that distance, and the flag with its distance (click or drag on the map to aim); under it, the
-wind. Down the left, the last shot's carry, total, offline and distance left (until the next shot). Bottom left,
+wind. Down the left, the shot's numbers (until the next shot): its launch (ball and club speed, launch, direction,
+spin and spin axis) as soon as it's struck, then its result (carry, total, offline, roll, apex, descent and the
+distance left) once the ball stops. Bottom left,
 the lie card: the lie, the side and up / down slope angles, and the shot penalty (how much shorter the club
 carries from there than from a clean, level lie); on the green, the green read with the flag, heat map and grid
 buttons instead. Bottom right, the shot panel: distance to the pin with the rise or fall to it ("153 yds", "up 2'",
 and what it plays), the club (its tooltip gives the carry from here), the aim, power, shape, spin and HIT SHOT.
 With a monitor connected the swing does that work: the shot panel holds the distance, the club and the lie card,
-and a small leaderboard takes the bottom left. Aim with `← / →` or by clicking the map.
-A line across the top after each shot says where it finished and what happens next; holing out announces the
+and with more than one player a small leaderboard takes the bottom left. The aim line then runs out to the club's
+carry from this lie (your club distances, or the typical ones), whatever the distance to the pin; `↑ / ↓` move it a
+yard further or shorter (Shift = 5 yd). Aim with `← / →` or by clicking the map.
+A line across the top appears after a shot only when there's something to say: holed, a penalty, relief, off a tree, who's
+up next, the next hole (where the ball lies and how far it has left are on the lie card and the numbers); holing out announces the
 score ("BIRDIE!") across the screen; the scorecard opens with `S`, from the menu, and after each hole. Once
 everyone has finished a hole the next one starts by itself after 5 seconds (counting down on the NEXT HOLE button;
 `Space` goes straight away, and the count pauses while a menu is open).
@@ -173,8 +178,11 @@ the monitor to it). Lies are tee, fairway, fringe (the collar around greens), ro
 fairways, tees and greens), deep rough, bunker and green. Shots from the rough, deep rough, sand and fringe lose
 speed and spin, and sloping lies change the launch (uphill higher, ball above the feet pulls and draws), because a
 monitor reading a ball off a mat can't see the lie. Balls bounce and roll by surface: high-spin wedges check and spin
-back on the greens, the rough grabs, sand stops the ball. Water and out of bounds are stroke-and-distance
-(one-stroke penalty, replay from the previous spot); putts that stop within the gimme distance are tapped in. The
+back on the greens, the rough grabs. Sand takes the pace off: a ball rolling into a bunker runs on into the sand as
+far as its pace takes it (it can't roll out again over the lip), and one landing in it makes a low hop and runs a
+little, or buries near its pitch mark if it comes in steep and fast. Water and out of bounds are stroke-and-distance
+(one-stroke penalty, replay from the previous spot); putts that stop inside the gimme circle (drawn round the hole)
+are tapped in. The
 cup has depth: a putt at the right pace drops in, one that's too firm for how far off-centre it is lips out (or
 skips over if it's dead straight). The flag is pulled once you're on the green (`F` to leave it in).
 
@@ -184,8 +192,9 @@ With elevation, Deer Run plays on real ground:
   shows the distance a shot plays ("146 yd to the pin (plays 152)") and the caddie picks clubs by it.
 - Landings are judged against the slope (into an upslope checks up, onto a downslope releases), and the ball rolls
   with friction by lie plus gravity along the slope: it runs down hills, stops on gentle slopes, and breaks on greens.
-- On the green the default aim is a putt read that allows for the break, and the HUD says how much
-  ("23 ft to the pin, aim 2.5 ft left"); demo putts are struck at the read's pace.
+- On the green the aim starts straight at the hole, and the lie card's read says how much to allow for the break
+  ("2.5 ft left"); with **Auto-align putts** (house rules) it starts along the read instead. Demo putts are struck at
+  the read's pace.
 - The ground is drawn as one mesh from the same grid, coloured by a coverage texture of the fairways, greens,
   bunkers and water, so the ball sits on what you see.
 
@@ -201,9 +210,12 @@ scorecard has a row per player (and per team in the team games).
 
 **House rules** (Settings): mulligans per player per round (**Mulligan** on the hole card, `U`, numpad 0 or
 gamepad X takes back the last shot of the round, penalty included, once the ball has stopped and before anyone
-else hits; not a holed one), the gimme distance (0 = hole everything out), and picking up at double par. The
-default is 2 mulligans, 2 ft gimmes and double-par pick-up. Player and rule changes apply from the next round
-("Save and start a new round" starts one now).
+else hits; not a holed one), the gimme circle (4, 6, 8, 10 or 12 ft round the hole, drawn on the green), picking up
+at double par, **Auto-align putts** (the aim on the green follows the read; off, it's at the hole), and
+**Auto-putting** (nobody putts: once the ball stops on the green the hole is finished with 1 putt inside the gimme
+circle, 2 inside a second circle twice as wide, drawn too, and 2 or 3 beyond it; double par still caps it). The
+default is 2 mulligans, a 6 ft gimme circle and double-par pick-up, with both putting aids off. Player and rule
+changes apply from the next round ("Save and start a new round" starts one now).
 
 **The round is saved after every shot.** If the app is closed or crashes, **Resume Game** on the main menu
 carries on with it, with the same players. **Restart Game** in the menu (or **New round** on the scorecard)
@@ -228,7 +240,7 @@ Add / Remove Players during a round. A player you don't save lasts until the app
 house rules, auto-connect, text size (Small / Normal / Large / Extra large: smaller for a laptop, bigger for
 reading from the mat or a projector), full screen (the app always opens full screen; untick this for a window until you close it), graphics quality (Low / Medium / High / Ultra: anti-aliasing,
 shadow detail and reach, bounced light and reflections in the water, how far 3D grass reaches round the camera, and soft focus on grass right in front of a low camera;
-High is the default), the camera's hole flyover, and sound effects (club, ball, cup and crowd; turn them off if you'd rather just hear your own strike). The course last played and the camera mode are remembered too, so no command-line switches are
+High is the default), the camera's hole flyover, sound effects (club, ball, cup and crowd; turn them off if you'd rather just hear your own strike), and a "Ready" chime when the launch monitor sees a ball and is ready for the shot (on by default, separate from the other sounds). The course last played and the camera mode are remembered too, so no command-line switches are
 needed. The whole UI also scales up with the window (a full-screen projector shows it bigger), and switches to a
 compact layout when large text leaves less room.
 
@@ -239,7 +251,7 @@ compact layout when large text leaves less room.
 | Action | Keyboard | Numpad | Gamepad | Clicker |
 |---|---|---|---|---|
 | HIT SHOT; after the hole, next hole | **Space** | 5 / Enter | A | Next (Page Down) |
-| Power 1% / 5% | **↑ / ↓**, Shift + ↑ / ↓ | | | |
+| Power 1% / 5% (with a monitor: aim 1 / 5 yd further or shorter) | **↑ / ↓**, Shift + ↑ / ↓ | | | |
 | Aim ¼° (course and range) | **← / →** | 4 / 6 | D-pad ← / → | |
 | Range: next / previous target flag | **F** / **Shift + F** | | Y | |
 | Skip the hole flyover | **Space**, **Esc** | 5 / Enter | A, B | Next (Page Down) |

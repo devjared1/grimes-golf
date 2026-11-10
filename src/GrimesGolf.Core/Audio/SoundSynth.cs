@@ -1,7 +1,7 @@
 namespace GrimesGolf.Core.Audio;
 
 /// <summary>The game's sound effects.</summary>
-public enum SoundEffect { Wood, Iron, Wedge, Putt, Landing, Tree, Cup, Applause, Cheer }
+public enum SoundEffect { Wood, Iron, Wedge, Putt, Landing, Tree, Cup, Applause, Cheer, Ready }
 
 /// <summary>
 /// Makes the sound effects from code, so there are no audio files to license or ship. Each is mono, 16-bit, built the
@@ -33,8 +33,27 @@ public static class SoundSynth
         SoundEffect.Cup => Cup(),
         SoundEffect.Applause => Crowd(3.2, claps: 650, voices: 0, seed: 7),
         SoundEffect.Cheer => Crowd(4.8, claps: 1500, voices: 0.8, seed: 8),
+        SoundEffect.Ready => Chime(),
         _ => throw new ArgumentOutOfRangeException(nameof(effect)),
     });
+
+    /// <summary>The launch monitor is ready: two soft, rising bell notes (a fifth apart).</summary>
+    private static double[] Chime()
+    {
+        var d = new double[(int)(0.75 * SampleRate)];
+        foreach (var (start, hz) in new[] { (0.0, 880.0), (0.13, 1318.5) })
+        {
+            int at = (int)(start * SampleRate);
+            for (int i = 0; at + i < d.Length; i++)
+            {
+                double t = (double)i / SampleRate;
+                double attack = Math.Min(1, t / 0.006);   // a soft start, so it doesn't click
+                double tone = Math.Sin(2 * Math.PI * hz * t) + 0.3 * Math.Sin(2 * Math.PI * hz * 2 * t) * Math.Exp(-6 * t);
+                d[at + i] += attack * Math.Exp(-5.5 * t) * tone;
+            }
+        }
+        return d;
+    }
 
     /// <summary>Little-endian 16-bit samples, as an audio engine wants them.</summary>
     public static byte[] ToBytes(short[] samples)

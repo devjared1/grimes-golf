@@ -122,8 +122,17 @@ public partial class CameraRig : Camera3D
         SetHome(Vector3.Zero, Vector3.Forward, putting: false, snap: true);
     }
 
-    /// <summary>Home pose behind <paramref name="ball"/> looking along <paramref name="aim"/> (horizontal unit vector).</summary>
-    public void SetHome(Vector3 ball, Vector3 aim, bool putting, bool snap = false)
+    /// <summary>
+    /// How near the camera sits for a shot of <paramref name="metres"/>: 0 for a short one (a pitch or a chip, framed
+    /// close), 1 for a long one (a full iron or more).
+    /// </summary>
+    private static float Reach(float metres) => Mathf.Clamp((metres - 20f) / 160f, 0f, 1f);
+
+    /// <summary>
+    /// Home pose behind <paramref name="ball"/> looking along <paramref name="aim"/> (horizontal unit vector), for a
+    /// shot of about <paramref name="shotLength"/> metres: nearer the ball and looking less far ahead for a short one.
+    /// </summary>
+    public void SetHome(Vector3 ball, Vector3 aim, bool putting, bool snap = false, float shotLength = 150f)
     {
         _putting = putting;
         if (putting)
@@ -133,8 +142,9 @@ public partial class CameraRig : Camera3D
         }
         else
         {
-            _homePos = ball - aim * 9f + new Vector3(0, 3.2f, 0);
-            _homeLook = ball + aim * 110f;
+            float reach = Reach(shotLength);
+            _homePos = ball - aim * Mathf.Lerp(5.5f, 8f, reach) + new Vector3(0, Mathf.Lerp(2.2f, 3.0f, reach), 0);
+            _homeLook = ball + aim * Mathf.Clamp(shotLength * 1.1f + 10f, 30f, 110f);
             // Look at the ground out there (up or down the hill), a little above it.
             _homeLook.Y = (GroundAt == null ? ball.Y : Ground(_homeLook)) + 4f;
         }
@@ -181,12 +191,14 @@ public partial class CameraRig : Camera3D
         {
             var ball = _player.BallPosition;
             var dir = _player.ShotDirection;
-            // Stay behind and above the ball along the shot line (much closer for a putt).
-            float back = _putting ? 5.5f : 21f + ball.Y * 0.4f;
-            float up = _putting ? 2.2f : 5.8f + ball.Y * 0.5f;
+            // Stay behind and above the ball along the shot line: much closer for a putt, and closer for a short
+            // shot than a long one (backing off as the ball climbs).
+            float reach = Reach(_player.ShotLength);
+            float back = _putting ? 5.5f : Mathf.Lerp(8f, 17f, reach) + ball.Y * 0.4f;
+            float up = _putting ? 2.2f : Mathf.Lerp(2.6f, 4.8f, reach) + ball.Y * 0.5f;
             wantPos = ball - dir * back + new Vector3(0, up, 0);
-            wantPos.Y = Mathf.Max(wantPos.Y, Ground(wantPos) + (_putting ? 1.4f : 3f));
-            wantLook = ball + dir * (_putting ? 2.5f : 8f);
+            wantPos.Y = Mathf.Max(wantPos.Y, Ground(wantPos) + (_putting ? 1.4f : Mathf.Lerp(1.8f, 3f, reach)));
+            wantLook = ball + dir * (_putting ? 2.5f : Mathf.Lerp(4f, 8f, reach));
             rate = 3.2f;
         }
 

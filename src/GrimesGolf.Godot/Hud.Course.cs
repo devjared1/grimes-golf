@@ -4,45 +4,121 @@ using GrimesGolf.Core;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// The course view, laid out round the ball in the middle so the hole stays in sight: the hole badge top left (course
-/// logo, hole, par, length, stroke and score; whose turn and the mulligan under it), the hole overview map top right
-/// (built in <c>Hud.cs</c>) with the wind under it, the last shot's numbers down the left, the lie card bottom left
-/// (the lie, the slopes and the shot penalty; on the green, the read and green aids), and the shot panel bottom right
-/// (to the pin with the elevation, club, aim, power, shape, spin and HIT SHOT). The result line runs across the top,
-/// and the scorecard opens over it all. With a launch monitor connected the swing replaces the on-screen shot controls:
-/// the shot panel becomes to the pin, club and the lie card, and a small leaderboard takes the bottom left.
+/// The course view, laid out round the ball in the middle so the hole stays in sight. There's no top bar: the hole
+/// badge top left (Menu and the brand; course logo, hole, par, length, stroke and score; the Ready light, monitor
+/// status, whose turn and the mulligan under it), the hole overview map top right (built in <c>Hud.cs</c>) with the
+/// wind under it, the last shot's numbers down the left, and bottom right the lie card (the lie, the slopes and the
+/// shot penalty; on the green, the read and green aids) over the shot panel (to the pin with the elevation, club, aim,
+/// power, shape, spin and HIT SHOT). The result line runs across the top, and the scorecard opens over it all. With a
+/// launch monitor connected the swing replaces the on-screen shot controls: the shot panel narrows to to the pin over
+/// the club, and a small leaderboard takes the bottom left.
 /// </summary>
 public partial class Hud
 {
     // ---- course view -------------------------------------------------------------------------
 
+    /// <summary>
+    /// The course view's layout, edited in the Godot editor. Nodes the code uses are marked "Access as Unique Name"
+    /// (%) there, so they can be moved around the tree freely; keep their names and types. The code adds what it
+    /// can't know up front: the wind, the club list, the aim and align buttons, the shot controls, and the rows of
+    /// the last shot, the leaderboard and the scorecard.
+    /// </summary>
+    private const string CourseViewScene = "res://HudCourse.tscn";
+
     private void BuildCourseView()
     {
-        _courseView = new Control { MouseFilter = MouseFilterEnum.Ignore };
-        _courseView.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        _courseView = GD.Load<PackedScene>(CourseViewScene).Instantiate<Control>();
         AddChild(_courseView);
+        T N<T>(string name) where T : Node => _courseView.GetNode<T>("%" + name);
 
-        BuildHoleCard();
-        BuildLastShotCard();
-        BuildLiePanel();
-        BuildLeaderboard();
-        BuildShotPanel();
-        BuildResultCard();
-        BuildScorecard();
+        // Hole badge and what's under it
+        _courseLogo = N<TextureRect>("CourseLogo");
+        _holeNumber = N<Label>("HoleNumber");
+        _holeFacts = N<Label>("HoleFacts");
+        _holeName = N<Label>("HoleName");
+        _stroke = N<Label>("Stroke");
+        _score = N<Label>("Score");
+        _scoreNote = N<Label>("ScoreNote");
+        _turn = N<Label>("Turn");
+        _standings = N<Label>("Standings");
+        _mulligan = N<Button>("Mulligan");
+        _mulligan.Pressed += () => MulliganPressed?.Invoke();
+        _credit = N<Label>("Credit");
 
+        // There's no top bar over the course: Menu and the brand head the hole badge, and the Ready light and the
+        // monitor status (which opens the monitor drawer) sit under it.
+        N<Button>("CourseMenu").Pressed += () => MenuPressed?.Invoke();
+        if (Brand.Logo is { } logo)
+        {
+            var logoRect = Brand.LogoRect(logo, new Vector2(150, 30), TextureRect.StretchModeEnum.KeepAspectCentered);
+            logoRect.TooltipText = $"{Brand.Name} Simulator {Version}";
+            logoRect.Modulate = new Color(1.5f, 1.5f, 1.5f);   // the fine script dims at this size
+            N<HBoxContainer>("BrandSlot").AddChild(logoRect);
+        }
+        _statusRow = N<HBoxContainer>("StatusRow");
+        _courseStatus = N<Button>("MonitorStatus");
+        _courseStatus.Pressed += ToggleDrawer;
+
+        // Last shot, lie card, leaderboard
+        _lastShot = N<PanelContainer>("LastShot");
+        _lastShotOffset = _lastShot.OffsetTop;
+        _holeColumn = _courseView.GetNodeOrNull<Control>("HoleColumn");
+        _resultStats = N<VBoxContainer>("ResultStats");
+        _liePanel = N<PanelContainer>("LiePanel");
+        _lieChip = N<PanelContainer>("LieChip");
+        _lieName = N<Label>("LieName");
+        _stanceRows = N<Control>("StanceRows");
+        _sideSlope = N<Label>("SideSlope");
+        _upSlope = N<Label>("UpSlope");
+        _penalty = N<Label>("Penalty");
+        _lieNote = N<Label>("LieNote");
+        _greenRows = N<Control>("GreenRows");
+        _greenRead = N<Label>("GreenRead");
+        _greenReadNote = N<Label>("GreenReadNote");
+        _flag = N<Button>("Flag");
+        _flag.Pressed += () => FlagPressed?.Invoke();
+        _heatMap = N<Button>("HeatMap");
+        _heatMap.Pressed += () => HeatMapPressed?.Invoke();
+        _grid = N<Button>("Grid");
+        _grid.Pressed += () => GridPressed?.Invoke();
+        _leaderboard = N<PanelContainer>("Leaderboard");
+        _leaderboardCaption = N<Label>("LeaderboardCaption");
+        _leaderboardRows = N<GridContainer>("LeaderboardRows");
+
+        // Shot panel (its first child must stay the row SetCompact tightens), with the lie card above it
+        _shotPanel = N<PanelContainer>("ShotPanel");
+        _planTop = N<BoxContainer>("Top");
+        _clubCaption = N<Label>("ClubCaption");
+        _toPin = N<Label>("ToPin");
+        _elevation = N<Label>("Elevation");
+        _playsLike = N<Label>("PlaysLike");
+        _clubBlock = N<Control>("ClubBlock");
+        _courseClub = ClubPicker(N<OptionButton>("CourseClub"));
+        _courseAimRow = N<HBoxContainer>("AimRow");
+        AddAimButtons((HBoxContainer)_courseAimRow, 40);
+        _aim = N<Label>("Aim");
+        N<HBoxContainer>("ClubRow").AddChild(AlignButton());
+        _courseShotSlot = N<HBoxContainer>("CourseShotSlot");
+
+        // Result line, scorecard, hint
+        _result = N<PanelContainer>("Result");
+        _resultHeadline = N<Label>("ResultHeadline");
+        _resultNote = N<Label>("ResultNote");
+        _scorecardPanel = N<PanelContainer>("Scorecard");
+        _scorecardTitle = N<Label>("ScorecardTitle");
+        _scorecard = N<GridContainer>("ScorecardGrid");
+        _scorecardNote = N<Label>("ScorecardNote");
+        N<Button>("NewRound").Pressed += () => { _scorecardPanel.Visible = false; NewRoundPressed?.Invoke(); };
+        N<Button>("CloseScorecard").Pressed += ToggleScorecard;
+        _hint = N<PanelContainer>("Hint");
+        _hintText = N<Label>("HintText");
+
+        // The wind goes under the map (placed in LayoutMinimap), drawn under the hint.
         _wind = new WindIndicator { Visible = false };
         _wind.SetAnchorsPreset(LayoutPreset.TopRight);
         _wind.GrowHorizontal = GrowDirection.Begin;
         _courseView.AddChild(_wind);
-
-        _hint = new PanelContainer { Visible = false, MouseFilter = MouseFilterEnum.Ignore };
-        _hint.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(0.05f, 0.06f, 0.07f, 0.85f), 10, 1, 10, 20));
-        _hint.SetAnchorsPreset(LayoutPreset.CenterTop);
-        _hint.GrowHorizontal = GrowDirection.Both;
-        _hint.OffsetTop = TopBarHeight + TopGap;
-        _hintText = UiTheme.Text("", 20, UiTheme.Ink, bold: true);
-        _hint.AddChild(_hintText);
-        _courseView.AddChild(_hint);
+        _courseView.MoveChild(_wind, _hint.GetIndex());
     }
 
     private PanelContainer _hint = null!;
@@ -86,256 +162,11 @@ public partial class Hud
         if (_wind.Visible) _wind.Show(speedMph, gustMph, blowsToward, note);
     }
 
-    private void BuildHoleCard()
-    {
-        var column = new VBoxContainer { Position = new Vector2(16, TopBarHeight + TopGap) };
-        column.AddThemeConstantOverride("separation", 8);
-        _courseView.AddChild(column);
-
-        var card = new PanelContainer();
-        card.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 14, 1, 10, 14));
-        column.AddChild(card);
-        var h = new HBoxContainer();
-        h.AddThemeConstantOverride("separation", 14);
-        card.AddChild(h);
-
-        _courseLogo = new TextureRect
-        {
-            ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered,
-            CustomMinimumSize = new Vector2(76, 54), Visible = false, SizeFlagsVertical = SizeFlags.ShrinkCenter,
-        };
-        h.AddChild(_courseLogo);
-
-        var hole = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
-        hole.AddThemeConstantOverride("separation", 0);
-        _holeNumber = UiTheme.Text("HOLE 1", 26, UiTheme.Ink, bold: true);
-        hole.AddChild(_holeNumber);
-        _holeFacts = UiTheme.Text("", 13, UiTheme.Muted);
-        hole.AddChild(_holeFacts);
-        _holeName = UiTheme.Text("", 12, UiTheme.Muted);
-        hole.AddChild(_holeName);
-        h.AddChild(hole);
-        h.AddChild(new VSeparator());
-        h.AddChild(Figure("Stroke", out _stroke, out _));
-        h.AddChild(Figure("Score", out _score, out _scoreNote));
-
-        // Under the badge: whose turn, everyone's score, the mulligan, the map credit.
-        _turn = UiTheme.Text("", 20, UiTheme.Ink, bold: true);
-        _turn.Visible = false;
-        column.AddChild(_turn);
-        _standings = UiTheme.Text("", 13, UiTheme.Muted);
-        _standings.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _standings.CustomMinimumSize = new Vector2(300, 0);
-        _standings.Visible = false;
-        column.AddChild(_standings);
-        _mulligan = new Button { Visible = false, SizeFlagsHorizontal = SizeFlags.ShrinkBegin, CustomMinimumSize = new Vector2(0, 36),
-                                 TooltipText = "Take the last shot again without counting it (house rules)  [U, gamepad X]" };
-        _mulligan.Pressed += () => MulliganPressed?.Invoke();
-        column.AddChild(_mulligan);
-        _credit = UiTheme.Text("", 10, new Color(UiTheme.Muted, 0.8f));
-        _credit.Visible = false;
-        column.AddChild(_credit);
-    }
-
-    /// <summary>A caption over a big value, with a small note beside the value.</summary>
-    private static VBoxContainer Figure(string caption, out Label value, out Label note)
-    {
-        var v = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
-        v.AddThemeConstantOverride("separation", 0);
-        v.AddChild(UiTheme.Caption(caption));
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 6);
-        value = UiTheme.Text("—", 28, UiTheme.Ink, bold: true);
-        row.AddChild(value);
-        note = UiTheme.Text("", 12, UiTheme.Muted);
-        note.SizeFlagsVertical = SizeFlags.ShrinkEnd;
-        row.AddChild(note);
-        v.AddChild(row);
-        return v;
-    }
-
-    /// <summary>The last shot's numbers (carry, total, offline, to the pin) in a column down the left, until the next shot.</summary>
-    private void BuildLastShotCard()
-    {
-        _lastShot = new PanelContainer { Visible = false, MouseFilter = MouseFilterEnum.Ignore };
-        _lastShot.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 14, 1, 12, 16));
-        _lastShot.SetAnchorsPreset(LayoutPreset.CenterLeft);
-        _lastShot.GrowVertical = GrowDirection.Both;
-        _lastShot.OffsetLeft = _lastShot.OffsetRight = 16;
-        _lastShot.OffsetTop = _lastShot.OffsetBottom = -20;
-        _courseView.AddChild(_lastShot);
-        _resultStats = new VBoxContainer { CustomMinimumSize = new Vector2(104, 0) };
-        _resultStats.AddThemeConstantOverride("separation", 8);
-        _lastShot.AddChild(_resultStats);
-    }
-
-    private void BuildLiePanel()
-    {
-        var panel = _liePanel = new PanelContainer();
-        panel.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 14, 1, 12));
-        panel.SetAnchorsPreset(LayoutPreset.BottomLeft);
-        panel.GrowVertical = GrowDirection.Begin;
-        panel.OffsetLeft = panel.OffsetRight = 16;
-        panel.OffsetTop = panel.OffsetBottom = -16;
-        _courseView.AddChild(panel);
-
-        var v = _lieContent = new VBoxContainer { CustomMinimumSize = new Vector2(200, 0) };
-        v.AddThemeConstantOverride("separation", 6);
-        _lieChip = new PanelContainer { SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
-        _lieName = UiTheme.Text("Tee", 17, new Color(0.06f, 0.08f, 0.06f), bold: true);
-        _lieChip.AddChild(_lieName);
-        v.AddChild(_lieChip);
-
-        var stance = new GridContainer { Columns = 2 };
-        stance.AddThemeConstantOverride("h_separation", 12);
-        stance.AddThemeConstantOverride("v_separation", 2);
-        Label Row(string caption, int size = 16)
-        {
-            var c = UiTheme.Caption(caption);
-            c.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-            stance.AddChild(c);
-            var value = UiTheme.Text("—", size, UiTheme.Ink, bold: true);
-            value.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            value.HorizontalAlignment = HorizontalAlignment.Right;
-            stance.AddChild(value);
-            return value;
-        }
-        _sideSlope = Row("Side");
-        _upSlope = Row("Slope");
-        _penalty = Row("Penalty", 18);
-        var stanceBox = new VBoxContainer();
-        stanceBox.AddThemeConstantOverride("separation", 2);
-        stanceBox.AddChild(stance);
-        _lieNote = UiTheme.Text("", 12, UiTheme.Muted);
-        _lieNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _lieNote.CustomMinimumSize = new Vector2(200, 0);
-        stanceBox.AddChild(_lieNote);
-        _stanceRows = stanceBox;
-        v.AddChild(stanceBox);
-
-        // On the green: the read and the green aids instead.
-        var green = new VBoxContainer { Visible = false };
-        green.AddThemeConstantOverride("separation", 4);
-        var readRow = new HBoxContainer();
-        var readCaption = UiTheme.Caption("Read");
-        readCaption.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-        readRow.AddChild(readCaption);
-        _greenRead = UiTheme.Text("", 17, UiTheme.Ink, bold: true);
-        _greenRead.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        _greenRead.HorizontalAlignment = HorizontalAlignment.Right;
-        readRow.AddChild(_greenRead);
-        green.AddChild(readRow);
-        _greenReadNote = UiTheme.Text("", 12, UiTheme.Muted);
-        _greenReadNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _greenReadNote.CustomMinimumSize = new Vector2(200, 0);
-        green.AddChild(_greenReadNote);
-        var aids = new HBoxContainer();
-        aids.AddThemeConstantOverride("separation", 2);
-        _flag = new Button { ThemeTypeVariation = "FlatButton", TooltipText = "Leave the flag in the hole, or pull it (the default)  [F]" };
-        _flag.Pressed += () => FlagPressed?.Invoke();
-        _heatMap = new Button { ThemeTypeVariation = "FlatButton", ToggleMode = true, Text = "Heat map", TooltipText = "Colour the green by height: blue low, red high  [H]" };
-        _heatMap.Pressed += () => HeatMapPressed?.Invoke();
-        _grid = new Button { ThemeTypeVariation = "FlatButton", ToggleMode = true, Text = "Grid",
-                             TooltipText = "Grid on the green, with dots rolling downhill along it (faster = steeper)  [G]" };
-        _grid.Pressed += () => GridPressed?.Invoke();
-        aids.AddChild(_flag);
-        aids.AddChild(_heatMap);
-        aids.AddChild(_grid);
-        green.AddChild(aids);
-        _greenRows = green;
-        v.AddChild(green);
-        panel.AddChild(v);
-    }
-
-    private static Label Note(VBoxContainer block, float width, int size = 13, Color? color = null)
-    {
-        var note = UiTheme.Text("", size, color ?? UiTheme.Muted);
-        note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        note.CustomMinimumSize = new Vector2(width, 0);
-        block.AddChild(note);
-        return note;
-    }
-
-    private void BuildShotPanel()
-    {
-        var panel = _shotPanel = new PanelContainer();
-        panel.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 16, 1, 14));
-        panel.SetAnchorsPreset(LayoutPreset.BottomRight);
-        panel.GrowHorizontal = GrowDirection.Begin;
-        panel.GrowVertical = GrowDirection.Begin;
-        panel.OffsetLeft = panel.OffsetRight = -16;
-        panel.OffsetTop = panel.OffsetBottom = -16;
-        _courseView.AddChild(panel);
-
-        var h = new HBoxContainer();
-        h.AddThemeConstantOverride("separation", 18);
-        panel.AddChild(h);
-        var v = new VBoxContainer();
-        v.AddThemeConstantOverride("separation", 10);
-        h.AddChild(v);
-
-        var top = new HBoxContainer();
-        top.AddThemeConstantOverride("separation", 18);
-        v.AddChild(top);
-
-        // To the pin, with the rise or fall to it ("132 yds", "up 5'") and what it plays.
-        var pin = new VBoxContainer { CustomMinimumSize = new Vector2(150, 0) };
-        pin.AddThemeConstantOverride("separation", 0);
-        pin.AddChild(UiTheme.Caption("To the pin"));
-        var pinRow = new HBoxContainer();
-        pinRow.AddThemeConstantOverride("separation", 8);
-        _toPin = UiTheme.Text("—", 34, UiTheme.Ink, bold: true);
-        pinRow.AddChild(_toPin);
-        _elevation = UiTheme.Text("", 15, UiTheme.Ink);
-        _elevation.SizeFlagsVertical = SizeFlags.ShrinkEnd;
-        pinRow.AddChild(UiTheme.Pad(_elevation, 0, 6, mouse: false));
-        pin.AddChild(pinRow);
-        _playsLike = Note(pin, 150, 13, UiTheme.Accent);
-        top.AddChild(pin);
-
-        var clubBlock = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        clubBlock.AddThemeConstantOverride("separation", 4);
-        var clubRow = new HBoxContainer();
-        clubRow.AddThemeConstantOverride("separation", 6);
-        var clubCaption = UiTheme.Caption("Club");
-        clubCaption.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-        clubCaption.CustomMinimumSize = new Vector2(34, 0);
-        clubRow.AddChild(clubCaption);
-        _courseClub = ClubPicker();
-        _courseClub.CustomMinimumSize = new Vector2(170, 38);
-        _courseClub.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        clubRow.AddChild(_courseClub);
-        clubBlock.AddChild(clubRow);
-        var aimRow = new HBoxContainer();
-        _courseAimRow = aimRow;
-        aimRow.AddThemeConstantOverride("separation", 6);
-        var aimCaption = UiTheme.Caption("Aim");
-        aimCaption.SizeFlagsVertical = SizeFlags.ShrinkCenter;
-        aimCaption.CustomMinimumSize = new Vector2(34, 0);
-        aimRow.AddChild(aimCaption);
-        AddAimButtons(aimRow, 40);
-        clubBlock.AddChild(aimRow);
-        _aim = UiTheme.Text("", 12, UiTheme.Muted);
-        _aim.ClipText = true;
-        _aim.CustomMinimumSize = new Vector2(200, 0);
-        clubBlock.AddChild(_aim);
-        clubBlock.AddChild(AlignButton());
-        top.AddChild(clubBlock);
-
-        // The power, shape and spin controls and HIT SHOT are moved in here on a course (see PlaceShotControls).
-        _courseShotSlot = new HBoxContainer();
-        v.AddChild(_courseShotSlot);
-        _clubBlock = clubBlock;
-
-        // With a monitor connected the lie card moves in here, beside the club (see UpdateShotLayout).
-        _lieSlot = new HBoxContainer { Visible = false };
-        _lieSlot.AddThemeConstantOverride("separation", 18);
-        _lieSlot.AddChild(new VSeparator());
-        h.AddChild(_lieSlot);
-    }
-
-    private Control _clubBlock = null!, _courseAimRow = null!, _lieContent = null!;
-    private HBoxContainer _lieSlot = null!;
+    private Control _clubBlock = null!, _courseAimRow = null!;
+    private BoxContainer _planTop = null!;
+    private Label _clubCaption = null!;
+    private HBoxContainer _statusRow = null!;
+    private Button _courseStatus = null!;
     private bool _holeDone, _monitorLive;
     private string _standingsText = "";
 
@@ -348,9 +179,10 @@ public partial class Hud
     }
 
     /// <summary>
-    /// Shows what the moment calls for. No monitor: the on-screen shot controls, with the lie card bottom left. With a
-    /// monitor: no shot controls, the lie card in the shot panel and the leaderboard bottom left. Either way, club and
-    /// the shot's details only matter while there's a shot to play, and NEXT HOLE (on the HIT SHOT button) stays.
+    /// Shows what the moment calls for. The lie card always sits on top of the shot panel, bottom right. No monitor:
+    /// the on-screen shot controls, with to the pin beside the club and aim. With a monitor: a narrow column (to the
+    /// pin over the club, the lie card the same width above) and the leaderboard bottom left. Either way, club and the
+    /// shot's details only matter while there's a shot to play, and NEXT HOLE (on the HIT SHOT button) stays.
     /// </summary>
     private void UpdateShotLayout()
     {
@@ -364,17 +196,17 @@ public partial class Hud
         _rangeShotSlot.Visible = _rangeView.Visible && !_monitorLive;
         PlaceBallZone();
 
-        Node lieParent = _monitorLive ? _lieSlot : _liePanel;
-        if (_lieContent.GetParent() != lieParent)
-        {
-            _lieContent.GetParent().RemoveChild(_lieContent);
-            lieParent.AddChild(_lieContent);
-        }
-        _liePanel.Visible = !_monitorLive;
-        _lieSlot.Visible = _monitorLive;
-        _leaderboard.Visible = _monitorLive;
+        _planTop.Vertical = _monitorLive;
+        _clubCaption.Visible = !_monitorLive;
+        var width = _monitorLive ? SizeFlags.Fill : SizeFlags.ShrinkEnd;
+        _liePanel.SizeFlagsHorizontal = width;
+        _shotPanel.SizeFlagsHorizontal = width;
+        _leaderboard.Visible = _monitorLive && _leaderboardRowCount > 1;
         SetNote(_standings, _monitorLive ? "" : _standingsText);
     }
+
+    /// <summary>Rows on the leaderboard: with only one player (or one team) there's nobody to compare with, so it isn't shown.</summary>
+    private int _leaderboardRowCount;
 
     private readonly List<Button> _alignButtons = new();
     private string _alignmentShort = "Align", _alignmentLong = "Not aligned this session";
@@ -417,7 +249,7 @@ public partial class Hud
     /// <summary>Beside the leaderboard on a course, above the numbers on the range. Only while a monitor is seeing a ball.</summary>
     private void PlaceBallZone()
     {
-        _ballZone.Visible = ShowBallZone && _monitorLive && _ball != null && _topBar.Visible;
+        _ballZone.Visible = ShowBallZone && _monitorLive && _ball != null && !_menuShown;
         _ballZone.SetAnchorsPreset(LayoutPreset.BottomLeft);
         _ballZone.GrowHorizontal = GrowDirection.End;
         _ballZone.GrowVertical = GrowDirection.Begin;
@@ -429,31 +261,12 @@ public partial class Hud
     private Label _leaderboardCaption = null!;
     private GridContainer _leaderboardRows = null!;
 
-    private void BuildLeaderboard()
-    {
-        _leaderboard = new PanelContainer { Visible = false, MouseFilter = MouseFilterEnum.Ignore };
-        _leaderboard.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 14, 1, 12));
-        _leaderboard.SetAnchorsPreset(LayoutPreset.BottomLeft);
-        _leaderboard.GrowVertical = GrowDirection.Begin;
-        _leaderboard.OffsetLeft = _leaderboard.OffsetRight = 16;
-        _leaderboard.OffsetTop = _leaderboard.OffsetBottom = -16;
-        _courseView.AddChild(_leaderboard);
-
-        var v = new VBoxContainer { CustomMinimumSize = new Vector2(220, 0) };
-        v.AddThemeConstantOverride("separation", 6);
-        _leaderboardCaption = UiTheme.Caption("Leaderboard");
-        v.AddChild(_leaderboardCaption);
-        _leaderboardRows = new GridContainer { Columns = 3 };
-        _leaderboardRows.AddThemeConstantOverride("h_separation", 12);
-        _leaderboardRows.AddThemeConstantOverride("v_separation", 2);
-        v.AddChild(_leaderboardRows);
-        _leaderboard.AddChild(v);
-    }
-
-    /// <summary>The small leaderboard's rows, best first (shown with a monitor connected).</summary>
+    /// <summary>The small leaderboard's rows, best first (shown with a monitor connected, when there's more than one).</summary>
     public void SetLeaderboard(string caption, IReadOnlyList<LeaderboardRow> rows)
     {
         _leaderboardCaption.Text = caption;
+        _leaderboardRowCount = rows.Count;
+        _leaderboard.Visible = _monitorLive && rows.Count > 1;
         foreach (var c in _leaderboardRows.GetChildren()) { _leaderboardRows.RemoveChild(c); c.QueueFree(); }
         foreach (var r in rows)
         {
@@ -470,58 +283,6 @@ public partial class Hud
             note.CustomMinimumSize = new Vector2(44, 0);
             _leaderboardRows.AddChild(note);
         }
-    }
-
-    /// <summary>The result line across the top: where the ball finished, and what happens next.</summary>
-    private void BuildResultCard()
-    {
-        _result = new PanelContainer { Visible = false, MouseFilter = MouseFilterEnum.Ignore };
-        _result.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(0.05f, 0.06f, 0.07f, 0.88f), 12, 1, 8, 20));
-        _result.SetAnchorsPreset(LayoutPreset.CenterTop);
-        _result.GrowHorizontal = GrowDirection.Both;
-        _result.OffsetTop = TopBarHeight + TopGap;
-        _courseView.AddChild(_result);
-
-        var v = new VBoxContainer();
-        v.AddThemeConstantOverride("separation", 2);
-        _resultHeadline = UiTheme.Text("", 19, UiTheme.Ink, bold: true);
-        _resultHeadline.HorizontalAlignment = HorizontalAlignment.Center;
-        v.AddChild(_resultHeadline);
-        _resultNote = UiTheme.Text("", 13, UiTheme.Muted);
-        _resultNote.HorizontalAlignment = HorizontalAlignment.Center;
-        v.AddChild(_resultNote);
-        _result.AddChild(v);
-    }
-
-    private void BuildScorecard()
-    {
-        _scorecardPanel = new PanelContainer { Visible = false };
-        _scorecardPanel.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Bar, 16, 1, 22));
-        _scorecardPanel.SetAnchorsPreset(LayoutPreset.Center);
-        _scorecardPanel.GrowHorizontal = GrowDirection.Both;
-        _scorecardPanel.GrowVertical = GrowDirection.Both;
-        _courseView.AddChild(_scorecardPanel);
-        var v = new VBoxContainer();
-        v.AddThemeConstantOverride("separation", 12);
-        var head = new HBoxContainer();
-        _scorecardTitle = UiTheme.Text("Scorecard", 20, UiTheme.Ink, bold: true);
-        _scorecardTitle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-        head.AddChild(_scorecardTitle);
-        var newRound = new Button { Text = "New round", ThemeTypeVariation = "FlatButton",
-                                    TooltipText = "Start a new round from the first tee (this one is not kept)" };
-        newRound.Pressed += () => { _scorecardPanel.Visible = false; NewRoundPressed?.Invoke(); };
-        head.AddChild(newRound);
-        var close = new Button { Text = "✕", ThemeTypeVariation = "FlatButton", TooltipText = "Close  [S]" };
-        close.Pressed += ToggleScorecard;
-        head.AddChild(close);
-        v.AddChild(head);
-        _scorecard = new GridContainer();
-        _scorecard.AddThemeConstantOverride("h_separation", 18);
-        _scorecard.AddThemeConstantOverride("v_separation", 6);
-        v.AddChild(_scorecard);
-        _scorecardNote = UiTheme.Text("", 16, UiTheme.Accent, bold: true);
-        v.AddChild(_scorecardNote);
-        _scorecardPanel.AddChild(v);
     }
 
     /// <summary>
@@ -610,41 +371,84 @@ public partial class Hud
     }
 
     /// <summary>
-    /// After a shot: the result line across the top (where the ball finished, what happens next) and the shot's
-    /// numbers down the left. Both stay until <see cref="HideResult"/> (the next shot, or a new hole).
+    /// After a shot, the line across the top: only for what needs saying (holed, a penalty, relief, who's up, the
+    /// next hole). Where the ball lies and how far it has left are on the lie card and in the shot's numbers, so a
+    /// plain result shows nothing here. Empty text hides it; it otherwise stays until <see cref="HideResult"/>.
     /// </summary>
-    public void ShowResult(string headline, IReadOnlyList<Stat> stats, string note = "")
+    public void ShowResult(string headline, string note = "")
     {
+        if (headline.Length == 0) (headline, note) = (note, "");
+        _result.Visible = headline.Length > 0;
+        if (!_result.Visible) return;
         _resultHeadline.Text = headline;
         SetNote(_resultNote, note);
-        _result.Visible = true;
         _result.Modulate = new Color(1, 1, 1, 0);
         CreateTween().TweenProperty(_result, "modulate:a", 1.0f, 0.25);
+    }
 
-        foreach (var c in _resultStats.GetChildren()) c.QueueFree();
-        foreach (var s in stats)
+    private Control? _holeColumn;
+    private float _lastShotOffset;
+
+    /// <summary>
+    /// The shot's numbers sit centred down the left (as laid out in the scene), but never up over the hole badge and
+    /// what's under it: they're moved down when they'd reach it. Every frame, since either can change height.
+    /// </summary>
+    private void KeepLastShotClear()
+    {
+        if (!_courseMode || !_lastShot.Visible || _holeColumn is not { Visible: true }) return;
+        float height = _lastShot.GetCombinedMinimumSize().Y;
+        float top = _courseView.Size.Y / 2 + _lastShotOffset - height / 2;   // where the scene's anchors put it (it grows both ways)
+        float clear = _holeColumn.GetGlobalRect().End.Y - _courseView.GetGlobalRect().Position.Y + 12;
+        float offset = _lastShotOffset + Math.Max(0, clear - top);
+        if (_lastShot.OffsetTop != offset) _lastShot.OffsetTop = _lastShot.OffsetBottom = offset;
+    }
+
+    /// <summary>
+    /// The shot's numbers down the left, three to a row: the launch (shown as soon as the ball is struck) and, under it,
+    /// the result (added once the ball has stopped). They stay until <see cref="HideResult"/> (the next shot, or a new hole).
+    /// </summary>
+    public void ShowShotNumbers(IReadOnlyList<Stat> launch, IReadOnlyList<Stat> result)
+    {
+        foreach (var c in _resultStats.GetChildren()) { _resultStats.RemoveChild(c); c.QueueFree(); }
+        void Group(string caption, IReadOnlyList<Stat> stats)
         {
-            var b = new VBoxContainer();
-            b.AddThemeConstantOverride("separation", -2);
-            b.AddChild(UiTheme.Caption(s.Caption));
-            var row = new HBoxContainer();
-            row.AddThemeConstantOverride("separation", 4);
-            row.AddChild(UiTheme.Text(s.Value, 30, UiTheme.Ink, bold: true));
-            if (s.Unit.Length > 0)
-            {
-                var u = UiTheme.Text(s.Unit, 13, UiTheme.Muted);
-                u.SizeFlagsVertical = SizeFlags.ShrinkEnd;
-                row.AddChild(UiTheme.Pad(u, 0, 4, mouse: false));
-            }
-            b.AddChild(row);
-            _resultStats.AddChild(b);
+            if (stats.Count == 0) return;
+            if (_resultStats.GetChildCount() > 0) _resultStats.AddChild(new HSeparator());
+            _resultStats.AddChild(UiTheme.Caption(caption));
+            var grid = new GridContainer { Columns = 3 };
+            grid.AddThemeConstantOverride("h_separation", 18);
+            grid.AddThemeConstantOverride("v_separation", 6);
+            foreach (var s in stats) grid.AddChild(StatBlock(s));
+            _resultStats.AddChild(grid);
         }
-        _lastShot.Visible = stats.Count > 0;
-        if (_lastShot.Visible)
+        Group("LAUNCH", launch);
+        Group("RESULT", result);
+
+        bool wasShown = _lastShot.Visible;
+        _lastShot.Visible = launch.Count + result.Count > 0;
+        if (_lastShot.Visible && !wasShown)
         {
             _lastShot.Modulate = new Color(1, 1, 1, 0);
-            CreateTween().TweenProperty(_lastShot, "modulate:a", 1.0f, 0.3);
+            CreateTween().TweenProperty(_lastShot, "modulate:a", 1.0f, 0.2);
         }
+    }
+
+    private static Control StatBlock(Stat s)
+    {
+        var b = new VBoxContainer { CustomMinimumSize = new Vector2(96, 0) };
+        b.AddThemeConstantOverride("separation", -2);
+        b.AddChild(UiTheme.Caption(s.Caption));
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 4);
+        row.AddChild(UiTheme.Text(s.Value, 26, UiTheme.Ink, bold: true));
+        if (s.Unit.Length > 0)
+        {
+            var u = UiTheme.Text(s.Unit, 13, UiTheme.Muted);
+            u.SizeFlagsVertical = SizeFlags.ShrinkEnd;
+            row.AddChild(UiTheme.Pad(u, 0, 4, mouse: false));
+        }
+        b.AddChild(row);
+        return b;
     }
 
     public void HideResult()

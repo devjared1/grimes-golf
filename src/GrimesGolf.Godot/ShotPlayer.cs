@@ -72,6 +72,14 @@ public partial class ShotPlayer : Node3D
     public Vector3 BallPosition => _ball.Position;
     /// <summary>Horizontal direction of the current shot from where it was struck (defaults downrange).</summary>
     public Vector3 ShotDirection { get; private set; } = Vector3.Forward;
+    /// <summary>How far (m, along the ground) the current shot goes from where it was struck to where it stops.</summary>
+    public float ShotLength { get; private set; } = 150;
+
+    /// <summary>
+    /// The ball's time in the air plays this much faster than real time, so a long shot doesn't drag; once it's down,
+    /// bounces and roll play at real speed (putts too).
+    /// </summary>
+    private const double FlightSpeedUp = 1.2;
 
     public override void _Ready()
     {
@@ -135,6 +143,7 @@ public partial class ShotPlayer : Node3D
         var flat = ToGodot(flight.Points[^1]) - ToGodot(flight.Points[0]);
         flat.Y = 0;
         if (flat.LengthSquared() > 0.25f) ShotDirection = flat.Normalized();
+        ShotLength = flat.Length();
         _placed = null;
         _t = 0;
         IsPlaying = true;
@@ -225,7 +234,8 @@ public partial class ShotPlayer : Node3D
             var pts = cur.Flight.Points;
             if (IsPlaying)
             {
-                _t += delta;
+                bool flying = cur.Flight.LandingIndex > 0 && _t < pts[cur.Flight.LandingIndex].T;
+                _t += delta * (flying ? FlightSpeedUp : 1);
                 if (_t >= pts[^1].T) { _t = pts[^1].T; IsPlaying = false; Stopped?.Invoke(); }
             }
             else IdleSeconds += delta;

@@ -564,11 +564,11 @@ public class TuningTests
     [Fact]
     public void SavesAndLoads()
     {
-        var t = PhysicsTuning.Defaults.With("flight.lift", 1.12).With("ground.sand.rolling", 0.8).Named("Firm and fast");
+        var t = PhysicsTuning.Defaults.With("flight.lift", 1.12).With("ground.sand.rolling", 0.6).Named("Firm and fast");
         var back = PhysicsTuning.FromJson(t.ToJson());
         Assert.Equal("Firm and fast", back.Name);
         Assert.Equal(1.12, back["flight.lift"], 9);
-        Assert.Equal(0.8, back["ground.sand.rolling"], 9);
+        Assert.Equal(0.6, back["ground.sand.rolling"], 9);
         Assert.Equal(2, back.ChangedCount);
         Assert.Equal(new[] { "flight.lift", "ground.sand.rolling" }, back.ChangesFrom(PhysicsTuning.Defaults).Select(c => c.Parameter.Key));
 

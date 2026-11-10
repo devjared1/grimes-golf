@@ -37,6 +37,8 @@ public sealed record AppSettings(
     public IReadOnlyList<Golfer>? SavedGuests { get; init; }
     /// <summary>Play the sound effects (off for the club and ball's own noise alone).</summary>
     public bool SoundEffects { get; init; } = true;
+    /// <summary>A chime when the launch monitor has a ball and is ready for the shot.</summary>
+    public bool ReadySound { get; init; } = true;
     /// <summary>Ask GitHub at start-up whether there's a newer version of the app (it only ever offers: nothing installs by itself).</summary>
     public bool CheckForUpdates { get; init; } = true;
     /// <summary>Online play: the relay's address (<c>wss://…/ws</c>), remembered.</summary>
@@ -49,8 +51,8 @@ public sealed record AppSettings(
 
     public const string FileName = "settings.json";
 
-    /// <summary>Two mulligans a round, 2 ft gimmes, pick up at double par.</summary>
-    public static readonly HouseRules GarageRules = new(Mulligans: 2, PickUpAtDoublePar: true);
+    /// <summary>Two mulligans a round, a 6 ft gimme circle, pick up at double par.</summary>
+    public static readonly HouseRules GarageRules = new(Mulligans: 2, GimmeMetres: Core.Course.HouseRules.DefaultGimmeFeet * Units.FeetToMetres, PickUpAtDoublePar: true);
 
     [JsonIgnore] public HouseRules Rules => HouseRules ?? GarageRules;
     [JsonIgnore] public GameSetup Setup => Game ?? GameSetup.Default;
@@ -127,7 +129,7 @@ public sealed record AppSettings(
         string path = Path.Combine(folder, FileName);
         try
         {
-            if (File.Exists(path)) return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), GolfData.Json) ?? Defaults;
+            if (File.Exists(path)) return (JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), GolfData.Json) ?? Defaults).Upgraded();
             var defaults = Defaults;
             defaults.Save(folder, error);
             return defaults;
@@ -138,6 +140,15 @@ public sealed record AppSettings(
             return Defaults;
         }
     }
+
+    /// <summary>
+    /// Settings saved by an older version, brought up to date: the gimme used to default to 2 ft, which the gimme
+    /// circle choices no longer offer, so a gimme left at that default becomes the new one (6 ft).
+    /// </summary>
+    public AppSettings Upgraded() =>
+        HouseRules is { } r && Math.Abs(r.GimmeMetres - Core.Course.HouseRules.DefaultGimmeMetres) < 1e-9
+            ? this with { HouseRules = r with { GimmeMetres = GarageRules.GimmeMetres } }
+            : this;
 
     public void Save(string folder, Action<string>? error = null)
     {
