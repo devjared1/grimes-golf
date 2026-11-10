@@ -40,8 +40,8 @@ public sealed record ShotOutcome(
 /// The ball's motion comes from the physics engine (<see cref="GrimesGolf.Physics"/>): aerodynamic flight, bounces
 /// and roll over the hole's ground (<see cref="CourseGround"/>: real heights with <see cref="Terrain"/>, flat
 /// without; surface by lie). This class adds the rules the physics doesn't know: water and out of bounds stop the
-/// ball, a ball that rolls into a bunker stays there, a ball stopping on a cart path gets free relief, and the cup can
-/// catch it.
+/// ball, a ball rolling in a bunker can't roll out of it, a ball stopping on a cart path gets free relief, and the cup
+/// can catch it.
 /// </para>
 /// </summary>
 public sealed class HoleRound
@@ -472,14 +472,15 @@ public sealed class HoleRound
 
     /// <summary>
     /// The hole's rules, applied at every ground impact and ground step of a simulation: water and out of bounds
-    /// stop the ball; a ball that rolls into a bunker from outside stays there; a ball landing on the cup goes in; a
+    /// stop the ball; a ball rolling in a bunker can't roll out of it; a ball landing on the cup goes in; a
     /// rolling ball reaching the cup is handed to <see cref="AtTheCup"/>. One per simulation (it keeps state).
     /// </summary>
     private sealed class HoleRules : IGroundObserver
     {
         private readonly Hole _hole;
         private readonly bool _cup;
-        private Lie? _rollLie;
+        /// <summary>Where the rolling ball last was in the sand (null: it isn't rolling in a bunker).</summary>
+        private P2? _inSand;
 
         public HoleRules(Hole hole, bool cup) { _hole = hole; _cup = cup; }
 
@@ -493,11 +494,13 @@ public sealed class HoleRound
             if (lie is Lie.Water or Lie.OutOfBounds) return Stop(StopKind.Hazard, p, lie, v);
             if (kind == GroundEventKind.Impact)
             {
-                _rollLie = null;   // a new roll starts after the last bounce
+                _inSand = null;   // a new roll starts after the last bounce (a ball can hop out of a bunker)
                 return _cup && p.DistanceTo(_hole.Pin) <= CaptureRadius && Stop(StopKind.LandedInCup, p, Lie.Green, v);
             }
-            _rollLie ??= lie;
-            if (lie == Lie.Bunker && _rollLie != Lie.Bunker) return Stop(StopKind.Bunker, p, lie, v);
+            // The sand slows a rolling ball (the physics: the ball runs into it as far as its pace takes it), but it
+            // can't roll out again over the lip: it stops at the bunker's edge.
+            if (lie == Lie.Bunker) _inSand = p;
+            else if (_inSand is { } edge) return Stop(StopKind.Bunker, edge, Lie.Bunker, v);
             return _cup && p.DistanceTo(_hole.Pin) <= CaptureRadius && Stop(StopKind.Cup, p, Lie.Green, v);
         }
 

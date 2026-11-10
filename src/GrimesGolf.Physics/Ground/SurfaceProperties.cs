@@ -170,11 +170,22 @@ public static class Surfaces
         RollingResistance = 0.6, Firmness = 0.35, RoughnessMetres = 0.1,
     };
 
+    /// <summary>
+    /// Sand: a dead, low hop and a short, heavy roll. The crater grows with the speed and steepness of the landing, so
+    /// a steep, fast ball buries where it lands while a shallow one skips forward and runs a little.
+    /// </summary>
     public static SurfaceProperties Sand { get; } = new()
     {
-        Name = "Sand", RestitutionScale = 0.15, CraterAngleDegrees = 35, MaximumCraterAngleDegrees = 45, StaticFriction = 0.9,
-        DynamicFriction = 0.85, RollingResistance = 1.0, Firmness = 0.2, RoughnessMetres = 0.01,
+        Name = "Sand", RestitutionScale = SandBounce, CraterAngleDegrees = SandCrater, MaximumCraterAngleDegrees = 45, StaticFriction = 0.9,
+        DynamicFriction = 0.85, RollingResistance = SandRolling, ImpactDrag = SandDrag, Firmness = 0.2, RoughnessMetres = 0.01,
     };
+
+    /// <summary>
+    /// The sand's bounce, crater, rolling resistance and turf drag, and the earlier defaults (which stopped the ball
+    /// almost dead), so saved tunings can be moved on from them.
+    /// </summary>
+    public const double SandBounce = 0.45, SandCrater = 22, SandRolling = 0.8, SandDrag = 0.5,
+                        OldSandBounce = 0.15, OldSandCrater = 35, OldSandRolling = 1.0, OldSandDrag = 0;
 
     public static SurfaceProperties HardGround { get; } = new()
     {
