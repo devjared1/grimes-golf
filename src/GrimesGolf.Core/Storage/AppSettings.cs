@@ -37,6 +37,8 @@ public sealed record AppSettings(
     public IReadOnlyList<Golfer>? SavedGuests { get; init; }
     /// <summary>Play the sound effects (off for the club and ball's own noise alone).</summary>
     public bool SoundEffects { get; init; } = true;
+    /// <summary>A chime when the launch monitor has a ball and is ready for the shot.</summary>
+    public bool ReadySound { get; init; } = true;
     /// <summary>Ask GitHub at start-up whether there's a newer version of the app (it only ever offers: nothing installs by itself).</summary>
     public bool CheckForUpdates { get; init; } = true;
     /// <summary>Online play: the relay's address (<c>wss://…/ws</c>), remembered.</summary>

@@ -205,6 +205,8 @@ public partial class Main
             if (_aligning) return;
             _hud.SetBall(sn.Position, sn.BallReady);
             _hud.SetStat("Ball", sn.BallReady ? "Ready" : sn.BallDetected ? "Detected" : "None");
+            // A chime as the monitor becomes ready for the shot (its own setting, apart from the other sound effects).
+            if (sn.BallReady && !_ballReady && _settings.ReadySound) _sounds.Play(SoundEffect.Ready, -6);
             _ballReady = sn.BallReady;
             _ballSeen = sn.BallDetected;
             if (sn.BallReady) _hud.SetReady("Ready — hit!", new Color(0.18f, 0.54f, 0.32f));

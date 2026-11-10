@@ -137,6 +137,8 @@ public partial class SettingsPanel : Control
         v.AddChild(UiTheme.Caption("Sound"));
         _soundEffects = new CheckBox { Text = "Sound effects (club, ball, cup and crowd)" };
         v.AddChild(_soundEffects);
+        _readySound = new CheckBox { Text = "\"Ready\" chime when the launch monitor sees a ball and is ready for the shot" };
+        v.AddChild(_readySound);
         v.AddChild(new HSeparator());
 
         _roundNote = UiTheme.Text("A round is in progress: player and rule changes apply from the next round.", 13, UiTheme.Muted);
@@ -201,6 +203,7 @@ public partial class SettingsPanel : Control
         _graphics.Selected = (int)current.Graphics;
         _flyover.ButtonPressed = current.HoleFlyover;
         _soundEffects.ButtonPressed = current.SoundEffects;
+        _readySound.ButtonPressed = current.ReadySound;
         _roundNote.Visible = roundInProgress;
         _saveNewRound.Text = roundInProgress ? "Save and start a new round" : "Save and start a round";
         Visible = true;
@@ -241,6 +244,7 @@ public partial class SettingsPanel : Control
             Graphics = (GraphicsQuality)Math.Max(0, _graphics.Selected),
             HoleFlyover = _flyover.ButtonPressed,
             SoundEffects = _soundEffects.ButtonPressed,
+            ReadySound = _readySound.ButtonPressed,
         };
         Close();
         Applied?.Invoke(s, newRound);
