@@ -351,6 +351,7 @@ public partial class Main : Node3D
     {
         // Online, each PC keeps its own players' shots (the host plays everyone's).
         if (_online != null && e.Course != null && !_online.IsLocalName(e.Player.Name)) return;
+        if (_playingCapture) return;   // GSPro's shots, played back: not the player's
         var record = ShotRecord.Of(e);
         if (e.Course != null) _lastRecord = record;
         _data?.AppendShot(record);

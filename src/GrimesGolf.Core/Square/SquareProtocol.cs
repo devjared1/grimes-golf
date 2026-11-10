@@ -236,4 +236,17 @@ public static class SquareClubMap
         club = default;
         return code != null && Map.TryGetValue(code.Trim(), out club);
     }
+
+    /// <summary>
+    /// The app's code for what a heartbeat reply says the monitor is set to (sel, number), or null if it isn't a club
+    /// we know. Swing-stick categories (2 driver, 1 wood/hybrid, 0 iron/wedge, 3 putter) read as the real club; GW and
+    /// AW share a code, so that one reads as GW.
+    /// </summary>
+    public static string? CodeFor(byte category, byte number)
+    {
+        byte real = category switch { 2 => 4, 1 => 5, 0 => 6, 3 => 7, _ => category };
+        foreach (var (code, club) in Map)
+            if (club.Category == real && club.Number == number) return code;
+        return null;
+    }
 }

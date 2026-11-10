@@ -111,6 +111,28 @@ public partial class Hud
         _historyRoot = _history.CreateItem();
         cv.AddChild(_history);
         column.AddChild(cv);
+
+        // A note across the top of the view (replaying a capture: GSPro's numbers beside ours).
+        var noteRow = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
+        noteRow.SetAnchorsAndOffsetsPreset(LayoutPreset.TopWide);
+        noteRow.OffsetTop = TopBarHeight + TopGap;
+        _rangeView.AddChild(noteRow);
+        _rangeNote = new PanelContainer { Visible = false, MouseFilter = MouseFilterEnum.Ignore };
+        _rangeNote.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 12, 1, 12));
+        _rangeNoteText = UiTheme.Text("", 17, UiTheme.Ink);
+        _rangeNote.AddChild(_rangeNoteText);
+        noteRow.AddChild(_rangeNote);
+    }
+
+    private PanelContainer _rangeNote = null!;
+    private Label _rangeNoteText = null!;
+
+    /// <summary>A note across the top of the range view (null hides it).</summary>
+    public void SetRangeNote(string? text)
+    {
+        _rangeNote.Visible = text != null;
+        _rangeNoteText.Text = text ?? "";
+        _rangeNote.ResetSize();   // shrink to the new text (the row keeps it centred)
     }
 
     private Button _rangeTarget = null!;
