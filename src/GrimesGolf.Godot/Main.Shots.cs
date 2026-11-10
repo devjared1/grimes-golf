@@ -169,6 +169,8 @@ public partial class Main
     private void HitPress()
     {
         if (_camera.Flying) { _camera.SkipFlyover(); return; }
+        // Replaying a capture on the range: HIT SHOT flies the next captured shot (a monitor's own shots still come in).
+        if (!_courseMode && _capture != null && !_monitorLive) { PlayCapture(1); return; }
         if (_courseMode)
         {
             if (_round == null) return;
@@ -263,6 +265,7 @@ public partial class Main
         _rangeResult = null;
         _hud.AddRangeShot(r.Label, r.Club, r.Shot, r.Flight);
         UpdateRangeAim();
+        ShowCaptureResult();
     }
 
     /// <summary>No replay across a switch between the range and a course (it would play somewhere else).</summary>
@@ -292,7 +295,7 @@ public partial class Main
         var last = _last;
         if (last == null) { Log("Nothing to replay yet: hit a shot first."); return; }
         _hud.SetClub(last.Club);
-        if (last.Match == null) { ShowShot(last.Shot, replay: true); return; }
+        if (last.Match == null) { if (!ReplayCaptured(last.Shot)) ShowShot(last.Shot, replay: true); return; }
 
         if (!_courseMode || last.Match != _match) { ForgetLastShot(); return; }   // a round that's been replaced
         var match = _match;

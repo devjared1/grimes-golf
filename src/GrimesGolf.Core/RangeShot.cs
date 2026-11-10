@@ -63,7 +63,7 @@ public sealed record RangeShot(
                              (rng.NextDouble() * 2 - 1) * 12, mph / c.Smash, c.Smash, IsDemo: true);
     }
 
-    public FlightResult Fly() => BallFlight.Simulate(BallMph, LaunchDeg, DirectionDeg, SpinRpm, SpinAxisDeg);
+    public FlightResult Fly(Course.Lie ground = Course.Lie.Fairway) => BallFlight.Simulate(BallMph, LaunchDeg, DirectionDeg, SpinRpm, SpinAxisDeg, ground);
 
     /// <summary>Formats a signed left/right value as "L 2.1" / "R 2.1".</summary>
     public static string Side(double v, string fmt = "0.0") =>

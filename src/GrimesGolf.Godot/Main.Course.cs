@@ -73,6 +73,7 @@ public partial class Main
     private void EnterCourse()
     {
         if (_match == null || _courseDef == null) return;
+        StopCapture();   // captures replay on the range only
         if (!_courseMode) ForgetLastShot();
         _courseMode = true;
         ApplyConditions();

@@ -12,7 +12,10 @@ balls or play a round with me, and never see a console, a command-line flag or a
 
 ## 0.8 — Prove it on real hardware
 
-- [ ] Raw BLE packet recorder (timestamped capture file) and a replay mode that feeds a capture back into the app
+- [x] Raw BLE packet recorder (timestamped capture file) and a replay mode that feeds a capture back into the app
+      (`GrimesGolf.ShotRecorder` relays Square's GSPro connector to GSPro, or drives the monitor itself, compares
+      our flight with GSPro's and fits tuning to it; the range's Replay a Capture flies the shots with GSPro's
+      numbers alongside)
 - [ ] Turn captured sessions into regression tests
 - [ ] Verify club codes (5W/7W/4H/3I/LW), left-handed face/path signs, impact location
 - [ ] Physics calibration: ~10 shots per club compared with the Square app's carry, total and apex; make the
