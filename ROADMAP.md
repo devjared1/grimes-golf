@@ -295,9 +295,10 @@ marking tool. Check current prices before buying.
 #### $$ — two USB3 machine-vision cameras on the game PC, about $900-1,300
 
 - **Cameras:** two mono USB3 cameras with the Sony IMX287 sensor (0.4 MP, 720×540, about 525 fps at full frame,
-  more with a smaller window), about $350-375 each from makers such as Vision Datum or Daheng (Basler's equivalent
-  lists at €379). C-mount lenses about $50-100 each. A bank of infrared LEDs triggered by the cameras' own strobe
-  outputs (about $100-150 with a driver), so every exposure gets a flash of a few microseconds.
+  more with a smaller window), about $320-375 each from makers such as Vision Datum or Daheng (Basler's equivalent
+  lists at €379). C-mount lenses about $100-165 each. A bank of infrared LEDs on a home-built pulse driver (about
+  $100-150, not yet priced part by part), fired with the cameras by a small microcontroller, so every exposure gets
+  a flash of about 15 µs. See "Parts for the $$ build" below.
 - **System:** the game PC does the processing. Each camera sends about 200 MB/s at full frame and speed, so two
   need USB3 ports on separate controllers (or a plug-in USB3 card), and active USB3 cables to reach the ceiling.
   Record into a rolling memory buffer and keep only the frames around the shot, triggered when the ball moves.
@@ -357,10 +358,58 @@ part carries on into a $$$ build if the numbers work out. Meanwhile read PiTrac'
 methods: if they prove robust, a **$** build is the route to a monitor friends can copy cheaply. Leave **$$$**
 until the $$ rig has shown, shot by shot against the Square, that the data engine is accurate.
 
+### Parts for the $$ build
+
+Chosen from retailer listings and datasheets in November 2026. The sums here are worked out, not measured; nothing
+has been bought or tested yet.
+
+- **Camera: Daheng MER2-041-528U3M** ($319 at RMA Electronics): IMX287 mono, global shutter, 720×540, 528 fps, about
+  13 cm of ball travel per frame at 70 m/s.
+  - Don't buy an "-L" version: on the sister 608 model, -L means no I/O at all. The 8-pin I/O cable is also needed.
+  - A reseller lists 52 µs as its shortest exposure (2.6 px of blur at 70 m/s), so the flash has to set the
+    sharpness: about a 100 µs exposure with a 15 µs flash inside it.
+  - The 528 manual couldn't be opened, so its output timing is unchecked. The plan assumes a microcontroller
+    triggers both cameras and the flash.
+  - Worth pricing instead: the MER2-041-608U3M-HS, with 608 fps and exposures down to 1 µs, which makes flash timing
+    much easier.
+- **Lens: Computar M1214-MP2** (12 mm f/1.4, 2/3", about $97-166, 30.5 mm filter thread). Lock the focus under the
+  infrared light with the filter on, and put the long side of the sensor along the target line. At 2.4 m from lens
+  to ball:
+
+  | Focal length | Field of view | Ball size | Fit |
+  |---|---|---|---|
+  | 8 mm | 1.49 × 1.12 m | 21 px | Too coarse |
+  | **12 mm** | **0.99 × 0.75 m** | **31 px** | **Best balance** |
+  | 16 mm | 0.75 × 0.56 m | 41 px | Better for spin, but fewer frames |
+
+  With the cameras about 0.5 m apart, launch angle error should be about 0.25°, assuming quarter-pixel tracking and
+  good calibration. Spin is the main risk: a 3-4 mm ball marking is only 2-3 px wide.
+- **Light: two 100 W COB LED modules** with lenses of about 30°.
+  - Start with 730 nm, as PiTrac does: the sensor is about 1.7× more sensitive there than at 850 nm (going by the
+    sister model's response chart), but it shows a dim red glow. Use 850 nm if that matters more than the signal.
+  - Check the real power: PiTrac's 730 nm part draws about 100 W, while the Lumimax L100W45-IR850 is sold as 100 W but
+    is rated 3 A at 14-16 V, about 45 W. Its pulse rating wasn't found: get it from the maker before going above 3 A.
+  - A constant-current LED driver is too slow to make the flash. Use a capacitor bank, a MOSFET with a gate driver,
+    and a pulse-limit circuit so a fault can't leave the LED on.
+  - Estimate: one 850 nm module at about 7.5 A, f/1.4 and 15 µs gives about 2,000 electrons per pixel on a white ball,
+    10-20% of full scale before gain (assumes 35% LED efficiency; published full-well figures for this sensor
+    disagree). Usable but tight, and dark clubs will be much dimmer.
+  - Ready-made strobes cost too much for this build: the XR256 runs about $450-2,800, and the listings seen have a
+    10° beam, too narrow for this field of view.
+  - Safety: 850 nm is almost invisible but strong enough to hurt eyes at close range, so don't look into it on the
+    bench.
+- **Filter:** 700 nm longpass for 730 nm light, or an 850 nm filter for 850 nm light, on the lens's 30.5 mm thread.
+- **Ruled out: SVPRO USB webcam-style cameras**, even several of them. The global-shutter models found top out at
+  90-210 fps (33 cm or more of ball travel per frame), and frame rates don't add up without a hardware trigger: a 1 ms
+  mismatch between two cameras is 7 cm of ball travel. They usually have no strobe output either. One could still be a
+  cheap swing-video camera for the AI coach (1.4). The specific listing checked (B0H15FHSQZ) couldn't be opened, and no
+  SVPRO camera with an IMX287 was found.
+
 ### Tasks
 
-- [ ] **Cameras:** buy one IMX287 USB3 camera, a lens and an infrared strobe; confirm the frame rate, exposure
-      and strobe sync on the game PC; then the second camera for stereo
+- [ ] **Cameras:** buy one camera with its I/O cable, one lens, one filter and one LED module (see "Parts for the $$
+      build"); on the bench, confirm the frame rate, exposure, flash sync and how bright a ball looks from 2.4 m; then
+      the second set for stereo
 - [ ] **System:** a rolling frame buffer on the game PC, triggered by the ball moving (frame difference), keeping a
       few frames before and after impact; measure the CPU and USB load during a round
 - [ ] **Ball and club data engine:** calibrate the cameras, find the ball in each frame, fit its path in 3D and
