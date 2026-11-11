@@ -9,13 +9,13 @@ public sealed record CourseCard(string Name, string Description);
 
 /// <summary>
 /// The screen the app opens on: New Game (pick a course, the players and the Game Setup, <c>MainMenu.Setup.cs</c>, and
-/// start a round), Resume Game (when a round is unfinished), Driving Range, Settings and Quit, with the launch monitor's
+/// start a round), Resume Game (when a round is unfinished), Driving Range, History, Settings and Quit, with the launch monitor's
 /// status and the version. The range is visible behind it. Works with a mouse, keyboard or gamepad (arrows / D-pad move,
 /// Enter / A picks, Esc / B goes back from New Game).
 /// </summary>
 public partial class MainMenu : Control
 {
-    public event Action? ResumePressed, RangePressed, SettingsPressed, QuitPressed, MonitorPressed, OnlinePressed;
+    public event Action? ResumePressed, RangePressed, HistoryPressed, SettingsPressed, QuitPressed, MonitorPressed, OnlinePressed;
     /// <summary>Start a new round on this course, set up like this.</summary>
     public event Action<int, GameSetup>? StartCourse;
     /// <summary>The course list wants this course's stats (answer with <see cref="SetCourseStats"/>).</summary>
@@ -106,9 +106,20 @@ public partial class MainMenu : Control
         _online.Pressed += () => OnlinePressed?.Invoke();
         _online.Visible = false;
         _home.AddChild(_online);
+        // History and Settings share a row, so the menu still fits above the monitor card at the largest text size.
+        var pair = new HBoxContainer();
+        pair.AddThemeConstantOverride("separation", 10);
+        var history = BigButton("History", "Finished rounds and practice, with averages per club");
+        history.Pressed += () => HistoryPressed?.Invoke();
         var settings = BigButton("Settings", "Players, house rules, launch monitor, text size");
         settings.Pressed += () => SettingsPressed?.Invoke();
-        _home.AddChild(settings);
+        foreach (var b in new[] { history, settings })
+        {
+            b.CustomMinimumSize = new Vector2(0, b.CustomMinimumSize.Y);
+            b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            pair.AddChild(b);
+        }
+        _home.AddChild(pair);
         var quit = BigButton("Quit", $"Close {Brand.Name}");
         quit.Pressed += () => QuitPressed?.Invoke();
         _home.AddChild(quit);

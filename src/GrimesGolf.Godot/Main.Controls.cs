@@ -120,6 +120,12 @@ public partial class Main
             if (CommandFor(e) is Command.Back) { _hud.Store.Close(); GetViewport().SetInputAsHandled(); }
             return;
         }
+        // History: the same.
+        if (_hud.History.IsOpen)
+        {
+            if (CommandFor(e) is Command.Back) { _hud.History.Close(); GetViewport().SetInputAsHandled(); }
+            return;
+        }
         // Settings open, or typing in a text box: let the UI have everything (gamepad and arrows move between fields).
         if (_hud.SettingsOpen)
         {

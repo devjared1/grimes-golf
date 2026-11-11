@@ -465,17 +465,23 @@ public partial class Hud
         _scorecardTitle.Text = title;
         // The match's standing goes under the card (it doesn't fit a total column).
         SetNote(_scorecardNote, players.FirstOrDefault(p => p.TotalText != null)?.TotalText ?? "");
-        foreach (var c in _scorecard.GetChildren()) c.Free();
+        FillScorecard(_scorecard, numbers, pars, players, current);
+    }
+
+    /// <summary>Fills <paramref name="grid"/> with a scorecard (see <see cref="SetScorecard"/>; also used by History). <paramref name="current"/> -1 highlights no hole.</summary>
+    public static void FillScorecard(GridContainer grid, IReadOnlyList<int> numbers, IReadOnlyList<int> pars, IReadOnlyList<ScorecardRow> players, int current)
+    {
+        foreach (var c in grid.GetChildren()) c.Free();
         int perRow = pars.Count > 9 ? 9 : pars.Count;
         bool split = pars.Count > perRow;
-        _scorecard.Columns = perRow + (split ? 3 : 2);
+        grid.Columns = perRow + (split ? 3 : 2);
         void Cell(string text, Color? color = null, bool bold = false, bool first = false)
         {
             var l = UiTheme.Text(text, 15, color ?? UiTheme.Ink, bold);
             l.HorizontalAlignment = first ? HorizontalAlignment.Left : HorizontalAlignment.Center;
             l.CustomMinimumSize = new Vector2(first ? (players.Any(p => p.Team) ? 136 : 96) : 34, 0);
             l.ClipText = first;
-            _scorecard.AddChild(l);
+            grid.AddChild(l);
         }
         Color ScoreColor(IReadOnlyList<int?> scores, int i) => scores[i] is not { } s ? UiTheme.Muted
             : s < pars[i] ? UiTheme.Accent : s > pars[i] ? UiTheme.Warn : UiTheme.Ink;
