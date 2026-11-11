@@ -231,6 +231,8 @@ public partial class Hud : Control
         AddChild(Home);
         Store = new CourseStorePanel();
         AddChild(Store);
+        History = new HistoryPanel();
+        AddChild(History);
         Loading = new LoadingScreen();
         AddChild(Loading);
         SetCourseMode(false);
@@ -387,6 +389,9 @@ public partial class Hud : Control
 
     /// <summary>Get More Courses, from New Game.</summary>
     public CourseStorePanel Store { get; private set; } = null!;
+
+    /// <summary>History, from the main menu: finished rounds and practice by day.</summary>
+    public HistoryPanel History { get; private set; } = null!;
 
     /// <summary>A panel that takes all the input is open: the main menu, the in-game menu or a question, or the players panel.</summary>
     public bool ModalOpen => MainMenu.IsOpen || Overlay.IsOpen || Players.IsOpen || Online.IsOpen || Alignment.IsOpen;

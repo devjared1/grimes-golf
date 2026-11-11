@@ -1,11 +1,12 @@
 using Godot;
 using GrimesGolf.Core;
 using GrimesGolf.Core.Course;
+using GrimesGolf.Core.Storage;
 
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// The main menu (New Game, Resume Game, Driving Range, Settings, Quit) and the in-game menu (Settings, holes,
+/// The main menu (New Game, Resume Game, Driving Range, History, Settings, Quit) and the in-game menu (Settings, holes,
 /// players, restart and end the game, camera, physics, monitor).
 /// </summary>
 public partial class Main
@@ -16,6 +17,8 @@ public partial class Main
         menu.StartCourse += StartNewGame;
         menu.ResumePressed += ResumeGame;
         menu.RangePressed += () => { _hud.ShowMainMenu(false); EnterRange(); };
+        menu.HistoryPressed += OpenHistory;
+        _hud.History.Closed += () => { if (_hud.MainMenu.IsOpen) _hud.MainMenu.ShowHome(); };
         menu.SettingsPressed += OpenSettings;
         menu.QuitPressed += Quit;
         menu.MonitorPressed += _hud.ToggleDrawer;
@@ -90,6 +93,13 @@ public partial class Main
             _hud.ShowMainMenu(false);
             EnterCourse();
         });
+    }
+
+    /// <summary>History: the finished rounds and the saved shots, read from the data folder each time it opens.</summary>
+    private void OpenHistory()
+    {
+        if (_data == null) { _hud.Toast("Nothing saved: the data folder couldn't be opened (see the log)", UiTheme.Warn); return; }
+        _hud.History.Open(_data.LoadRounds(), History.Days(_data.LoadShots()));
     }
 
     /// <summary>Loads a course in the background for its stats line in the New Game list (it's kept for playing it).</summary>

@@ -155,9 +155,10 @@ balls or play a round with me, and never see a console, a command-line flag or a
 - [ ] Real-shot captures checked in as regression tests; all tests green
 - [ ] Physics defaults tuned against my own measured shots
 - [ ] A 4-player, 18-hole round at Deer Run with no keyboard use and no crash
-- [ ] Sessions and rounds saved and viewable after a restart
+- [x] Sessions and rounds saved and viewable after a restart (**History** on the main menu: finished rounds with
+      their scorecards, practice by day with averages per club)
 - [ ] Monitor disconnects mid-round recover without restarting
-- [ ] Installed from one exported build, version shown in the app
+- [x] Installed from one exported build, version shown in the app (installer 0.9.7, version in the top bar and menu)
 
 1.0 has no AI features on purpose: it has to work fully offline and with no outside services.
 
