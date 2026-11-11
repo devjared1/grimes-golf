@@ -52,10 +52,17 @@ When a new player is up, the monitor is switched to their hand and the club sugg
 **Main menu** (where the app opens, under the Grimes Golf Simulator logo): **New Game** (a list of courses with
 their holes, par, length and a short description, and the **Player List** on the right, where changes apply straight
 away: **Add** picks a saved guest or adds a new player, with **Game Setup**, below, under it; then **Start Round**), **Resume Game** (shown when a round is unfinished, with its course, game, hole and players), **Driving
-Range**, **Settings** and **Quit**, plus the
+Range**, **History** (below), **Settings** and **Quit**, plus the
 launch monitor's status (with a button for the monitor drawer) and the version. New Game and Resume Game show a
 **loading screen** (the logo, the course's logo and what's being loaded) while the course map, elevation and 3D
 world are built.
+
+**History** (main menu) shows what's been saved, read again each time it opens. **Rounds** lists the finished
+rounds, newest first, each with its scorecard, every player's score against par (only the holes they played count
+for someone who joined part-way) and the house rules it was played with. **Practice** lists the days shots were hit,
+on the range or a course, with each player's averages per club: shots, carry, total, longest and ball speed.
+Averages come from launch monitor shots only; on-screen swings are counted but left out, and so are putts. Arrows or
+the D-pad move through the list, and Esc or gamepad B closes it.
 
 **Top bar** (in play): the logo and version, "Driving range" on the range, the **Ready / Not ready** light in the
 middle (green once the last shot has finished and, with a monitor connected, the monitor sees a ball ready to hit),

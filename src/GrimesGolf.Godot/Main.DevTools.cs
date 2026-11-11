@@ -45,6 +45,9 @@ public partial class Main
         if (args.Contains("--green-read")) SetGreenOverlay(true, true);
         if (args.Contains("--settings")) _openSettingsAtStart = true;
         if (args.Contains("--menu")) _openMenuAtStart = true;
+        // --history (or --history=practice): open History over the main menu (to check how it looks).
+        if (args.Contains("--history") || Arg("--history") is not null)
+            GetTree().CreateTimer(0.5).Timeout += () => { OpenHistory(); if (Arg("--history") == "practice") _hud.History.ShowPractice(); };
         _showScorecardForScreenshot = args.Contains("--scorecard");
         // --ball-closeup: hold the camera right beside the ball (to check how it looks).
         _ballCloseUp = args.Contains("--ball-closeup");
