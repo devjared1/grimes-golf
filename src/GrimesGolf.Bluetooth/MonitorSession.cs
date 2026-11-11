@@ -27,6 +27,8 @@ public sealed class MonitorSession
     public event Action<ulong>? Clock;
     public event Action<BallMetricsEvent, ClubMetricsEvent?>? Shot;
     public event Action<string>? Ended;
+    /// <summary>Every packet as it went over the air, before anything is dropped or decoded (true = sent to the monitor).</summary>
+    public event Action<bool, byte[]>? Packet;
 
     public MonitorSession(ulong address, Action<string> log)
     {
@@ -42,6 +44,7 @@ public sealed class MonitorSession
         string? lastSensor = null, lastClub = null;
         void OnData(byte[] data)
         {
+            Packet?.Invoke(false, data);
             // Notifications can arrive twice, byte-identical; drop the repeat.
             if (last != null && data.AsSpan().SequenceEqual(last)) return;
             last = data;
@@ -246,7 +249,11 @@ public sealed class MonitorSession
         var link = _link;
         if (link == null) return;
         await _writeLock.WaitAsync(ct);
-        try { await link.WriteAsync(data, ct); }
+        try
+        {
+            await link.WriteAsync(data, ct);
+            Packet?.Invoke(true, data);
+        }
         finally { _writeLock.Release(); }
     }
 }

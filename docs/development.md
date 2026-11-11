@@ -8,6 +8,7 @@ comes from. For the tools to install, see [System requirements](../README.md#to-
 - [Build and test](#build-and-test)
 - [Running from source](#running-from-source)
 - [Command-line switches](#command-line-switches)
+- [Comparing physics with GSPro](#comparing-physics-with-gspro)
 - [Making a release build](#making-a-release-build)
 - [Code layout](#code-layout)
 - [Course data](#course-data)
@@ -75,6 +76,7 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 | `--ball-closeup` | Holds the camera right beside the ball, to check how it looks (with `--graphics=Medium`: High and Ultra blur anything this near) |
 | `--tuner`, `--tuner-tab=Lies` | Opens the physics tuner (the screenshot also saves it as `file-tuner.png`), on a tab (`Flight`, `Lies`, or a surface such as `Green`) |
 | `--tune=flight.drag=1.2` | Changes one tuning value after the demo shots and replays the last one |
+| `--replay=latest`, `--replay=folder` | Loads a shot recorder capture on the range (HIT SHOT or `--hit-at` flies its shots); see [Comparing physics with GSPro](#comparing-physics-with-gspro) |
 
 **Online play (debug builds only):**
 
@@ -92,6 +94,70 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 |---|---|
 | `--catalog=http://127.0.0.1:8765/` | Get More Courses reads from here instead of GitHub (the trailing `/` is needed) |
 | `--check-update` | Runs the update check, which otherwise only exported builds do |
+
+## Comparing physics with GSPro
+
+`src/GrimesGolf.ShotRecorder` is a console tool that records shots while you hit them in GSPro, flies each one
+through our physics, and lines our carry, total, apex and offline up against GSPro's.
+
+It sits between Square's own GSPro connector and GSPro. The connector sends each shot to the recorder's port; the
+recorder passes every byte on to GSPro untouched (GSPro on this PC, Open Connect port 921) and records the messages
+both ways. GSPro's replies say which club is in hand, so the club comes along too. (Listening in on the Bluetooth
+link beside the connector doesn't work: Windows won't share it.)
+
+1. Start GSPro. On the range, turn wind off and use normal conditions: our side flies every shot in still air at
+   sea level, landing on fairway.
+2. Start the recorder:
+
+   ```bash
+   dotnet run --project src/GrimesGolf.ShotRecorder -- record --note="7 iron, mat"
+   ```
+
+3. In Square's connector, set a custom GSPro address of `127.0.0.1`, port `9210`, and connect it (to the monitor
+   and to "GSPro", which is now the recorder). The recorder says "Square's connector connected" and "Passing it on
+   to GSPro". `--port=` and `--gspro=host:port` change either end. Set the connector back to the default afterwards,
+   or GSPro won't get shots without the recorder running.
+4. After each shot, our numbers appear. Type GSPro's as `carry total apex offline`, for example `152 168 85 R4`
+   (apex in feet, or `28y` for yards; `-` leaves a value out). `#3 152 168 85 R4` fills in or corrects shot 3,
+   `list` shows everything so far with averages per club, and `q` stops.
+
+Each run is a folder under `%APPDATA%\Square Range 3D\captures\`: `packets.jsonl` (every Open Connect message, or
+with `--drive` every Bluetooth packet, timestamped and undecoded, plus notes), `gspro.csv` (the numbers you typed; edit it freely, and the last line for a shot wins) and
+`comparison.csv` (everything, one row per shot).
+
+To try a tuning against shots already recorded, fly them again with no monitor needed:
+
+```bash
+dotnet run --project src/GrimesGolf.ShotRecorder -- compare --tuning=src/GrimesGolf.Godot/tuning/startup.json
+```
+
+With no capture given it takes the latest one; `--tuning=defaults` uses the engine's defaults. By default both
+commands use the game's start-up tuning. `record --drive --club=I7` connects to the monitor over Bluetooth and
+arms it itself, recording the raw packets both ways (nothing goes to GSPro). Use that when nothing else is
+connected (close Square's connector first); type `club W3` to change club.
+
+To search for tuning values that match GSPro, run `fit` (several capture folders can be given; the latest by
+default):
+
+```bash
+dotnet run --project src/GrimesGolf.ShotRecorder -- fit --only=ground
+```
+
+It fits the flight (drag, lift, spin decay, drag tilt) to carry and apex, then the fairway's and the green's bounce
+and roll to how far each ball runs out, and writes `fitted-tuning.json` into the capture folder. Your own tuning
+isn't changed. GSPro isn't copied where it plays unlike the real thing:
+
+- On the fairway, full wedges (9000 rpm and up) check, with up to 3 yards of spin-back, instead of releasing.
+- Irons release 4 to 5 yards on the fairway, not GSPro's 10.
+- On the green, full wedges spin back 1 to 5 yards, pitches (4000 to 7000 rpm) release 2 to 6 yards, and irons
+  release 2 to 8 yards.
+
+`--only=air`, `--only=ground` or `--only=green` runs one stage.
+
+To watch the shots, use **Replay a Capture** in the range menu (or `--replay=latest`). It lists recent captures.
+N or HIT SHOT flies the next shot, and Shift+N goes back one. Each shot flies with the physics as it is now, and
+GSPro's numbers show beside ours once the ball stops. With the tuner open, F5 flies the same shot again, so a
+tuning change can be watched on the shot it was meant for. Replayed shots aren't saved to your history.
 
 ## Making a release build
 
