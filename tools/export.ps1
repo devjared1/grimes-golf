@@ -37,8 +37,24 @@ New-Item -ItemType Directory -Force $Out | Out-Null
 $Out = (Resolve-Path $Out).Path
 $exe = Join-Path $Out "Grimes Golf.exe"
 Write-Host "Exporting Grimes Golf v$version to $Out"
-& $Godot --headless --path $project --export-release "Windows Desktop" $exe
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path $exe)) { throw "Godot export failed (exit code $LASTEXITCODE)." }
+# The exe's Windows version details only take numbers: for "1.0.0-beta" they get 1.0.0 (the app still shows the
+# whole version). Written into the preset for the export, then put back as it was.
+$presets = "$project/export_presets.cfg"
+$original = [IO.File]::ReadAllText($presets)
+$number = ($version -split '-')[0]
+[IO.File]::WriteAllText($presets, ($original `
+    -replace '(?m)^application/file_version=".*"', "application/file_version=`"$number`"" `
+    -replace '(?m)^application/product_version=".*"', "application/product_version=`"$number`""))
+try {
+    $ErrorActionPreference = "Continue"   # Godot's warnings on stderr aren't failures; the exit code says if it failed
+    & $Godot --headless --path $project --export-release "Windows Desktop" $exe
+    $code = $LASTEXITCODE
+}
+finally {
+    $ErrorActionPreference = "Stop"
+    [IO.File]::WriteAllText($presets, $original)
+}
+if ($code -ne 0 -or -not (Test-Path $exe)) { throw "Godot export failed (exit code $code)." }
 
 # Physics presets beside the exe (excluded from the pack so they stay editable). Presets already there may have been
 # changed from the exported app's tuner, so they're kept.

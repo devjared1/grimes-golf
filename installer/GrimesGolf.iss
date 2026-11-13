@@ -7,6 +7,8 @@
   #error Pass the version: ISCC /DAppVersion=0.9.8 installer\GrimesGolf.iss
 #endif
 #define Source "..\dist\Grimes Golf"
+; The installer's Windows version details take only numbers: "1.0.0-beta" gives 1.0.0.
+#define VersionNumber Copy(AppVersion, 1, Pos("-", AppVersion + "-") - 1)
 
 [Setup]
 ; Never change AppId: it's how a new version recognises the old one and installs over it.
@@ -14,6 +16,8 @@ AppId={{6C1E2A54-8F0B-4B4D-9E3A-7D52C1F0A9B6}
 AppName=Grimes Golf
 AppVersion={#AppVersion}
 AppVerName=Grimes Golf {#AppVersion}
+VersionInfoVersion={#VersionNumber}
+VersionInfoProductTextVersion={#AppVersion}
 AppPublisher=Grimes Golf
 AppPublisherURL=https://github.com/devjared1/grimes-golf
 AppUpdatesURL=https://github.com/devjared1/grimes-golf/releases

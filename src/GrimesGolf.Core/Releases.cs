@@ -25,11 +25,32 @@ public static class Releases
             string? tag = doc.RootElement.GetProperty("tag_name").GetString(), page = doc.RootElement.GetProperty("html_url").GetString();
             if (tag == null || page == null || !page.StartsWith($"https://github.com/{Repo}/releases/", StringComparison.Ordinal)) return null;
             string version = tag.TrimStart('v');
-            return Version.TryParse(version, out var latest) && Version.TryParse(current.TrimStart('v'), out var ours) && latest > ours ? new Update(version, page) : null;
+            return Parse(version) is { } latest && Parse(current) is { } ours && Compare(latest, ours) > 0 ? new Update(version, page) : null;
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
         {
             return null;
         }
+    }
+
+    /// <summary>"v1.0.0-beta" → (1.0.0, "beta"); "0.9.8" → (0.9.8, null); null if it isn't a version.</summary>
+    private static (Version Number, string? Label)? Parse(string text)
+    {
+        text = text.TrimStart('v');
+        int dash = text.IndexOf('-');
+        string number = dash < 0 ? text : text[..dash];
+        string? label = dash < 0 ? null : text[(dash + 1)..];
+        if (label is { Length: 0 } || !Version.TryParse(number, out var v)) return null;
+        // 1.0 and 1.0.0 are the same version.
+        return (new Version(v.Major, v.Minor, Math.Max(v.Build, 0), Math.Max(v.Revision, 0)), label);
+    }
+
+    /// <summary>By number; at the same number a pre-release ("1.0.0-beta") comes before the release ("1.0.0").</summary>
+    private static int Compare((Version Number, string? Label) a, (Version Number, string? Label) b)
+    {
+        int byNumber = a.Number.CompareTo(b.Number);
+        if (byNumber != 0) return byNumber;
+        if (a.Label == null || b.Label == null) return a.Label == null ? (b.Label == null ? 0 : 1) : -1;
+        return string.Compare(a.Label, b.Label, StringComparison.OrdinalIgnoreCase);
     }
 }

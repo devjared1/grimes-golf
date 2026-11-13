@@ -301,6 +301,12 @@ public sealed class CourseStoreTests : IDisposable
     [InlineData("v0.9.7", "v0.9.7", false)]
     [InlineData("v0.9.6", "0.9.7", false)]
     [InlineData("courses", "0.9.7", false)]
+    [InlineData("v1.0.0-beta", "v0.9.8", true)]
+    [InlineData("v1.0.0", "v1.0.0-beta", true)]
+    [InlineData("v1.0.0-beta.2", "v1.0.0-beta", true)]
+    [InlineData("v1.0.0-beta", "v1.0.0-beta", false)]
+    [InlineData("v1.0.0-beta", "v1.0.0", false)]
+    [InlineData("v1.0", "v1.0.0", false)]
     public void AnUpdateIsOnlyOfferedWhenItsNewer(string tag, string current, bool offered)
     {
         string json = $$"""{"tag_name":"{{tag}}","html_url":"https://github.com/devjared1/grimes-golf/releases/tag/{{tag}}"}""";
