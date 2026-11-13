@@ -164,11 +164,11 @@ public partial class Hud : Control
     private Label _holeNumber = null!, _holeName = null!, _holeFacts = null!, _stroke = null!, _score = null!, _scoreNote = null!, _credit = null!;
     private Label _toPin = null!, _elevation = null!, _playsLike = null!, _lieName = null!, _lieNote = null!, _upSlope = null!, _sideSlope = null!, _penalty = null!;
     private Label _greenRead = null!, _greenReadNote = null!, _aim = null!, _resultHeadline = null!, _resultNote = null!;
-    private PanelContainer _lieChip = null!, _result = null!, _scorecardPanel = null!, _shotPanel = null!, _liePanel = null!, _lastShot = null!;
+    private PanelContainer _lieChip = null!, _result = null!, _scorecardPanel = null!, _shotPanel = null!, _liePanel = null!;
+    private Control _lastShot = null!;
     private TextureRect _courseLogo = null!;
     private WindIndicator _wind = null!;
     private Control _stanceRows = null!, _greenRows = null!;
-    private VBoxContainer _resultStats = null!;
     private HBoxContainer _courseShotSlot = null!;
     private OptionButton _courseClub = null!;
     private Button _flag = null!, _heatMap = null!, _grid = null!, _mulligan = null!;
@@ -178,7 +178,7 @@ public partial class Hud : Control
     public SubViewport Minimap { get; private set; } = null!;
 
     /// <summary>Minimap size in the current mode: portrait beside a hole, wider at the top of the range's right column.</summary>
-    public Vector2I MinimapSize => _courseMode ? new Vector2I(230, 320) : new Vector2I(RightColumnWidth - 12, 230);
+    public Vector2I MinimapSize => _courseMode ? new Vector2I(200, 280) : new Vector2I(RightColumnWidth - 12, 230);
 
     public string ClubCode => ClubPresets.All[Math.Max(0, _rangeClub.Selected)].Code;
     public ClubPreset Club => ClubPresets.All[Math.Max(0, _rangeClub.Selected)];
@@ -536,7 +536,6 @@ public partial class Hud : Control
         // Large text leaves less room: go compact when the UI is narrower than it was laid out for.
         bool compact = GetViewportRect().Size.X < CompactBelow;
         if (compact != _compact) SetCompact(compact);
-        KeepLastShotClear();
     }
 
     /// <summary>UI width (in UI units) below which the compact layout is used.</summary>
@@ -600,16 +599,16 @@ public partial class Hud : Control
             Shot.Hit.Text = "HIT SHOT";
             Shot.Hit.Disabled = false;
         }
-        // A course has no top bar: the Ready light moves under the hole badge, and the drawer reaches the top.
+        // A course has no top bar: the Ready light becomes a small pill at the bottom centre, and the drawer reaches the top.
         _topBar.Visible = !course && !_menuShown;
-        Control readyParent = course ? _statusRow : _readyHome;
+        Control readyParent = course ? _readySlot : _readyHome;
         if (_readyLight.GetParent() != readyParent)
         {
             _readyLight.GetParent().RemoveChild(_readyLight);
             readyParent.AddChild(_readyLight);
-            if (course) readyParent.MoveChild(_readyLight, 0);
         }
-        _readyLight.CustomMinimumSize = course ? new Vector2(130, 30) : new Vector2(200, 34);
+        _readyLight.CustomMinimumSize = course ? new Vector2(150, 28) : new Vector2(200, 34);
+        Shot.SetReadyPill(course);
         _drawer.OffsetTop = TopInset;
         UpdateShotLayout();
         HideMapMarkers();

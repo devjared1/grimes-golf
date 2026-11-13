@@ -451,20 +451,22 @@ public partial class Main
 
         var stats = new List<Stat>();
         var f = o.Flight;
+        // The bar along the bottom left (Carry, Total, Roll, Apex, Offline; matched by caption, "-" when missing).
+        // What's left to the pin is on the shot panel.
         if (f.LandingIndex == 0)
         {
-            stats.Add(Distance("Rolled", f.TotalYards * Units.YardsToMetres, short_: true));
-            if (!o.HoleOver && o.Penalty == 0) stats.Add(Distance("To the hole", o.NextBall.DistanceTo(round.Hole.Pin), short_: true));
+            // A putt (or a shot along the ground): all roll.
+            var rolled = Distance("Total", f.TotalYards * Units.YardsToMetres, short_: true);
+            stats.Add(rolled);
+            stats.Add(rolled with { Caption = "Roll" });
         }
         else
         {
             stats.Add(new Stat("Carry", $"{f.CarryYards:0}", "yd"));
             stats.Add(new Stat("Total", $"{f.TotalYards:0}", "yd"));
-            stats.Add(new Stat("Offline", RangeShot.Side(f.LateralYards, "0"), "yd"));
             stats.Add(new Stat("Roll", $"{Math.Max(0, f.TotalYards - f.CarryYards):0}", "yd"));
             stats.Add(new Stat("Apex", $"{f.ApexYards * 3:0}", "ft"));
-            stats.Add(new Stat("Descent", $"{f.DescentDeg:0}°"));
-            if (!o.HoleOver && o.Penalty == 0) stats.Add(Distance("To the pin", o.NextBall.DistanceTo(round.Hole.Pin), short_: round.Lie == Lie.Green));
+            stats.Add(new Stat("Offline", RangeShot.Side(f.LateralYards, "0"), "yd"));
         }
 
         // Next player up (the same one if they're still farthest away).
@@ -545,14 +547,15 @@ public partial class Main
         var stats = new List<Stat> { new("Ball speed", $"{s.BallMph:0.0}", "mph") };
         if (putt)
         {
-            stats.Add(new Stat("Start line", RangeShot.Side(s.DirectionDeg) + "°"));
+            stats.Add(new Stat("Direction", RangeShot.Side(s.DirectionDeg) + "°"));   // the start line
             return stats;
         }
+        // In the order the HUD lists them down the left (it matches them by caption).
         if (s.ClubMph is > 0 and var club) stats.Add(new Stat("Club speed", $"{club:0.0}", "mph"));
-        stats.Add(new Stat("Launch", $"{s.LaunchDeg:0.0}°"));
-        stats.Add(new Stat("Direction", RangeShot.Side(s.DirectionDeg) + "°"));
         stats.Add(new Stat("Spin", $"{s.SpinRpm:0}", "rpm"));
         stats.Add(new Stat("Spin axis", RangeShot.Side(s.SpinAxisDeg) + "°"));
+        stats.Add(new Stat("Direction", RangeShot.Side(s.DirectionDeg) + "°"));
+        stats.Add(new Stat("Launch", $"{s.LaunchDeg:0.0}°"));
         return stats;
     }
 

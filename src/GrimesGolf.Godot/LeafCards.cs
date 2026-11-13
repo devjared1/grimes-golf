@@ -14,8 +14,9 @@ public static class LeafCards
         render_mode cull_disabled;
         uniform sampler2D leaves : source_color, filter_linear_mipmap_anisotropic, repeat_disable;
         varying vec3 world_pos;
-        """ + Scenery.CloudGlsl + """
+        """ + Scenery.CloudGlsl + TreeFactory.SeeThroughGlsl + """
         void vertex() {
+            see_fade = see_through_amount(MODEL_MATRIX);
             // The same sway as the crown it covers (TreeFactory's foliage shader), so cards and crown move together.
             vec3 origin = MODEL_MATRIX[3].xyz;
             float phase = dot(origin.xz, vec2(0.11, 0.07));
@@ -25,6 +26,7 @@ public static class LeafCards
             world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
         }
         void fragment() {
+            see_through(see_fade, FRAGCOORD.xy);
             vec4 t = texture(leaves, UV);
             // Lit as the crown's surface there (the card's normal points out of the crown), whichever side is seen.
             if (!FRONT_FACING) NORMAL = -NORMAL;
@@ -48,6 +50,10 @@ public static class LeafCards
 
     /// <summary>Cards of needles: a twig along the card from its base (u = 0) to its tip (u = 1), needles either side.</summary>
     public static ShaderMaterial Conifer => _conifer ??= Material(PaintNeedles());
+
+    /// <summary>The materials made so far (null = not yet), without making them.</summary>
+    internal static ShaderMaterial? MadeBroadleaf => _broadleaf;
+    internal static ShaderMaterial? MadeConifer => _conifer;
 
     private static ShaderMaterial Material(Image picture)
     {

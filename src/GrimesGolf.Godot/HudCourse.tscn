@@ -5,36 +5,36 @@ font_names = PackedStringArray("Segoe UI", "Inter", "Roboto", "Helvetica Neue", 
 font_weight = 700
 
 [sub_resource type="StyleBoxFlat" id="HoleCardBox"]
-content_margin_left = 14.0
-content_margin_top = 10.0
+content_margin_left = 12.0
+content_margin_top = 6.0
 content_margin_right = 14.0
-content_margin_bottom = 10.0
+content_margin_bottom = 8.0
 bg_color = Color(0.11, 0.125, 0.15, 0.94)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
 border_color = Color(1, 1, 1, 0.07)
-corner_radius_top_left = 14
-corner_radius_top_right = 14
-corner_radius_bottom_right = 14
-corner_radius_bottom_left = 14
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
 
 [sub_resource type="StyleBoxFlat" id="LastShotBox"]
-content_margin_left = 16.0
-content_margin_top = 12.0
-content_margin_right = 16.0
-content_margin_bottom = 12.0
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 14.0
+content_margin_bottom = 8.0
 bg_color = Color(0.11, 0.125, 0.15, 0.94)
 border_width_left = 1
 border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
 border_color = Color(1, 1, 1, 0.07)
-corner_radius_top_left = 14
-corner_radius_top_right = 14
-corner_radius_bottom_right = 14
-corner_radius_bottom_left = 14
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
 
 [sub_resource type="StyleBoxFlat" id="BottomCardBox"]
 content_margin_left = 12.0
@@ -47,10 +47,10 @@ border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
 border_color = Color(1, 1, 1, 0.07)
-corner_radius_top_left = 14
-corner_radius_top_right = 14
-corner_radius_bottom_right = 14
-corner_radius_bottom_left = 14
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
 
 [sub_resource type="StyleBoxFlat" id="ShotPanelBox"]
 content_margin_left = 14.0
@@ -63,10 +63,10 @@ border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
 border_color = Color(1, 1, 1, 0.07)
-corner_radius_top_left = 16
-corner_radius_top_right = 16
-corner_radius_bottom_right = 16
-corner_radius_bottom_left = 16
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
 
 [sub_resource type="StyleBoxFlat" id="ResultBox"]
 content_margin_left = 20.0
@@ -111,10 +111,10 @@ border_width_top = 1
 border_width_right = 1
 border_width_bottom = 1
 border_color = Color(1, 1, 1, 0.07)
-corner_radius_top_left = 16
-corner_radius_top_right = 16
-corner_radius_bottom_right = 16
-corner_radius_bottom_left = 16
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
 
 [node name="CourseView" type="Control"]
 layout_mode = 3
@@ -131,7 +131,7 @@ offset_left = 16.0
 offset_top = 16.0
 offset_right = 16.0
 offset_bottom = 16.0
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
 
 [node name="HoleCard" type="PanelContainer" parent="HoleColumn"]
 layout_mode = 2
@@ -187,7 +187,7 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.93, 0.95, 0.96, 1)
 theme_override_fonts/font = SubResource("Bold")
-theme_override_font_sizes/font_size = 26
+theme_override_font_sizes/font_size = 24
 text = "HOLE 1"
 
 [node name="HoleFacts" type="Label" parent="HoleColumn/HoleCard/Stack/Row/Hole"]
@@ -273,11 +273,12 @@ theme_override_constants/separation = 8
 
 [node name="MonitorStatus" type="Button" parent="HoleColumn/StatusRow"]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 26)
 layout_mode = 2
 size_flags_vertical = 4
 tooltip_text = "Launch monitor  [L]"
 focus_mode = 0
-theme_override_font_sizes/font_size = 13
+theme_override_font_sizes/font_size = 12
 text = "Not connected"
 alignment = 0
 
@@ -302,10 +303,11 @@ autowrap_mode = 3
 [node name="Mulligan" type="Button" parent="HoleColumn"]
 unique_name_in_owner = true
 visible = false
-custom_minimum_size = Vector2(0, 36)
+custom_minimum_size = Vector2(0, 26)
 layout_mode = 2
 size_flags_horizontal = 0
 tooltip_text = "Take the last shot again without counting it (house rules)  [U, gamepad X]"
+theme_override_font_sizes/font_size = 12
 text = "Mulligan  (2 left)"
 
 [node name="Credit" type="Label" parent="HoleColumn"]
@@ -315,26 +317,58 @@ layout_mode = 2
 theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 0.8)
 theme_override_font_sizes/font_size = 10
 
-[node name="LastShot" type="PanelContainer" parent="."]
+[node name="LastShot" type="VBoxContainer" parent="."]
 unique_name_in_owner = true
-visible = false
 layout_mode = 1
-anchors_preset = 4
-anchor_top = 0.5
-anchor_bottom = 0.5
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
 offset_left = 16.0
-offset_top = -20.0
+offset_top = -16.0
 offset_right = 16.0
-offset_bottom = -20.0
-grow_vertical = 2
+offset_bottom = -16.0
+grow_vertical = 0
+mouse_filter = 2
+theme_override_constants/separation = 8
+
+[node name="LaunchPanel" type="PanelContainer" parent="LastShot"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("LastShotBox")
 
-[node name="ResultStats" type="VBoxContainer" parent="LastShot"]
+[node name="LaunchStats" type="VBoxContainer" parent="LastShot/LaunchPanel"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(104, 0)
+custom_minimum_size = Vector2(110, 0)
 layout_mode = 2
-theme_override_constants/separation = 8
+theme_override_constants/separation = 6
+
+[node name="ResultBar" type="PanelContainer" parent="LastShot"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("LastShotBox")
+
+[node name="ResultStats" type="HBoxContainer" parent="LastShot/ResultBar"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 22
+
+[node name="ReadySlot" type="CenterContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_top = -16.0
+offset_bottom = -16.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
 
 [node name="ShotColumn" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -512,27 +546,20 @@ theme_type_variation = &"FlatButton"
 toggle_mode = true
 text = "Grid"
 
-[node name="Leaderboard" type="PanelContainer" parent="."]
+[node name="Leaderboard" type="PanelContainer" parent="HoleColumn"]
 unique_name_in_owner = true
 visible = false
-layout_mode = 1
-anchors_preset = 2
-anchor_top = 1.0
-anchor_bottom = 1.0
-offset_left = 16.0
-offset_top = -16.0
-offset_right = 16.0
-offset_bottom = -16.0
-grow_vertical = 0
+layout_mode = 2
+size_flags_horizontal = 0
 mouse_filter = 2
 theme_override_styles/panel = SubResource("BottomCardBox")
 
-[node name="Column" type="VBoxContainer" parent="Leaderboard"]
+[node name="Column" type="VBoxContainer" parent="HoleColumn/Leaderboard"]
 custom_minimum_size = Vector2(220, 0)
 layout_mode = 2
 theme_override_constants/separation = 6
 
-[node name="LeaderboardCaption" type="Label" parent="Leaderboard/Column"]
+[node name="LeaderboardCaption" type="Label" parent="HoleColumn/Leaderboard/Column"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_colors/font_color = Color(0.57, 0.62, 0.68, 1)
@@ -540,7 +567,7 @@ theme_override_fonts/font = SubResource("Bold")
 theme_override_font_sizes/font_size = 11
 text = "LEADERBOARD"
 
-[node name="LeaderboardRows" type="GridContainer" parent="Leaderboard/Column"]
+[node name="LeaderboardRows" type="GridContainer" parent="HoleColumn/Leaderboard/Column"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/h_separation = 12

@@ -150,6 +150,22 @@ public partial class ShotControls : VBoxContainer
         _readyShown = text;
         _readyText.Text = text.ToUpperInvariant();
         _readyText.AddThemeColorOverride("font_color", ready ? new Color(0.03f, 0.08f, 0.05f) : UiTheme.Ink);
-        _readyLight.AddThemeStyleboxOverride("panel", UiTheme.Box(ready ? UiTheme.Accent : new Color(0.55f, 0.22f, 0.2f, 0.9f), 8, 0, 4, 16));
+        StyleReadyLight();
+    }
+
+    private bool _readyPill;
+
+    /// <summary>The course's smaller pill (bottom centre) rather than the range's top-bar light.</summary>
+    public void SetReadyPill(bool pill)
+    {
+        _readyPill = pill;
+        _readyText.AddThemeFontSizeOverride("font_size", pill ? 13 : 16);
+        StyleReadyLight();
+    }
+
+    private void StyleReadyLight()
+    {
+        Color color = _ready == true ? UiTheme.Accent : _readyPill ? new Color(0.72f, 0.2f, 0.2f, 0.95f) : new Color(0.55f, 0.22f, 0.2f, 0.9f);
+        _readyLight.AddThemeStyleboxOverride("panel", _readyPill ? UiTheme.Box(color, 14, 0, 3, 18) : UiTheme.Box(color, 8, 0, 4, 16));
     }
 }

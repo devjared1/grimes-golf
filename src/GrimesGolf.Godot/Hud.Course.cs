@@ -6,12 +6,13 @@ namespace GrimesGolf.Game;
 /// <summary>
 /// The course view, laid out round the ball in the middle so the hole stays in sight. There's no top bar: the hole
 /// badge top left (Menu and the brand; course logo, hole, par, length, stroke and score; the Ready light, monitor
-/// status, whose turn and the mulligan under it), the hole overview map top right (built in <c>Hud.cs</c>) with the
-/// wind under it, the last shot's numbers down the left, and bottom right the lie card (the lie, the slopes and the
-/// shot penalty; on the green, the read and green aids) over the shot panel (to the pin with the elevation, club, aim,
-/// power, shape, spin and HIT SHOT). The result line runs across the top, and the scorecard opens over it all. With a
-/// launch monitor connected the swing replaces the on-screen shot controls: the shot panel narrows to to the pin over
-/// the club, and a small leaderboard takes the bottom left.
+/// status, whose turn, the mulligan and the leaderboard under it), the hole overview map top right (built in
+/// <c>Hud.cs</c>) with the wind under it, the ball data down the left over the shot data along the bottom left (both
+/// always shown, "-" until known), the Ready pill bottom centre, and bottom right the lie card (the lie, the slopes and
+/// the shot penalty; on the green, the read and green aids) over the shot panel (to the pin with the elevation, club,
+/// aim, power, shape, spin and HIT SHOT). The result line runs across the top, and the scorecard opens over it all.
+/// With a launch monitor connected the swing replaces the on-screen shot controls: the shot panel narrows to to the
+/// pin over the club, and a small leaderboard shows (with more than one player).
 /// </summary>
 public partial class Hud
 {
@@ -60,10 +61,11 @@ public partial class Hud
         _courseStatus.Pressed += ToggleDrawer;
 
         // Last shot, lie card, leaderboard
-        _lastShot = N<PanelContainer>("LastShot");
-        _lastShotOffset = _lastShot.OffsetTop;
-        _holeColumn = _courseView.GetNodeOrNull<Control>("HoleColumn");
-        _resultStats = N<VBoxContainer>("ResultStats");
+        // The shot's numbers: ball data down the left, shot data along the bottom left, always shown ("-" until known).
+        _lastShot = N<Control>("LastShot");
+        BuildStatSlots(N<VBoxContainer>("LaunchStats"), LaunchSlots, _launchSlots);
+        BuildStatSlots(N<HBoxContainer>("ResultStats"), ResultSlots, _resultSlots);
+        _readySlot = N<CenterContainer>("ReadySlot");
         _liePanel = N<PanelContainer>("LiePanel");
         _lieChip = N<PanelContainer>("LieChip");
         _lieName = N<Label>("LieName");
@@ -386,75 +388,67 @@ public partial class Hud
         CreateTween().TweenProperty(_result, "modulate:a", 1.0f, 0.25);
     }
 
-    private Control? _holeColumn;
-    private float _lastShotOffset;
+    /// <summary>Ball data, down the left (caption and default unit). Stats are matched to these by caption.</summary>
+    private static readonly (string Caption, string Unit)[] LaunchSlots =
+        { ("Ball speed", "mph"), ("Club speed", "mph"), ("Spin", "rpm"), ("Spin axis", ""), ("Direction", ""), ("Launch", "") };
 
-    /// <summary>
-    /// The shot's numbers sit centred down the left (as laid out in the scene), but never up over the hole badge and
-    /// what's under it: they're moved down when they'd reach it. Every frame, since either can change height.
-    /// </summary>
-    private void KeepLastShotClear()
+    /// <summary>Shot data, along the bottom left.</summary>
+    private static readonly (string Caption, string Unit)[] ResultSlots =
+        { ("Carry", "yd"), ("Total", "yd"), ("Roll", "yd"), ("Apex", "ft"), ("Offline", "yd") };
+
+    private const string NoValue = "-";
+
+    private readonly Dictionary<string, (Label Value, Label Unit, string DefaultUnit)> _launchSlots = new(StringComparer.OrdinalIgnoreCase),
+                                                                                       _resultSlots = new(StringComparer.OrdinalIgnoreCase);
+    private CenterContainer _readySlot = null!;
+
+    private static void BuildStatSlots(BoxContainer parent, (string Caption, string Unit)[] slots, Dictionary<string, (Label, Label, string)> into)
     {
-        if (!_courseMode || !_lastShot.Visible || _holeColumn is not { Visible: true }) return;
-        float height = _lastShot.GetCombinedMinimumSize().Y;
-        float top = _courseView.Size.Y / 2 + _lastShotOffset - height / 2;   // where the scene's anchors put it (it grows both ways)
-        float clear = _holeColumn.GetGlobalRect().End.Y - _courseView.GetGlobalRect().Position.Y + 12;
-        float offset = _lastShotOffset + Math.Max(0, clear - top);
-        if (_lastShot.OffsetTop != offset) _lastShot.OffsetTop = _lastShot.OffsetBottom = offset;
+        foreach (var (caption, unit) in slots)
+        {
+            var b = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+            b.AddThemeConstantOverride("separation", -4);
+            b.AddChild(UiTheme.Caption(caption));
+            var row = new HBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
+            row.AddThemeConstantOverride("separation", 3);
+            var value = UiTheme.Text(NoValue, 22, UiTheme.Ink, bold: true);
+            row.AddChild(value);
+            var u = UiTheme.Text("", 12, UiTheme.Muted);
+            u.SizeFlagsVertical = SizeFlags.ShrinkEnd;
+            row.AddChild(UiTheme.Pad(u, 0, 3, mouse: false));
+            b.AddChild(row);
+            parent.AddChild(b);
+            into[caption] = (value, u, unit);
+        }
+    }
+
+    /// <summary>Fills slots by caption; anything not given shows "-".</summary>
+    private static void FillSlots(Dictionary<string, (Label Value, Label Unit, string DefaultUnit)> slots, IReadOnlyList<Stat> stats)
+    {
+        foreach (var (caption, (value, unit, _)) in slots)
+        {
+            var s = stats.FirstOrDefault(x => string.Equals(x.Caption, caption, StringComparison.OrdinalIgnoreCase));
+            bool known = s.Caption != null;
+            value.Text = known ? s.Value : NoValue;
+            unit.Text = known ? s.Unit : "";
+        }
     }
 
     /// <summary>
-    /// The shot's numbers down the left, three to a row: the launch (shown as soon as the ball is struck) and, under it,
-    /// the result (added once the ball has stopped). They stay until <see cref="HideResult"/> (the next shot, or a new hole).
+    /// The shot's numbers: ball data down the left (as soon as the ball is struck) and shot data along the bottom left
+    /// (once the ball has stopped). Both are always shown; a figure not known (yet) shows "-". They stay until
+    /// <see cref="HideResult"/> (the next shot, or a new hole) clears them.
     /// </summary>
     public void ShowShotNumbers(IReadOnlyList<Stat> launch, IReadOnlyList<Stat> result)
     {
-        foreach (var c in _resultStats.GetChildren()) { _resultStats.RemoveChild(c); c.QueueFree(); }
-        void Group(string caption, IReadOnlyList<Stat> stats)
-        {
-            if (stats.Count == 0) return;
-            if (_resultStats.GetChildCount() > 0) _resultStats.AddChild(new HSeparator());
-            _resultStats.AddChild(UiTheme.Caption(caption));
-            var grid = new GridContainer { Columns = 3 };
-            grid.AddThemeConstantOverride("h_separation", 18);
-            grid.AddThemeConstantOverride("v_separation", 6);
-            foreach (var s in stats) grid.AddChild(StatBlock(s));
-            _resultStats.AddChild(grid);
-        }
-        Group("LAUNCH", launch);
-        Group("RESULT", result);
-
-        bool wasShown = _lastShot.Visible;
-        _lastShot.Visible = launch.Count + result.Count > 0;
-        if (_lastShot.Visible && !wasShown)
-        {
-            _lastShot.Modulate = new Color(1, 1, 1, 0);
-            CreateTween().TweenProperty(_lastShot, "modulate:a", 1.0f, 0.2);
-        }
-    }
-
-    private static Control StatBlock(Stat s)
-    {
-        var b = new VBoxContainer { CustomMinimumSize = new Vector2(96, 0) };
-        b.AddThemeConstantOverride("separation", -2);
-        b.AddChild(UiTheme.Caption(s.Caption));
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 4);
-        row.AddChild(UiTheme.Text(s.Value, 26, UiTheme.Ink, bold: true));
-        if (s.Unit.Length > 0)
-        {
-            var u = UiTheme.Text(s.Unit, 13, UiTheme.Muted);
-            u.SizeFlagsVertical = SizeFlags.ShrinkEnd;
-            row.AddChild(UiTheme.Pad(u, 0, 4, mouse: false));
-        }
-        b.AddChild(row);
-        return b;
+        FillSlots(_launchSlots, launch);
+        FillSlots(_resultSlots, result);
     }
 
     public void HideResult()
     {
         _result.Visible = false;
-        _lastShot.Visible = false;
+        ShowShotNumbers(Array.Empty<Stat>(), Array.Empty<Stat>());
     }
 
     public void ToggleScorecard() => _scorecardPanel.Visible = _courseMode && !_scorecardPanel.Visible;

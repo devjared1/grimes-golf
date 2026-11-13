@@ -146,6 +146,7 @@ public partial class Main : Node3D
         if (args.Contains("--new-game")) _hud.MainMenu.OpenCoursePage();
         if (_match != null && _courseMode && args.FirstOrDefault(a => a.StartsWith("--hole=")) is { } h && int.TryParse(h[7..], out int n) && n >= 2 && n <= _match.Holes.Count)
             StartHole(n - 1);
+        if (args.Contains("--ball-by-tree")) PutBallByTree();
         UpdateInsets();
         if (!_noBluetooth) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect"));
         if (_openSettingsAtStart) OpenSettings();
@@ -300,6 +301,9 @@ public partial class Main : Node3D
         CountDownToNextHole(delta);
         _player.ShowGhost = _tuner.Visible && _tuner.ShowGhost;
         if (_replanIn >= 0 && (_replanIn -= delta) < 0 && _courseMode && _outcome == null) UpdateAim();
+        _course?.ShowBallInGimme(_courseMode ? _player.BallPosition : null);   // green while the ball is inside it
+        // Trees between the camera and the ball are thinned to ghosts so the ball can be seen.
+        TreeFactory.SeeThrough(_courseMode ? GetViewport().GetCamera3D()?.GlobalPosition : null, _player.BallPosition);
         UpdateReady();
         RunDevTools(delta);
     }

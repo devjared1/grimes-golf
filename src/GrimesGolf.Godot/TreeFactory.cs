@@ -1,4 +1,5 @@
 using Godot;
+using GrimesGolf.Core.Course;
 
 namespace GrimesGolf.Game;
 
@@ -27,6 +28,53 @@ public static class TreeFactory
     /// <summary>Distance (m, from a patch's centre) where its trees switch from detailed to simple meshes, and the cross-fade either side.</summary>
     private const float DetailRange = 230, FadeMargin = 30;
 
+    /// <summary>
+    /// Shared by every tree shader: a tree standing between the camera and the ball (or with the camera inside it) is
+    /// thinned to a ghost with a screen-door dither, so the ball can be seen through it. Worked out per tree (from its
+    /// instance transform: base, width and height) in the vertex shader, so a whole tree fades, not a hole in it.
+    /// Set by <see cref="SeeThrough"/>.
+    /// </summary>
+    internal const string SeeThroughGlsl = """
+        uniform vec3 see_cam = vec3(0.0);
+        uniform vec3 see_ball = vec3(0.0);
+        uniform float see_on = 0.0;
+        varying float see_fade;
+        float see_through_amount(mat4 model) {
+            if (see_on < 0.5) return 0.0;
+            vec3 base = model[3].xyz;
+            float h = length(model[1].xyz), w = length(model[0].xyz);
+            vec3 d = see_ball - see_cam;
+            float dd = dot(d.xz, d.xz);
+            // The point on the camera-to-ball line nearest the tree's stem (seen from above).
+            float raw = dd > 1e-4 ? dot(base.xz - see_cam.xz, d.xz) / dd : 1.0;
+            vec3 p = see_cam + d * clamp(raw, 0.0, 1.0);
+            float up = p.y - base.y;
+            if (up < -1.0 || up > h + 1.0) return 0.0;
+            // Between them, anything near the line (crown and a margin); behind the ball or the camera, only a
+            // tree whose crown is over the ball or round the camera.
+            bool between = raw >= 0.0 && raw <= 1.0;
+            float r = between ? w * 0.45 + 1.5 : w * 0.35;
+            return 1.0 - smoothstep(r, r + 1.5, length(p.xz - base.xz));
+        }
+        void see_through(float fade, vec2 frag) {
+            if (fade <= 0.0) return;
+            float n = fract(52.9829189 * fract(dot(frag, vec2(0.06711056, 0.00583715))));
+            if (n < fade * 0.9) discard;   // a faint ghost of the tree is left
+        }
+        """;
+
+    private const string BarkShader = """
+        shader_type spatial;
+        uniform vec3 albedo : source_color = vec3(0.27, 0.20, 0.14);
+        """ + SeeThroughGlsl + """
+        void vertex() { see_fade = see_through_amount(MODEL_MATRIX); }
+        void fragment() {
+            see_through(see_fade, FRAGCOORD.xy);
+            ALBEDO = albedo;
+            ROUGHNESS = 1.0;
+        }
+        """;
+
     private const string FoliageShader = """
         shader_type spatial;
         render_mode cull_disabled;
@@ -34,7 +82,7 @@ public static class TreeFactory
         uniform float shell_shade = 1.0;   // under leaf cards (nearby trees) the crown is its shaded inside
         varying vec3 local_pos;
         varying vec3 world_pos;
-        """ + Scenery.CloudGlsl + """
+        """ + Scenery.CloudGlsl + SeeThroughGlsl + """
         float hash3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
         float noise3(vec3 p) {
             vec3 i = floor(p); vec3 f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -50,8 +98,10 @@ public static class TreeFactory
             VERTEX.z += sin(TIME * 0.9 + phase * 1.7) * 0.004 * sway;
             local_pos = VERTEX + vec3(fract(phase) * 13.0);   // each tree its own leaf pattern
             world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+            see_fade = see_through_amount(MODEL_MATRIX);
         }
         void fragment() {
+            see_through(see_fade, FRAGCOORD.xy);
             float leaves = noise3(local_pos * leaf_scale) * 0.6 + noise3(local_pos * leaf_scale * 2.9) * 0.4;
             float edge_on = 1.0 - abs(dot(NORMAL, VIEW));
             if (leaves < edge_on * 0.95 - 0.2) discard;
@@ -63,8 +113,7 @@ public static class TreeFactory
         }
         """;
 
-    private static ShaderMaterial? _foliage, _foliageUnderCards;
-    private static StandardMaterial3D? _bark;
+    private static ShaderMaterial? _foliage, _foliageUnderCards, _bark;
     private static Mesh? _coniferNear, _coniferFar, _broadleafNear, _broadleafFar, _trunkNear, _trunkFar, _coniferCards, _broadleafCards;
 
     private static ShaderMaterial Foliage => _foliage ??= new ShaderMaterial { Shader = new Shader { Code = FoliageShader } };
@@ -76,10 +125,25 @@ public static class TreeFactory
         m.SetShaderParameter("shell_shade", 0.78f);
         return m;
     }
-    private static StandardMaterial3D Bark => _bark ??= new StandardMaterial3D { AlbedoColor = new Color(0.27f, 0.20f, 0.14f), Roughness = 1 };
+    private static ShaderMaterial Bark => _bark ??= new ShaderMaterial { Shader = new Shader { Code = BarkShader } };
 
-    /// <summary>How far a crown reaches from the trunk, as a share of the mesh's width.</summary>
-    private const float ConiferReach = 0.35f, BroadleafReach = 0.43f;
+    /// <summary>
+    /// Thins out the trees standing between the camera and the ball, so the ball can be seen (null either = no tree
+    /// is thinned). Call each frame.
+    /// </summary>
+    public static void SeeThrough(Vector3? camera, Vector3? ball)
+    {
+        bool on = camera != null && ball != null;
+        foreach (var m in new[] { _foliage, _foliageUnderCards, _bark, LeafCards.MadeBroadleaf, LeafCards.MadeConifer })
+        {
+            if (m == null) continue;
+            m.SetShaderParameter("see_on", on ? 1f : 0f);
+            if (!on) continue;
+            m.SetShaderParameter("see_cam", camera!.Value);
+            m.SetShaderParameter("see_ball", ball!.Value);
+        }
+    }
+
 
     /// <summary>Plants a tree at each spot (ground level), mixed kinds and sizes, the same every time for <paramref name="seed"/>.</summary>
     public static void AddForest(Node3D parent, IReadOnlyList<Vector3> spots, ulong seed)
@@ -97,20 +161,18 @@ public static class TreeFactory
     }
 
     /// <summary>
-    /// Plants measured trees: each at its spot (ground level), as tall as given and with its crown reaching
-    /// <c>Crown</c> metres from the trunk. Tall, narrow trees are mostly conifers, wide ones mostly broadleaf.
-    /// The same every time for <paramref name="seed"/>.
+    /// Plants surveyed trees, each at its spot (ground level). Its kind and size come from <see cref="TreeShape"/>,
+    /// which the ball's flight past trees uses too, so a ball meets a tree only where one is drawn. The turn, lean and
+    /// colour are the same every time for <paramref name="seed"/>.
     /// </summary>
-    public static void AddMeasured(Node3D parent, IReadOnlyList<(Vector3 At, float Height, float Crown)> trees, ulong seed)
+    public static void AddMeasured(Node3D parent, IReadOnlyList<(Vector3 At, CourseTree Tree)> trees, ulong seed)
     {
         var rng = new RandomNumberGenerator { Seed = seed };
         var plants = new List<(Vector3 At, float Height, float Width, bool Conifer)>(trees.Count);
-        foreach (var (at, height, crown) in trees)
+        foreach (var (at, tree) in trees)
         {
-            float slender = crown / height;   // pines are about 0.15-0.3, oaks 0.35 and more
-            bool conifer = rng.Randf() < Mathf.Clamp((0.42f - slender) / 0.22f, 0.1f, 0.9f);
-            float width = Mathf.Clamp(crown / (conifer ? ConiferReach : BroadleafReach), height * 0.45f, height * 1.2f);
-            plants.Add((at, height, width, conifer));
+            bool conifer = TreeShape.IsConifer(tree);
+            plants.Add((at, (float)tree.Height, (float)TreeShape.Width(tree, conifer), conifer));
         }
         Plant(parent, plants, rng);
     }

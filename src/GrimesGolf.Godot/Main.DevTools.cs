@@ -91,6 +91,27 @@ public partial class Main
             _devTune = (key, v);
     }
 
+    /// <summary>
+    /// --ball-by-tree: the ball just past the tree nearest this hole's line (80–260 m out), on the side towards the
+    /// pin, so the tree stands between the ball and the camera behind it (to check that it thins out).
+    /// </summary>
+    private void PutBallByTree()
+    {
+        if (_match?.Current is not { } round || _courseDef?.StandingTrees is not { } trees) return;
+        var hole = round.Hole;
+        var line = hole.Pin - hole.Tee;
+        double Off(P2 p) => Math.Abs((p - hole.Tee).X * line.Z - (p - hole.Tee).Z * line.X) / line.Length;
+        var tree = trees.Where(t => t.At.DistanceTo(hole.Tee) is > 80 and < 260).OrderBy(t => Off(t.At)).FirstOrDefault();
+        if (tree == null) { Log("--ball-by-tree: no tree near this hole."); return; }
+        var toPin = hole.Pin - tree.At;
+        var ball = tree.At + toPin * ((tree.Crown / 2 + 2) / toPin.Length);
+        var s = round.Save();
+        round.Restore(s with { Ball = ball, Strokes = Math.Max(s.Strokes, 1) });
+        _player.PlaceBall(RestingBall(round));
+        PrepareNextShot(snapCamera: true);
+        Log($"--ball-by-tree: ball at {ball.X:0.0},{ball.Z:0.0}, past a {tree.Height:0} m tree.");
+    }
+
     private static double Number(string s) => double.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
 
     private (string Key, double Value)? _devTune;

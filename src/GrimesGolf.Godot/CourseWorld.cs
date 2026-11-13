@@ -172,18 +172,60 @@ public partial class CourseWorld : Node3D
         BuildGimmeCircles();
     }
 
+    /// <summary>The gimme circle's colour while the ball is inside it.</summary>
+    private static readonly Color GimmeIn = new(0.25f, 0.95f, 0.45f);
+
+    /// <summary>The gimme circle's own material (tints its white vertex colours), and whether it shows the ball inside.</summary>
+    private StandardMaterial3D? _gimmeMaterial;
+    private bool _ballInGimme;
+
+    /// <summary>
+    /// Turns the gimme circle green while the ball is on the ground inside it, and back to white when it rolls out
+    /// (called every frame with the ball being played; null = no ball).
+    /// </summary>
+    public void ShowBallInGimme(Vector3? ball)
+    {
+        bool inside = false;
+        if (ball is { } b && _gimmeRadius > 0)
+        {
+            var p = FromGodot(b);
+            float ground = Ground != null ? TerrainGround.MeshHeightAt(Ground, p) : GreenAt(p);
+            // On (or in) the green, not flying over it: a ball in the cup is below the surface, so only the height above counts.
+            inside = p.DistanceTo(_hole.Pin) <= _gimmeRadius && b.Y - ground < 0.25f;
+        }
+        if (inside == _ballInGimme) return;
+        _ballInGimme = inside;
+        if (_gimmeMaterial != null) _gimmeMaterial.AlbedoColor = inside ? GimmeIn : Colors.White;
+    }
+
     private void BuildGimmeCircles()
     {
         _gimme?.QueueFree();
         _gimme = null;
+        _gimmeMaterial = null;
         if (_gimmeRadius <= 0 && _secondRadius <= 0) return;
         var mesh = new ImmediateMesh();
         var pin = _hole.Pin;
         // Draped on the drawn green, over the heat map and grid lines (see GreenOverlay) but under its rolling dots.
         Vector3 On(P2 p) => Scenery.ToGodot(p, (Ground != null ? TerrainGround.MeshHeightAt(Ground, p) : GreenAt(p)) + 0.042f);
-        foreach (var (radius, alpha) in new[] { (_gimmeRadius, 0.75f), (_secondRadius, 0.45f) })
+        StandardMaterial3D Material() => new()
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, VertexColorUseAsAlbedo = true,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            RenderPriority = 1,   // drawn after the heat map, which is transparent too
+        };
+        // One surface per circle, each with its own material, so the gimme circle can change colour on its own.
+        var materials = new List<StandardMaterial3D>();
+        foreach (var (radius, alpha, gimme) in new[] { (_gimmeRadius, 0.75f, true), (_secondRadius, 0.45f, false) })
         {
             if (radius <= 0) continue;
+            var material = Material();
+            if (gimme)
+            {
+                _gimmeMaterial = material;
+                material.AlbedoColor = _ballInGimme ? GimmeIn : Colors.White;
+            }
+            materials.Add(material);
             const double band = 0.035;   // m
             int segments = (int)Math.Clamp(radius * 40, 64, 240);
             mesh.SurfaceBegin(Mesh.PrimitiveType.TriangleStrip);
@@ -201,13 +243,8 @@ public partial class CourseWorld : Node3D
         _gimme = new MeshInstance3D
         {
             Mesh = mesh, Layers = ShotPlayer.TrailLayer, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-            MaterialOverride = new StandardMaterial3D
-            {
-                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, VertexColorUseAsAlbedo = true,
-                Transparency = BaseMaterial3D.TransparencyEnum.Alpha, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-                RenderPriority = 1,   // drawn after the heat map, which is transparent too
-            },
         };
+        for (int i = 0; i < materials.Count; i++) _gimme.SetSurfaceOverrideMaterial(i, materials[i]);
         AddChild(_gimme);
     }
 
@@ -497,12 +534,10 @@ public partial class CourseWorld : Node3D
     {
         var h = _hole;
         var holes = Shared ? _courseDef.Holes : new[] { h };
-        if (_courseDef.Trees is { } surveyed)
+        // The same trees, and shapes, that a ball can hit (see Course.StandingTrees and TreeShape).
+        if (_courseDef.StandingTrees is { } standing)
         {
-            var measured = surveyed
-                .Where(t => !holes.Any(hole => BehindTee(hole, t.At)))
-                .Select(t => (Scenery.ToGodot(t.At, GroundAt(t.At)), (float)t.Height, (float)t.Crown))
-                .ToList();
+            var measured = standing.Select(t => (Scenery.ToGodot(t.At, GroundAt(t.At)), t)).ToList();
             TreeFactory.AddMeasured(this, measured, 7);
             return;
         }
@@ -527,10 +562,5 @@ public partial class CourseWorld : Node3D
     }
 
     /// <summary>Near the tee or just behind it, where the camera sits.</summary>
-    private static bool BehindTee(Hole hole, P2 p)
-    {
-        var d = p - hole.Tee;
-        double yaw = TeeYaw(hole), along = d.X * Math.Cos(yaw) + d.Z * Math.Sin(yaw), side = -d.X * Math.Sin(yaw) + d.Z * Math.Cos(yaw);
-        return along is > -40 and < 25 && Math.Abs(side) < 30;
-    }
+    private static bool BehindTee(Hole hole, P2 p) => Course.ClearedAroundTee(hole, p);
 }
