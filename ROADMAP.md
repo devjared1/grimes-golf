@@ -182,6 +182,9 @@ balls or play a round with me, and never see a console, a command-line flag or a
   - [ ] Verify the R10 on real hardware: pairing from the app, shots against the Garmin Golf app, left-handed signs,
         reconnecting ([checklist](docs/garmin-r10-protocol.md#first-hardware-test))
   - [ ] Send the R10 its distance to the tee once its units are known from a capture
+- [x] Other launch monitors through their GSPro connector apps: the app can stand in for GSPro's Open Connect
+      server (port 921), so the MLM2PRO Bluetooth app and the like send shots here (still to try with a real
+      connector and monitor)
 - [ ] *After v1:* **live text and video chat** in online games. Text chat first: small messages through the relay
       it already has, shown over the game and readable from the mat. Video is a much bigger step: it goes peer to
       peer (WebRTC), not through the relay, needs a webcam and a TURN server for PCs behind strict routers, and

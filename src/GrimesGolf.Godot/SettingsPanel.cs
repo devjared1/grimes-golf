@@ -25,7 +25,7 @@ public partial class SettingsPanel : Control
     private GuestListEditor _guests = null!;
     private Button _save = null!, _saveNewRound = null!;
     private SpinBox _mulligans = null!;
-    private CheckBox _doublePar = null!, _autoConnect = null!, _fullScreen = null!, _flyover = null!, _soundEffects = null!, _checkForUpdates = null!,
+    private CheckBox _doublePar = null!, _autoConnect = null!, _openConnect = null!, _fullScreen = null!, _flyover = null!, _soundEffects = null!, _checkForUpdates = null!,
                      _autoAlign = null!, _autoPutt = null!, _readySound = null!;
     private OptionButton _textSize = null!, _graphics = null!, _gimme = null!, _monitorType = null!;
     private LineEdit _monitorName = null!;
@@ -124,6 +124,13 @@ public partial class SettingsPanel : Control
             TooltipText = "Only connect to the monitor advertising exactly this name (as shown under Devices nearby), when there are several",
         };
         v.AddChild(Row("Device name (optional)", _monitorName));
+        _openConnect = new CheckBox
+        {
+            Text = "Accept shots from GSPro connector apps (for a Garmin R10, Rapsodo MLM2PRO and other monitors)",
+            TooltipText = "Listens where GSPro would (port 921 on this PC), so a monitor's GSPro connector sends its shots here.\n" +
+                          "Close GSPro first: only one app can use the port.",
+        };
+        v.AddChild(_openConnect);
         v.AddChild(UiTheme.Caption("Updates"));
         _checkForUpdates = new CheckBox { Text = "Tell me when there's a new version (checks GitHub when the app starts)" };
         v.AddChild(_checkForUpdates);
@@ -211,6 +218,7 @@ public partial class SettingsPanel : Control
         _autoConnect.ButtonPressed = current.AutoConnect;
         _monitorType.Selected = (int)current.MonitorType;
         _monitorName.Text = current.MonitorName ?? "";
+        _openConnect.ButtonPressed = current.OpenConnect;
         _checkForUpdates.ButtonPressed = current.CheckForUpdates;
         _textSize.Selected = (int)current.TextSize;
         _fullScreen.ButtonPressed = current.FullScreen;
@@ -254,6 +262,7 @@ public partial class SettingsPanel : Control
             AutoConnect = _autoConnect.ButtonPressed,
             MonitorType = (LaunchMonitorType)Math.Max(0, _monitorType.Selected),
             MonitorName = string.IsNullOrWhiteSpace(_monitorName.Text) ? null : _monitorName.Text.Trim(),
+            OpenConnect = _openConnect.ButtonPressed,
             CheckForUpdates = _checkForUpdates.ButtonPressed,
             TextSize = (TextSize)Math.Max(0, _textSize.Selected),
             FullScreen = _fullScreen.ButtonPressed,

@@ -113,6 +113,24 @@ Every R10 session saves its raw Bluetooth traffic to `monitor-logs\r10-<date>-<t
 numbers exactly as the R10 sent them. The raw log leaves out the messages that carry the R10's serial number. Send
 both files (and what the Garmin Golf app showed for the same shots, if you can) with any report.
 
+### Other monitors, through a GSPro connector
+
+Monitors the app doesn't connect to itself, but that come with a GSPro connector app (the Rapsodo MLM2PRO with
+`MLM2PRO-BT-APP`, and others that speak GSPro Open Connect), can send their shots here instead of to GSPro. (A
+Garmin R10 is better connected directly, above; its `gsp-r10-adapter` works this way too.)
+
+1. Close GSPro if it's running: only one app can use its port (921).
+2. Tick **Accept shots from GSPro connector apps** in **Settings** and save. The app now listens where GSPro would.
+3. Start the connector as you would for GSPro, pointed at `127.0.0.1`, port `921` (its usual setting).
+
+When it connects, a toast says so, the shot controls switch to launch monitor mode, and the status chip shows
+"Ready — hit!" with the device's name. If the connector sends ready signals, the light follows them; if it doesn't,
+it stays ready. The connector is told the hand and club of the player up (and the distance to the pin), so it can
+switch its monitor between full swings and putting. The alignment stick and ball position are Square-only.
+
+Shots the app can't believe (a misread, say) are turned down and the connector is told; the log says why. Without
+a connector to hand, `tools\send-openconnect-shot.ps1` sends a test shot the same way.
+
 ## Main menu and in-game menu
 
 **Main menu** (where the app opens, under the Grimes Golf Simulator logo): **New Game** (a list of courses with
@@ -312,7 +330,7 @@ Add / Remove Players during a round. A player you don't save lasts until the app
 **Settings** (main menu, the in-game menu, numpad `*` or gamepad Back): the home player, players (1-4, name and left-handed),
 house rules, auto-connect, the launch monitor to look for (**Auto**, any supported one; or only a Square Golf Omni
 or only a Garmin Approach R10) and an optional exact **device name** (as listed under Devices nearby, for when there
-are several), text size (Small / Normal / Large / Extra large: smaller for a laptop, bigger for
+are several), accepting shots from GSPro connector apps (see above), text size (Small / Normal / Large / Extra large: smaller for a laptop, bigger for
 reading from the mat or a projector), full screen (the app always opens full screen; untick this for a window until you close it), graphics quality (Low / Medium / High / Ultra: anti-aliasing,
 shadow detail and reach, bounced light and reflections in the water, how far 3D grass reaches round the camera, and soft focus on grass right in front of a low camera;
 High is the default), the camera's hole flyover, sound effects (club, ball, cup and crowd; turn them off if you'd rather just hear your own strike), and a "Ready" chime when the launch monitor sees a ball and is ready for the shot (on by default, separate from the other sounds). The course last played and the camera mode are remembered too, so no command-line switches are

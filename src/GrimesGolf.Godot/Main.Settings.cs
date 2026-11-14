@@ -59,7 +59,8 @@ public partial class Main
     /// <summary>The monitor line on the home player panel.</summary>
     private string HomeMonitorText()
     {
-        if (_monitorLive && _detectedMonitor != null) return $"{_detectedMonitor}, connected";
+        if (_monitorLive && _session != null && _detectedMonitor != null) return $"{_detectedMonitor}, connected";
+        if (_connectorLive) return $"{_connectorDevice ?? "A launch monitor"} through a GSPro connector, connected";
         if (_session != null) return "Found one, connecting…";
         if (_settings.Home?.LaunchMonitor is { } saved) return $"{saved}, not connected right now";
         return "Looking for one… Not on yet? It's detected the first time it connects. You can play without one.";
@@ -73,6 +74,8 @@ public partial class Main
         if (s.TextSize != old.TextSize || s.FullScreen != old.FullScreen) ApplyDisplaySettings();
         if (s.Graphics != old.Graphics) ApplyGraphics();
         if (s.AutoConnect != old.AutoConnect) _autoConnect = s.AutoConnect;
+        if (s.OpenConnect != old.OpenConnect || s.OpenConnectPort != old.OpenConnectPort || s.OpenConnectFromNetwork != old.OpenConnectFromNetwork)
+            SetupOpenConnect();
         if (s.MonitorType != old.MonitorType || s.MonitorName != old.MonitorName) ApplyMonitorChoice();
         _rangePlayer %= s.Golfers.Count;
         if (!_courseMode) ShowRangePlayer();

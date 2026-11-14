@@ -31,6 +31,8 @@ Built with Godot 4.7 (.NET) and C#. Windows only, because it talks to the monito
 - **Garmin Approach R10 over Bluetooth LE** (new, not yet tested on a real R10): connects straight to the R10, with no
   phone app, connector or subscription, and its shots play exactly like the Square's. See the
   [user guide](docs/user-guide.md#garmin-approach-r10) for pairing it.
+- **Other monitors through their GSPro connector**: it can stand in for GSPro's Open Connect server, so a Rapsodo
+  MLM2PRO or any other monitor with a GSPro connector app sends its shots here (off by default, in Settings).
 - **No monitor needed to try it**: a power slider with draw / fade and spin choices hits shots from the screen.
 - **Real courses**: Deer Run (Moulton, AL), all 18 holes from OpenStreetMap, on 1 m lidar elevation, with its
   ~9,900 real trees at their measured height and spread.
@@ -60,7 +62,7 @@ figures are guidance, not tested limits.
 | Graphics | A GPU with Vulkan 1.0 support | Godot's Forward+ renderer. On integrated graphics, use the Low or Medium graphics setting. |
 | Display | Any size | Laid out for 1600×900 and scales with the window; full screen works on TVs and projectors. |
 | Bluetooth | Bluetooth 4.0 (LE) or later, built in or a USB adapter | Only needed with a launch monitor. Don't pair a Square in Windows settings; a Garmin R10 is paired once, the first time it connects. |
-| Launch monitor | Square Golf Omni or Garmin Approach R10 | Optional offline (shots can be hit from the screen). The original Square (non-Omni) isn't supported. R10 support is new and untested on hardware. |
+| Launch monitor | Square Golf Omni or Garmin Approach R10, or another monitor through its GSPro connector app | Optional offline (shots can be hit from the screen). The original Square (non-Omni) isn't supported. R10 support is new and untested on hardware. |
 | .NET | Nothing to install | The exported build includes the .NET runtime. |
 | Input | Mouse and keyboard, or a gamepad, numpad or presenter clicker | |
 
@@ -174,7 +176,7 @@ Command-line switches for development, the code layout of the game, and how to r
 | Path | What it is |
 |---|---|
 | `src/GrimesGolf.Godot` | The game (Godot 4.7, C#): worlds, camera, HUD, menus, input, online lobby |
-| `src/GrimesGolf.Core` | Platform-neutral game logic: courses, rounds, scoring, house rules, the Square and Garmin R10 protocols, the device-neutral monitor interface, saved data |
+| `src/GrimesGolf.Core` | Platform-neutral game logic: courses, rounds, scoring, house rules, the Square and Garmin R10 protocols, the device-neutral monitor interface, the GSPro Open Connect server, saved data |
 | `src/GrimesGolf.Physics` | The golf physics engine: impact, flight, wind, bounce, roll, putting ([README](src/GrimesGolf.Physics/README.md)) |
 | `src/GrimesGolf.Bluetooth` | The Windows Bluetooth LE scanner and links to the Square and the R10 (the only Windows-specific code) |
 | `src/GrimesGolf.Online` | Online play: the relay connection, the messages, the host and guest sessions |
@@ -209,6 +211,8 @@ Command-line switches for development, the code layout of the game, and how to r
   in the physics tuner.
 - **Trees are scenery**: balls don't hit them yet.
 - **Online play** hasn't been played between two houses yet (see above).
+- **GSPro connectors** are tested against the Open Connect spec and messages copied from the connectors' code, not yet
+  with a real connector and monitor. Club data beyond club speed (path, face, attack angle) isn't used yet.
 
 ## Roadmap
 
@@ -227,6 +231,8 @@ See [ROADMAP.md](ROADMAP.md). Next up: proving it on real hardware (0.8), the 1.
 - Garmin Approach R10 protocol: ported from [gsp-r10-adapter](https://github.com/mholow/gsp-r10-adapter) by mholow
   (MIT, notice in [NOTICE](NOTICE)), cross-checked against [10over](https://github.com/divotmaker/10over)
   (Apache-2.0 / MIT), whose protocol bytes are also used as test fixtures.
+- GSPro Open Connect: GSPro's published v1 documentation, and what the `mholow/gsp-r10-adapter` and
+  `Duwaynef/MLM2PRO-BT-APP` connectors send and expect. Not affiliated with GSPro.
 - Built with [Godot Engine](https://godotengine.org) (MIT).
 
 ## Licence

@@ -74,6 +74,7 @@ public partial class Main
         string? Arg(string name) => args.FirstOrDefault(a => a.StartsWith(name + "="))?[(name.Length + 1)..];
         _devRelay = Arg("--relay");
         _noBluetooth = args.Contains("--no-bluetooth");
+        ReadOpenConnectArgs(args);
         _autoPlay = args.Contains("--auto-play");
         _fakeMonitor = _autoPlay || args.Any(a => a == "--fake-monitor" || a.StartsWith("--fake-monitor="));
         // --fake-monitor=r10 / =square: a stand-in monitor that connects like a real one; anything else is a saved session to play.

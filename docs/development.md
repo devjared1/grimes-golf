@@ -87,6 +87,7 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 | `--relay=ws://127.0.0.1:5080/ws` | Fills in the relay address |
 | `--data=user://host` | Keeps this copy's settings and rounds in their own folder (two copies on one PC) |
 | `--no-bluetooth` | Doesn't start Bluetooth |
+| `--open-connect`, `--open-connect=9921` | Accepts GSPro connectors (Open Connect) for this run, whatever the settings say, on port 921 or the one given; `tools/send-openconnect-shot.ps1 -Port 9921` sends it a test shot |
 | `--fake-monitor` | HIT SHOT stands in for a launch monitor; `--fake-monitor=sessions/2026-11-04_120000.jsonl` plays a saved session's shots instead |
 | `--fake-monitor=r10`, `--fake-monitor=square` | A stand-in monitor that shows up in the drawer and connects like a real one (no Bluetooth needed); HIT SHOT (`Space`) hits the shot set up with it. The R10 one runs the real R10 protocol code against a simulated device, and saves its traffic to `monitor-logs\` like a real one; the Square one goes through the Square shot conversion but not its Bluetooth packets |
 | `--fake-drop-at=20` | With `--fake-monitor=r10`: the link drops at this time (seconds after start), to check reconnecting |

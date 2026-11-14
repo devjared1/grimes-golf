@@ -150,6 +150,7 @@ public partial class Main : Node3D
         if (args.Contains("--ball-by-tree")) PutBallByTree();
         UpdateInsets();
         if (!_noBluetooth || _fakeKind != null) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect") || _fakeKind != null);
+        SetupOpenConnect();
         if (_openSettingsAtStart) OpenSettings();
         if (_openMenuAtStart) OpenGameMenu();
         // No saved player: ask for one, over the main menu (not in development runs, or copies playing by themselves).
@@ -322,7 +323,9 @@ public partial class Main : Node3D
         else if (_courseMode && _round is { Holed: true } && !moving) _hud.Shot.SetReady(false, "Hole finished");
         else if (moving) _hud.Shot.SetReady(false, "Ball in play");
         else if (_monitorLive && !_ballReady)
-            _hud.Shot.SetReady(false, _session is not IBallSensingMonitor ? _monitorNotReady : _ballSeen ? "Ball not ready" : "Place a ball");
+            // (A GSPro connector on its own says whether it sees a ball, like a ball-sensing monitor.)
+            _hud.Shot.SetReady(false, _session is not IBallSensingMonitor && !(_session == null && _connectorLive) ? _monitorNotReady
+                                      : _ballSeen ? "Ball not ready" : "Place a ball");
         else _hud.Shot.SetReady(true, "Ready");
     }
 
@@ -337,6 +340,7 @@ public partial class Main : Node3D
         if (_online is HostSession { Phase: not (OnlinePhase.Lobby or OnlinePhase.Over) } host) host.Stop(paused: true);
         if (_online is ClientSession friend) friend.Leave();
         _scanner?.Dispose();
+        _openConnect?.Dispose();
         if (_session == null) { GetTree().Quit(); return; }
         // Let the session release the monitor before exiting, but don't hang on it.
         _quitting = true;

@@ -40,6 +40,15 @@ public sealed record AppSettings(
     public bool SoundEffects { get; init; } = true;
     /// <summary>A chime when the launch monitor has a ball and is ready for the shot.</summary>
     public bool ReadySound { get; init; } = true;
+    /// <summary>
+    /// Stand in for GSPro's Open Connect server, so a monitor's GSPro connector app (Garmin R10, Rapsodo MLM2PRO, ...)
+    /// can send its shots here. Off by default: it uses GSPro's port, so it can't run while GSPro does.
+    /// </summary>
+    public bool OpenConnect { get; init; }
+    /// <summary>The port connectors send to (GSPro's is 921; only settings.json changes it).</summary>
+    public int OpenConnectPort { get; init; } = Core.OpenConnect.OpenConnectProtocol.DefaultPort;
+    /// <summary>Accept connectors running on other computers, not just this one (only settings.json changes it).</summary>
+    public bool OpenConnectFromNetwork { get; init; }
     /// <summary>Which launch monitors to look for: any supported one (Auto), or only a Square or only a Garmin R10.</summary>
     public LaunchMonitorType MonitorType { get; init; } = LaunchMonitorType.Auto;
     /// <summary>Connect only to the monitor advertising this exact name (null = any), for when there are several nearby.</summary>

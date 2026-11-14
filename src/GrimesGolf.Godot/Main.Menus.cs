@@ -1,6 +1,7 @@
 using Godot;
 using GrimesGolf.Core;
 using GrimesGolf.Core.Course;
+using GrimesGolf.Core.Monitors;
 using GrimesGolf.Core.Storage;
 
 namespace GrimesGolf.Game;
@@ -161,7 +162,7 @@ public partial class Main
         }
         items.Add(new(_camera.Follow ? "Camera: Follow Ball" : "Camera: Stay Behind", ToggleCamera, "Follow the ball or stay behind it  [C]"));
         items.Add(new("Launch Monitor", _hud.ToggleDrawer, "Devices, connect / disconnect, battery, log  [L]"));
-        if (_monitorLive) items.Add(new("Align with Stick", OpenAlignment, "Set the target line with the monitor's white stick", !moving));
+        if (_monitorLive && _session is IAlignmentMonitor) items.Add(new("Align with Stick", OpenAlignment, "Set the target line with the monitor's white stick", !moving));
         if (_online == null) items.Add(new("Physics Tuner", _tuner.Toggle, "Adjust the physics between shots, in its own window  [T]"));
         if (items.Count % 2 == 1) items.Add(new("Close", null));
         _hud.Overlay.Open(_courseMode ? $"Hole {_match?.Hole.Number}  ·  {_courseDef?.Name}" : "Driving range", subtitle, items, columns: 2);
