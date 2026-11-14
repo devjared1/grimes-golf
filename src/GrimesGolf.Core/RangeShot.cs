@@ -1,5 +1,7 @@
 using GrimesGolf.Core.Course;
+using GrimesGolf.Core.Monitors;
 using GrimesGolf.Core.Square;
+using GrimesGolf.Physics;
 
 namespace GrimesGolf.Core;
 
@@ -54,6 +56,31 @@ public sealed record RangeShot(
         return new RangeShot(mph, ball.LaunchDeg, ball.DirectionDeg, ball.TotalSpinRpm, -ball.SpinAxisDeg, clubMph, smash) { Source = ShotSource.Monitor };
     }
 
+    /// <summary>
+    /// A launch monitor's shot (any make), or null when it can't be flown. <paramref name="check"/> is the
+    /// <see cref="LaunchMonitorAdapter"/>'s reading of it: its warnings say what had to be assumed.
+    /// </summary>
+    /// <remarks>
+    /// Measured total spin and axis are used exactly as given, as <see cref="FromSquare"/> always has (no range checks,
+    /// no round trip through SI), so a Square shot comes out the same either way. Without both, the spin is what the
+    /// adapter works out from what was measured (e.g. pure backspin when there's no axis), and the shot is null if it
+    /// can't. An unmeasured launch direction is taken as 0.
+    /// </remarks>
+    public static RangeShot? FromLaunchMonitor(MonitorShot shot, out LaunchNormalization check)
+    {
+        var i = shot.Input;
+        check = LaunchMonitorAdapter.NormalizeBallLaunch(i);
+        if (i.BallSpeedMph is not { } mph || i.LaunchAngleDegrees is not { } launchDeg) return null;
+        double spin, axis;
+        if (i.TotalSpinRpm is { } total && i.SpinAxisDegrees is { } a) (spin, axis) = (total, a);
+        else if (check.Launch is { } launch)
+            (spin, axis) = (launch.TotalSpin * UnitConversion.RadiansPerSecondToRpm, launch.SpinAxis * UnitConversion.RadiansToDegrees);
+        else return null;
+        double? clubMph = i.ClubSpeedMph;
+        double? smash = shot.ReportedSmash ?? (clubMph > 0 ? mph / clubMph : null);
+        return new RangeShot(mph, launchDeg, i.LaunchDirectionDegrees ?? 0, spin, axis, clubMph, smash) { Source = ShotSource.Monitor };
+    }
+
     /// <summary>A made-up shot around the club's typical numbers.</summary>
     public static RangeShot Demo(ClubPreset c, Random rng)
     {
@@ -63,7 +90,7 @@ public sealed record RangeShot(
                              (rng.NextDouble() * 2 - 1) * 12, mph / c.Smash, c.Smash, IsDemo: true);
     }
 
-    public FlightResult Fly() => BallFlight.Simulate(BallMph, LaunchDeg, DirectionDeg, SpinRpm, SpinAxisDeg);
+    public FlightResult Fly(Course.Lie ground = Course.Lie.Fairway) => BallFlight.Simulate(BallMph, LaunchDeg, DirectionDeg, SpinRpm, SpinAxisDeg, ground);
 
     /// <summary>Formats a signed left/right value as "L 2.1" / "R 2.1".</summary>
     public static string Side(double v, string fmt = "0.0") =>

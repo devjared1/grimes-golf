@@ -25,12 +25,14 @@ public static class BallFlight
 {
     private static readonly GolfPhysicsEngine Engine = new();
 
-    public static FlightResult Simulate(double ballSpeedMph, double vlaDeg, double hlaDeg, double totalSpinRpm, double spinAxisDeg)
+    /// <param name="ground">What the ball lands and rolls on (flat): the range's fairway unless said otherwise.</param>
+    public static FlightResult Simulate(double ballSpeedMph, double vlaDeg, double hlaDeg, double totalSpinRpm, double spinAxisDeg,
+                                        Lie ground = Lie.Fairway)
     {
         var r = Engine.SimulateShot(new SimulationRequest
         {
             Launch = LaunchConditions.FromDisplayUnits(ballSpeedMph, vlaDeg, hlaDeg, Math.Max(0, totalSpinRpm), spinAxisDeg),
-            Terrain = new FlatTerrain(CourseGround.SurfaceFor(Lie.Fairway)),
+            Terrain = new FlatTerrain(CourseGround.SurfaceFor(ground)),
             Ball = ActivePhysics.Ball,
             Environment = ActivePhysics.Environment,
         });

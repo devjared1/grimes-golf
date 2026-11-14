@@ -8,6 +8,7 @@ comes from. For the tools to install, see [System requirements](../README.md#to-
 - [Build and test](#build-and-test)
 - [Running from source](#running-from-source)
 - [Command-line switches](#command-line-switches)
+- [Comparing physics with GSPro](#comparing-physics-with-gspro)
 - [Making a release build](#making-a-release-build)
 - [Code layout](#code-layout)
 - [Course data](#course-data)
@@ -31,7 +32,8 @@ dotnet test tests/GrimesGolf.Physics.Tests
 dotnet test tests/GrimesGolf.Online.Tests
 ```
 
-`GrimesGolf.Tests` covers the Square protocol, course rules, rounds and scoring (against the hand-made holes in
+`GrimesGolf.Tests` covers the Square and Garmin R10 protocols (the R10 from framing to a whole session against a
+simulated device, with fixtures from the projects in [the protocol notes](garmin-r10-protocol.md#sources)), course rules, rounds and scoring (against the hand-made holes in
 `tests/GrimesGolf.Tests/TestCourse.cs` and against Deer Run). `GrimesGolf.Online.Tests` needs the .NET 10 SDK: it
 hosts the relay in-process, plays scripted 18-hole rounds over an in-memory relay, and one round over real sockets.
 
@@ -76,6 +78,7 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 | `--ball-closeup` | Holds the camera right beside the ball, to check how it looks (with `--graphics=Medium`: High and Ultra blur anything this near) |
 | `--tuner`, `--tuner-tab=Lies` | Opens the physics tuner (the screenshot also saves it as `file-tuner.png`), on a tab (`Flight`, `Lies`, or a surface such as `Green`) |
 | `--tune=flight.drag=1.2` | Changes one tuning value after the demo shots and replays the last one |
+| `--replay=latest`, `--replay=folder` | Loads a shot recorder capture on the range (HIT SHOT or `--hit-at` flies its shots); see [Comparing physics with GSPro](#comparing-physics-with-gspro) |
 
 **Online play (debug builds only):**
 
@@ -86,6 +89,8 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 | `--no-bluetooth` | Doesn't start Bluetooth |
 | `--open-connect`, `--open-connect=9921` | Accepts GSPro connectors (Open Connect) for this run, whatever the settings say, on port 921 or the one given; `tools/send-openconnect-shot.ps1 -Port 9921` sends it a test shot |
 | `--fake-monitor` | HIT SHOT stands in for a launch monitor; `--fake-monitor=sessions/2026-11-04_120000.jsonl` plays a saved session's shots instead |
+| `--fake-monitor=r10`, `--fake-monitor=square` | A stand-in monitor that shows up in the drawer and connects like a real one (no Bluetooth needed); HIT SHOT (`Space`) hits the shot set up with it. The R10 one runs the real R10 protocol code against a simulated device, and saves its traffic to `monitor-logs\` like a real one; the Square one goes through the Square shot conversion but not its Bluetooth packets |
+| `--fake-drop-at=20` | With `--fake-monitor=r10`: the link drops at this time (seconds after start), to check reconnecting |
 | `--auto-play` | The fake monitor hits by itself whenever it's this copy's turn |
 
 **Courses and updates (debug builds only):**
@@ -94,6 +99,70 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 |---|---|
 | `--catalog=http://127.0.0.1:8765/` | Get More Courses reads from here instead of GitHub (the trailing `/` is needed) |
 | `--check-update` | Runs the update check, which otherwise only exported builds do |
+
+## Comparing physics with GSPro
+
+`src/GrimesGolf.ShotRecorder` is a console tool that records shots while you hit them in GSPro, flies each one
+through our physics, and lines our carry, total, apex and offline up against GSPro's.
+
+It sits between Square's own GSPro connector and GSPro. The connector sends each shot to the recorder's port; the
+recorder passes every byte on to GSPro untouched (GSPro on this PC, Open Connect port 921) and records the messages
+both ways. GSPro's replies say which club is in hand, so the club comes along too. (Listening in on the Bluetooth
+link beside the connector doesn't work: Windows won't share it.)
+
+1. Start GSPro. On the range, turn wind off and use normal conditions: our side flies every shot in still air at
+   sea level, landing on fairway.
+2. Start the recorder:
+
+   ```bash
+   dotnet run --project src/GrimesGolf.ShotRecorder -- record --note="7 iron, mat"
+   ```
+
+3. In Square's connector, set a custom GSPro address of `127.0.0.1`, port `9210`, and connect it (to the monitor
+   and to "GSPro", which is now the recorder). The recorder says "Square's connector connected" and "Passing it on
+   to GSPro". `--port=` and `--gspro=host:port` change either end. Set the connector back to the default afterwards,
+   or GSPro won't get shots without the recorder running.
+4. After each shot, our numbers appear. Type GSPro's as `carry total apex offline`, for example `152 168 85 R4`
+   (apex in feet, or `28y` for yards; `-` leaves a value out). `#3 152 168 85 R4` fills in or corrects shot 3,
+   `list` shows everything so far with averages per club, and `q` stops.
+
+Each run is a folder under `%APPDATA%\Square Range 3D\captures\`: `packets.jsonl` (every Open Connect message, or
+with `--drive` every Bluetooth packet, timestamped and undecoded, plus notes), `gspro.csv` (the numbers you typed; edit it freely, and the last line for a shot wins) and
+`comparison.csv` (everything, one row per shot).
+
+To try a tuning against shots already recorded, fly them again with no monitor needed:
+
+```bash
+dotnet run --project src/GrimesGolf.ShotRecorder -- compare --tuning=src/GrimesGolf.Godot/tuning/startup.json
+```
+
+With no capture given it takes the latest one; `--tuning=defaults` uses the engine's defaults. By default both
+commands use the game's start-up tuning. `record --drive --club=I7` connects to the monitor over Bluetooth and
+arms it itself, recording the raw packets both ways (nothing goes to GSPro). Use that when nothing else is
+connected (close Square's connector first); type `club W3` to change club.
+
+To search for tuning values that match GSPro, run `fit` (several capture folders can be given; the latest by
+default):
+
+```bash
+dotnet run --project src/GrimesGolf.ShotRecorder -- fit --only=ground
+```
+
+It fits the flight (drag, lift, spin decay, drag tilt) to carry and apex, then the fairway's and the green's bounce
+and roll to how far each ball runs out, and writes `fitted-tuning.json` into the capture folder. Your own tuning
+isn't changed. GSPro isn't copied where it plays unlike the real thing:
+
+- On the fairway, full wedges (9000 rpm and up) check, with up to 3 yards of spin-back, instead of releasing.
+- Irons release 4 to 5 yards on the fairway, not GSPro's 10.
+- On the green, full wedges spin back 1 to 5 yards, pitches (4000 to 7000 rpm) release 2 to 6 yards, and irons
+  release 2 to 8 yards.
+
+`--only=air`, `--only=ground` or `--only=green` runs one stage.
+
+To watch the shots, use **Replay a Capture** in the range menu (or `--replay=latest`). It lists recent captures.
+N or HIT SHOT flies the next shot, and Shift+N goes back one. Each shot flies with the physics as it is now, and
+GSPro's numbers show beside ours once the ball stops. With the tuner open, F5 flies the same shot again, so a
+tuning change can be watched on the shot it was meant for. Replayed shots aren't saved to your history.
 
 ## Making a release build
 
@@ -148,8 +217,16 @@ tuner can still save presets beside the exe. It isn't code-signed, so Windows Sm
 
 ## Code layout
 
+Launch monitors sit behind `ILaunchMonitorSession` (`GrimesGolf.Core/Monitors/LaunchMonitor.cs`): connection,
+readiness, battery, device details, and shots as `LaunchMonitorInput` (the physics engine's device-neutral form),
+which `RangeShot.FromLaunchMonitor` turns into the shot every screen uses. Monitor-only features are optional
+interfaces the UI checks for: `IBallSensingMonitor`, `IAlignmentMonitor` and `IMonitorClock` (the Square has all
+three, the R10 none). The Square is `SquareMonitorAdapter` over the unchanged `MonitorSession`; the R10 is
+`R10Session` (platform-free, in `GrimesGolf.Core/Garmin`, over an `IR10Link`: `R10BleLink` on Windows,
+`FakeR10Device` in tests and `--fake-monitor=r10`). See the [R10 protocol notes](garmin-r10-protocol.md).
+
 The Godot code is split by topic: `Main.cs` (set-up, the "shot finished" event, saving shots), `Main.Monitor.cs`
-(Bluetooth, auto-connect and reconnecting), `Main.Shots.cs` (shots and the range), `Main.Course.cs` (rounds and
+(Bluetooth, choosing the monitor, auto-connect and reconnecting), `Main.Shots.cs` (shots and the range), `Main.Course.cs` (rounds and
 turns), `Main.Menus.cs` (main menu and in-game menu), `Main.Controls.cs` (keyboard, numpad, gamepad and clicker),
 `Main.Settings.cs`, `Main.DevTools.cs`; and `Hud.cs` (top bar, banner, toasts) with `Hud.Drawer.cs`, `Hud.Range.cs`,
 `Hud.Course.cs`, `MainMenu.cs`, `MenuOverlay.cs`, `ShotControls.cs`, `MapOverlay.cs`, `OnlinePanel.cs`,
@@ -162,7 +239,7 @@ Online play is `Main.Online.cs` (the game side) and `OnlinePanel.cs` (the lobby)
 
 Carry/total/apex, bounce and roll come from the app's own physics engine (`src/GrimesGolf.Physics`, see its README:
 aerodynamic flight, bounce and roll over the course ground, and the lie model), not from the monitor, so expect them
-to differ somewhat from the Square app. The engine's coefficients and the lie effects are provisional
+to differ somewhat from the Square app (and the Garmin Golf app). The engine's coefficients and the lie effects are provisional
 and not yet validated against measured shots; every one can be adjusted in the physics tuner (the values and their
 defaults are listed in `GrimesGolf.Core/PhysicsTuning.cs`, and `ActivePhysics` feeds them to every simulation the
 app runs). Course rules (lies, roll, holing, penalties) live in

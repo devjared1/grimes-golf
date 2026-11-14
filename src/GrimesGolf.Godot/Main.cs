@@ -2,6 +2,7 @@
 using Godot;
 using GrimesGolf.Core;
 using GrimesGolf.Core.Course;
+using GrimesGolf.Core.Monitors;
 using GrimesGolf.Core.Storage;
 using GrimesGolf.Online.Session;
 using GrimesGolf.Physics;
@@ -148,7 +149,7 @@ public partial class Main : Node3D
             StartHole(n - 1);
         if (args.Contains("--ball-by-tree")) PutBallByTree();
         UpdateInsets();
-        if (!_noBluetooth) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect"));
+        if (!_noBluetooth || _fakeKind != null) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect") || _fakeKind != null);
         SetupOpenConnect();
         if (_openSettingsAtStart) OpenSettings();
         if (_openMenuAtStart) OpenGameMenu();
@@ -321,7 +322,10 @@ public partial class Main : Node3D
         if (_camera.Flying) _hud.Shot.SetReady(false, "Flyover");
         else if (_courseMode && _round is { Holed: true } && !moving) _hud.Shot.SetReady(false, "Hole finished");
         else if (moving) _hud.Shot.SetReady(false, "Ball in play");
-        else if (_monitorLive && !_ballReady) _hud.Shot.SetReady(false, _ballSeen ? "Ball not ready" : "Place a ball");
+        else if (_monitorLive && !_ballReady)
+            // (A GSPro connector on its own says whether it sees a ball, like a ball-sensing monitor.)
+            _hud.Shot.SetReady(false, _session is not IBallSensingMonitor && !(_session == null && _connectorLive) ? _monitorNotReady
+                                      : _ballSeen ? "Ball not ready" : "Place a ball");
         else _hud.Shot.SetReady(true, "Ready");
     }
 
@@ -357,6 +361,7 @@ public partial class Main : Node3D
     {
         // Online, each PC keeps its own players' shots (the host plays everyone's).
         if (_online != null && e.Course != null && !_online.IsLocalName(e.Player.Name)) return;
+        if (_playingCapture) return;   // GSPro's shots, played back: not the player's
         var record = ShotRecord.Of(e);
         if (e.Course != null) _lastRecord = record;
         _data?.AppendShot(record);

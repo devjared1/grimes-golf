@@ -12,7 +12,10 @@ balls or play a round with me, and never see a console, a command-line flag or a
 
 ## 0.8 — Prove it on real hardware
 
-- [ ] Raw BLE packet recorder (timestamped capture file) and a replay mode that feeds a capture back into the app
+- [x] Raw BLE packet recorder (timestamped capture file) and a replay mode that feeds a capture back into the app
+      (`GrimesGolf.ShotRecorder` relays Square's GSPro connector to GSPro, or drives the monitor itself, compares
+      our flight with GSPro's and fits tuning to it; the range's Replay a Capture flies the shots with GSPro's
+      numbers alongside)
 - [ ] Turn captured sessions into regression tests
 - [ ] Verify club codes (5W/7W/4H/3I/LW), left-handed face/path signs, impact location
 - [ ] Physics calibration: ~10 shots per club compared with the Square app's carry, total and apex; make the
@@ -173,9 +176,15 @@ balls or play a round with me, and never see a console, a command-line flag or a
 - [x] Play with friends from different locations across network. Generate lobby to join. Creator of lobby picks course, sets game settings, and clicks to start game once everyone is connected
 - [x] Only for users with Square launch monitor
 - [ ] Future: support other launch monitors natively (no 3rd party connector access)
+  - [x] A device-neutral monitor layer (`ILaunchMonitorSession`); the Square runs through it unchanged
+  - [x] **Garmin Approach R10** straight over Bluetooth (no phone app, connector or subscription), with a Settings
+        choice of monitor, tested against a simulated R10 ([protocol notes](docs/garmin-r10-protocol.md))
+  - [ ] Verify the R10 on real hardware: pairing from the app, shots against the Garmin Golf app, left-handed signs,
+        reconnecting ([checklist](docs/garmin-r10-protocol.md#first-hardware-test))
+  - [ ] Send the R10 its distance to the tee once its units are known from a capture
 - [x] Other launch monitors through their GSPro connector apps: the app can stand in for GSPro's Open Connect
-      server (port 921), so the Garmin R10 adapter, the MLM2PRO Bluetooth app and the like send shots here
-      (still to try with a real connector and monitor)
+      server (port 921), so the MLM2PRO Bluetooth app and the like send shots here (still to try with a real
+      connector and monitor)
 - [ ] *After v1:* **live text and video chat** in online games. Text chat first: small messages through the relay
       it already has, shown over the game and readable from the mat. Video is a much bigger step: it goes peer to
       peer (WebRTC), not through the relay, needs a webcam and a TURN server for PCs behind strict routers, and

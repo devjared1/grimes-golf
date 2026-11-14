@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using GrimesGolf.Core.Course;
+using GrimesGolf.Core.Monitors;
 
 namespace GrimesGolf.Core.Storage;
 
@@ -48,6 +49,10 @@ public sealed record AppSettings(
     public int OpenConnectPort { get; init; } = Core.OpenConnect.OpenConnectProtocol.DefaultPort;
     /// <summary>Accept connectors running on other computers, not just this one (only settings.json changes it).</summary>
     public bool OpenConnectFromNetwork { get; init; }
+    /// <summary>Which launch monitors to look for: any supported one (Auto), or only a Square or only a Garmin R10.</summary>
+    public LaunchMonitorType MonitorType { get; init; } = LaunchMonitorType.Auto;
+    /// <summary>Connect only to the monitor advertising this exact name (null = any), for when there are several nearby.</summary>
+    public string? MonitorName { get; init; }
     /// <summary>Ask GitHub at start-up whether there's a newer version of the app (it only ever offers: nothing installs by itself).</summary>
     public bool CheckForUpdates { get; init; } = true;
     /// <summary>Online play: the relay's address (<c>wss://…/ws</c>), remembered.</summary>

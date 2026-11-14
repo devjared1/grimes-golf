@@ -3,6 +3,7 @@ using System.Text.Json;
 using Godot;
 using GrimesGolf.Core;
 using GrimesGolf.Core.Course;
+using GrimesGolf.Core.Monitors;
 using GrimesGolf.Core.Storage;
 using GrimesGolf.Online.Protocol;
 using GrimesGolf.Online.Session;
@@ -76,7 +77,13 @@ public partial class Main
         ReadOpenConnectArgs(args);
         _autoPlay = args.Contains("--auto-play");
         _fakeMonitor = _autoPlay || args.Any(a => a == "--fake-monitor" || a.StartsWith("--fake-monitor="));
-        if (Arg("--fake-monitor") is { } file) _fakeShots = ReadSessionShots(file);
+        // --fake-monitor=r10 / =square: a stand-in monitor that connects like a real one; anything else is a saved session to play.
+        if (Arg("--fake-monitor") is { } file)
+        {
+            if (file.Equals("r10", StringComparison.OrdinalIgnoreCase)) _fakeKind = LaunchMonitorType.GarminR10;
+            else if (file.Equals("square", StringComparison.OrdinalIgnoreCase)) _fakeKind = LaunchMonitorType.Square;
+            else _fakeShots = ReadSessionShots(file);
+        }
     }
 
     /// <summary>The data folder: <c>--data=folder</c> in debug builds (two copies on one PC), the app's own otherwise.</summary>
@@ -245,6 +252,7 @@ public partial class Main
     /// <summary>The fake monitor's shot: the next from the saved session, or one sized for the shot planned.</summary>
     private void FakeMonitorShot()
     {
+        if (HitWithFakeMonitor()) return;
         var shot = _fakeShots is { Count: > 0 } q ? q.Dequeue() : CourseDemoShot();
         if (shot != null) ShowShot(shot with { IsDemo = false, Source = ShotSource.Monitor });
     }

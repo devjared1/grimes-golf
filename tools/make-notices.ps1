@@ -28,6 +28,10 @@ $dotnet = Split-Path (Get-Command dotnet).Source
 $lines = @(
     "Grimes Golf includes the software below. Its own licence is at https://github.com/devjared1/grimes-golf/blob/main/LICENSE"
     ""
+    # Code ported into the app itself (the Garmin R10 support), from the repository's NOTICE.
+    (Get-Content -Raw "$root/NOTICE")
+    "-------------------------------------------------------------------------------"
+    ""
     (Get-Content -Raw $temp)
     ".NET RUNTIME"
     ""
