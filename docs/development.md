@@ -31,7 +31,8 @@ dotnet test tests/GrimesGolf.Physics.Tests
 dotnet test tests/GrimesGolf.Online.Tests
 ```
 
-`GrimesGolf.Tests` covers the Square protocol, course rules, rounds and scoring (against the hand-made holes in
+`GrimesGolf.Tests` covers the Square and Garmin R10 protocols (the R10 from framing to a whole session against a
+simulated device, with fixtures from the projects in [the protocol notes](garmin-r10-protocol.md#sources)), course rules, rounds and scoring (against the hand-made holes in
 `tests/GrimesGolf.Tests/TestCourse.cs` and against Deer Run). `GrimesGolf.Online.Tests` needs the .NET 10 SDK: it
 hosts the relay in-process, plays scripted 18-hole rounds over an in-memory relay, and one round over real sockets.
 
@@ -85,6 +86,8 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 | `--data=user://host` | Keeps this copy's settings and rounds in their own folder (two copies on one PC) |
 | `--no-bluetooth` | Doesn't start Bluetooth |
 | `--fake-monitor` | HIT SHOT stands in for a launch monitor; `--fake-monitor=sessions/2026-11-04_120000.jsonl` plays a saved session's shots instead |
+| `--fake-monitor=r10`, `--fake-monitor=square` | A stand-in monitor that shows up in the drawer and connects like a real one (no Bluetooth needed); HIT SHOT (`Space`) hits the shot set up with it. The R10 one runs the real R10 protocol code against a simulated device, and saves its traffic to `monitor-logs\` like a real one; the Square one goes through the Square shot conversion but not its Bluetooth packets |
+| `--fake-drop-at=20` | With `--fake-monitor=r10`: the link drops at this time (seconds after start), to check reconnecting |
 | `--auto-play` | The fake monitor hits by itself whenever it's this copy's turn |
 
 **Courses and updates (debug builds only):**
@@ -147,8 +150,16 @@ tuner can still save presets beside the exe. It isn't code-signed, so Windows Sm
 
 ## Code layout
 
+Launch monitors sit behind `ILaunchMonitorSession` (`GrimesGolf.Core/Monitors/LaunchMonitor.cs`): connection,
+readiness, battery, device details, and shots as `LaunchMonitorInput` (the physics engine's device-neutral form),
+which `RangeShot.FromLaunchMonitor` turns into the shot every screen uses. Monitor-only features are optional
+interfaces the UI checks for: `IBallSensingMonitor`, `IAlignmentMonitor` and `IMonitorClock` (the Square has all
+three, the R10 none). The Square is `SquareMonitorAdapter` over the unchanged `MonitorSession`; the R10 is
+`R10Session` (platform-free, in `GrimesGolf.Core/Garmin`, over an `IR10Link`: `R10BleLink` on Windows,
+`FakeR10Device` in tests and `--fake-monitor=r10`). See the [R10 protocol notes](garmin-r10-protocol.md).
+
 The Godot code is split by topic: `Main.cs` (set-up, the "shot finished" event, saving shots), `Main.Monitor.cs`
-(Bluetooth, auto-connect and reconnecting), `Main.Shots.cs` (shots and the range), `Main.Course.cs` (rounds and
+(Bluetooth, choosing the monitor, auto-connect and reconnecting), `Main.Shots.cs` (shots and the range), `Main.Course.cs` (rounds and
 turns), `Main.Menus.cs` (main menu and in-game menu), `Main.Controls.cs` (keyboard, numpad, gamepad and clicker),
 `Main.Settings.cs`, `Main.DevTools.cs`; and `Hud.cs` (top bar, banner, toasts) with `Hud.Drawer.cs`, `Hud.Range.cs`,
 `Hud.Course.cs`, `MainMenu.cs`, `MenuOverlay.cs`, `ShotControls.cs`, `MapOverlay.cs`, `OnlinePanel.cs`,
@@ -161,7 +172,7 @@ Online play is `Main.Online.cs` (the game side) and `OnlinePanel.cs` (the lobby)
 
 Carry/total/apex, bounce and roll come from the app's own physics engine (`src/GrimesGolf.Physics`, see its README:
 aerodynamic flight, bounce and roll over the course ground, and the lie model), not from the monitor, so expect them
-to differ somewhat from the Square app. The engine's coefficients and the lie effects are provisional
+to differ somewhat from the Square app (and the Garmin Golf app). The engine's coefficients and the lie effects are provisional
 and not yet validated against measured shots; every one can be adjusted in the physics tuner (the values and their
 defaults are listed in `GrimesGolf.Core/PhysicsTuning.cs`, and `ActivePhysics` feeds them to every simulation the
 app runs). Course rules (lies, roll, holing, penalties) live in

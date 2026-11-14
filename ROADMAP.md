@@ -173,6 +173,12 @@ balls or play a round with me, and never see a console, a command-line flag or a
 - [x] Play with friends from different locations across network. Generate lobby to join. Creator of lobby picks course, sets game settings, and clicks to start game once everyone is connected
 - [x] Only for users with Square launch monitor
 - [ ] Future: support other launch monitors natively (no 3rd party connector access)
+  - [x] A device-neutral monitor layer (`ILaunchMonitorSession`); the Square runs through it unchanged
+  - [x] **Garmin Approach R10** straight over Bluetooth (no phone app, connector or subscription), with a Settings
+        choice of monitor, tested against a simulated R10 ([protocol notes](docs/garmin-r10-protocol.md))
+  - [ ] Verify the R10 on real hardware: pairing from the app, shots against the Garmin Golf app, left-handed signs,
+        reconnecting ([checklist](docs/garmin-r10-protocol.md#first-hardware-test))
+  - [ ] Send the R10 its distance to the tee once its units are known from a capture
 - [ ] *After v1:* **live text and video chat** in online games. Text chat first: small messages through the relay
       it already has, shown over the game and readable from the mat. Video is a much bigger step: it goes peer to
       peer (WebRTC), not through the relay, needs a webcam and a TURN server for PCs behind strict routers, and

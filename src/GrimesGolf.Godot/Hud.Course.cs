@@ -180,6 +180,16 @@ public partial class Hud
         UpdateShotLayout();
     }
 
+    /// <summary>The monitor connected can be aligned with a stick (a Square can; an R10 can't, so there's no Align button).</summary>
+    private bool _canAlign = true;
+
+    public void SetCanAlign(bool canAlign)
+    {
+        if (_canAlign == canAlign) return;
+        _canAlign = canAlign;
+        UpdateShotLayout();
+    }
+
     /// <summary>
     /// Shows what the moment calls for. The lie card always sits on top of the shot panel, bottom right. No monitor:
     /// the on-screen shot controls, with to the pin beside the club and aim. With a monitor: a narrow column (to the
@@ -194,7 +204,7 @@ public partial class Hud
         _clubBlock.Visible = !_holeDone;
         _courseAimRow.Visible = !_monitorLive;
         foreach (var b in _aimButtons) b.Visible = !_monitorLive;
-        foreach (var b in _alignButtons) b.Visible = _monitorLive;
+        foreach (var b in _alignButtons) b.Visible = _monitorLive && _canAlign;
         _rangeShotSlot.Visible = _rangeView.Visible && !_monitorLive;
         PlaceBallZone();
 

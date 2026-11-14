@@ -175,7 +175,9 @@ public partial class Main
             if (_round.Holed) { if (_outcome == null) NextHole(); return; }
             if (_outcome != null || _player.IsPlaying) return;   // wait for the ball to stop
         }
-        // With a monitor a real ball is hit, as it always is online (development runs' fake monitor stands in with the swing on screen).
+        // With a monitor a real ball is hit, as it always is online (development runs' fake monitor stands in with the swing on screen,
+        // and a fake R10 or Square "hits" the shot set up).
+        if (HitWithFakeMonitor()) return;
         if (_monitorLive || (_online != null && _courseMode && !_fakeMonitor)) { _hud.Toast("Hit on your launch monitor", UiTheme.Ink); return; }
         var swing = _hud.Shot.Swing;
         var lie = _courseMode && _round != null ? _round.Lie : Lie.Green;

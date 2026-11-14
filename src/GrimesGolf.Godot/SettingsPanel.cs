@@ -1,5 +1,6 @@
 using Godot;
 using GrimesGolf.Core.Course;
+using GrimesGolf.Core.Monitors;
 using GrimesGolf.Core.Storage;
 
 namespace GrimesGolf.Game;
@@ -26,7 +27,8 @@ public partial class SettingsPanel : Control
     private SpinBox _mulligans = null!;
     private CheckBox _doublePar = null!, _autoConnect = null!, _fullScreen = null!, _flyover = null!, _soundEffects = null!, _checkForUpdates = null!,
                      _autoAlign = null!, _autoPutt = null!, _readySound = null!;
-    private OptionButton _textSize = null!, _graphics = null!, _gimme = null!;
+    private OptionButton _textSize = null!, _graphics = null!, _gimme = null!, _monitorType = null!;
+    private LineEdit _monitorName = null!;
     private Label _roundNote = null!;
 
     public override void _Ready()
@@ -112,6 +114,16 @@ public partial class SettingsPanel : Control
         v.AddChild(UiTheme.Caption("Launch monitor"));
         _autoConnect = new CheckBox { Text = "Connect automatically (to the last monitor used, or the first one found)" };
         v.AddChild(_autoConnect);
+        _monitorType = new OptionButton { CustomMinimumSize = new Vector2(220, 0), TooltipText = "Which launch monitors to look for" };
+        foreach (var t in new[] { LaunchMonitorType.Auto, LaunchMonitorType.Square, LaunchMonitorType.GarminR10 })   // in LaunchMonitorType order
+            _monitorType.AddItem(t == LaunchMonitorType.Auto ? "Auto (any supported)" : MonitorIdentity.Label(t));
+        v.AddChild(Row("Launch monitor", _monitorType));
+        _monitorName = new LineEdit
+        {
+            CustomMinimumSize = new Vector2(220, 0), PlaceholderText = "Any", MaxLength = 40,
+            TooltipText = "Only connect to the monitor advertising exactly this name (as shown under Devices nearby), when there are several",
+        };
+        v.AddChild(Row("Device name (optional)", _monitorName));
         v.AddChild(UiTheme.Caption("Updates"));
         _checkForUpdates = new CheckBox { Text = "Tell me when there's a new version (checks GitHub when the app starts)" };
         v.AddChild(_checkForUpdates);
@@ -197,6 +209,8 @@ public partial class SettingsPanel : Control
         _autoAlign.ButtonPressed = r.AutoAlignPutts;
         _autoPutt.ButtonPressed = r.AutoPutt;
         _autoConnect.ButtonPressed = current.AutoConnect;
+        _monitorType.Selected = (int)current.MonitorType;
+        _monitorName.Text = current.MonitorName ?? "";
         _checkForUpdates.ButtonPressed = current.CheckForUpdates;
         _textSize.Selected = (int)current.TextSize;
         _fullScreen.ButtonPressed = current.FullScreen;
@@ -238,6 +252,8 @@ public partial class SettingsPanel : Control
             HouseRules = new HouseRules((int)_mulligans.Value, HouseRules.GimmeFeetChoices[Math.Max(0, _gimme.Selected)] * Units.FeetToMetres,
                                         _doublePar.ButtonPressed, _autoAlign.ButtonPressed, _autoPutt.ButtonPressed),
             AutoConnect = _autoConnect.ButtonPressed,
+            MonitorType = (LaunchMonitorType)Math.Max(0, _monitorType.Selected),
+            MonitorName = string.IsNullOrWhiteSpace(_monitorName.Text) ? null : _monitorName.Text.Trim(),
             CheckForUpdates = _checkForUpdates.ButtonPressed,
             TextSize = (TextSize)Math.Max(0, _textSize.Selected),
             FullScreen = _fullScreen.ButtonPressed,
