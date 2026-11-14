@@ -132,7 +132,8 @@ public partial class MainMenu : Control
         mv.AddThemeConstantOverride("separation", 12);
         var mt = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         mt.AddThemeConstantOverride("separation", 2);
-        mt.AddChild(UiTheme.Caption("Launch monitor"));
+        _monitorCaption = UiTheme.Caption("Launch monitor");
+        mt.AddChild(_monitorCaption);
         _monitorText = UiTheme.Text("Not connected", 18, UiTheme.Ink, bold: true);
         mt.AddChild(_monitorText);
         mv.AddChild(mt);
@@ -393,6 +394,11 @@ public partial class MainMenu : Control
         _stats[index] = stats;
         if (index == _selected) _courseStats.Text = stats;
     }
+
+    private Label _monitorCaption = null!;
+
+    /// <summary>Which monitor is connected ("Garmin Approach R10"), over its status (null: none).</summary>
+    public void SetMonitorName(string? name) => _monitorCaption.Text = name == null ? "Launch monitor" : $"Launch monitor  ·  {name}";
 
     /// <summary>Monitor status as in the top bar ("Ready — hit!", "Not connected", ...) with its colour.</summary>
     public void SetMonitorStatus(string text, Color accent)

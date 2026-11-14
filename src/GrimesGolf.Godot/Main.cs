@@ -2,6 +2,7 @@
 using Godot;
 using GrimesGolf.Core;
 using GrimesGolf.Core.Course;
+using GrimesGolf.Core.Monitors;
 using GrimesGolf.Core.Storage;
 using GrimesGolf.Online.Session;
 using GrimesGolf.Physics;
@@ -148,7 +149,7 @@ public partial class Main : Node3D
             StartHole(n - 1);
         if (args.Contains("--ball-by-tree")) PutBallByTree();
         UpdateInsets();
-        if (!_noBluetooth) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect"));
+        if (!_noBluetooth || _fakeKind != null) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect") || _fakeKind != null);
         if (_openSettingsAtStart) OpenSettings();
         if (_openMenuAtStart) OpenGameMenu();
         // No saved player: ask for one, over the main menu (not in development runs, or copies playing by themselves).
@@ -320,7 +321,8 @@ public partial class Main : Node3D
         if (_camera.Flying) _hud.Shot.SetReady(false, "Flyover");
         else if (_courseMode && _round is { Holed: true } && !moving) _hud.Shot.SetReady(false, "Hole finished");
         else if (moving) _hud.Shot.SetReady(false, "Ball in play");
-        else if (_monitorLive && !_ballReady) _hud.Shot.SetReady(false, _ballSeen ? "Ball not ready" : "Place a ball");
+        else if (_monitorLive && !_ballReady)
+            _hud.Shot.SetReady(false, _session is not IBallSensingMonitor ? _monitorNotReady : _ballSeen ? "Ball not ready" : "Place a ball");
         else _hud.Shot.SetReady(true, "Ready");
     }
 

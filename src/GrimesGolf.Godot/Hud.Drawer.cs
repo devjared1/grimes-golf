@@ -1,5 +1,6 @@
 using Godot;
 using GrimesGolf.Core;
+using GrimesGolf.Core.Monitors;
 
 namespace GrimesGolf.Game;
 
@@ -20,8 +21,9 @@ public partial class Hud
         _drawer.AddChild(v);
 
         var head = new HBoxContainer();
-        var title = UiTheme.Text("Launch monitor", 18, UiTheme.Ink, bold: true);
+        var title = _drawerTitle = UiTheme.Text("Launch monitor", 18, UiTheme.Ink, bold: true);
         title.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        title.ClipText = true;
         head.AddChild(title);
         var close = new Button { Text = "✕", ThemeTypeVariation = "FlatButton", TooltipText = "Close  [L]" };
         close.Pressed += ToggleDrawer;
@@ -44,7 +46,7 @@ public partial class Hud
         _devices.ItemSelected += _ => UpdateButtons();
         _devices.ItemActivated += _ => { if (!_connect.Disabled) _connect.EmitSignal(BaseButton.SignalName.Pressed); };
         v.AddChild(_devices);
-        var hint = UiTheme.Text("Close the Square phone app first, and don't pair the monitor in Windows settings.", 12, UiTheme.Muted);
+        var hint = _drawerHint = UiTheme.Text(SquareHint, 12, UiTheme.Muted);
         hint.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         v.AddChild(hint);
 
@@ -64,14 +66,17 @@ public partial class Hud
         grid.AddThemeConstantOverride("v_separation", 3);
         foreach (var key in StatKeys)
         {
-            grid.AddChild(UiTheme.Text(key, 13, UiTheme.Muted));
+            var name = UiTheme.Text(key, 13, UiTheme.Muted);
+            grid.AddChild(name);
             var val = UiTheme.Text("—", 13, UiTheme.Ink);
             val.ClipText = true;
             val.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             grid.AddChild(val);
             _stats[key] = val;
+            _statNames[key] = name;
         }
         v.AddChild(grid);
+        ShowStatsFor(LaunchMonitorType.Square);
 
         v.AddChild(UiTheme.Caption("Battery"));
         _battery = new ProgressBar { MaxValue = 100, ShowPercentage = false, CustomMinimumSize = new Vector2(0, 20) };
@@ -104,6 +109,38 @@ public partial class Hud
 
     // ---- monitor -----------------------------------------------------------------------------
 
+    private Label _drawerTitle = null!, _drawerHint = null!;
+
+    private const string SquareHint = "Close the Square phone app first, and don't pair the monitor in Windows settings.";
+    private const string R10Hint = "Disconnect the Garmin Golf app first (or turn off the phone's Bluetooth): the R10 only shows up when " +
+                                   "nothing else is connected. It needs pairing once; Windows asks the first time it connects.";
+    private const string AnyHint = "Close the Square or Garmin Golf phone app first. Don't pair a Square in Windows settings; " +
+                                   "a Garmin R10 is paired once, the first time it connects.";
+
+    /// <summary>The device details a kind of monitor has: the others are hidden.</summary>
+    public void ShowStatsFor(LaunchMonitorType type)
+    {
+        var shown = type == LaunchMonitorType.GarminR10 ? R10Stats : SquareStats;
+        foreach (var key in StatKeys)
+        {
+            bool on = shown.Contains(key);
+            _stats[key].Visible = on;
+            _statNames[key].Visible = on;
+        }
+    }
+
+    /// <summary>The connection tips for a kind of monitor (Auto: tips for both).</summary>
+    public void SetMonitorHint(LaunchMonitorType type) =>
+        _drawerHint.Text = type switch { LaunchMonitorType.Square => SquareHint, LaunchMonitorType.GarminR10 => R10Hint, _ => AnyHint };
+
+    /// <summary>Which monitor is connected ("Garmin Approach R10"), on the drawer, the top bar and the main menu (null: none).</summary>
+    public void SetMonitorName(string? name)
+    {
+        _drawerTitle.Text = name ?? "Launch monitor";
+        _monitorChip.TooltipText = name == null ? "Launch monitor  [L]" : $"{name}  [L]";
+        MainMenu?.SetMonitorName(name);
+    }
+
     public void SetStatus(string text) => _status.Text = text;
     public void SetStat(string key, string value) => _stats[key].Text = value;
     public void SetScanning(bool scanning) => _scan.Text = scanning ? "Stop" : "Scan";
@@ -122,7 +159,7 @@ public partial class Hud
         _battery.Value = level;
         var fill = level <= 15 ? UiTheme.Danger : level <= 35 ? UiTheme.Warn : UiTheme.Accent;
         _battery.AddThemeStyleboxOverride("fill", UiTheme.Box(fill, 4, 0, 0));
-        _batteryText.Text = $"{level}%  ·  {charge}";
+        _batteryText.Text = charge.Length > 0 ? $"{level}%  ·  {charge}" : $"{level}%";
         _batteryLevel = level;
         UpdateChip(_chipColor);
     }
@@ -177,7 +214,7 @@ public partial class Hud
             var d = _shownDevices[i];
             bool stale = (DateTime.Now - d.SeenAt).TotalSeconds > 10;
             int idx = _devices.AddItem($"{d.Name}   ·   {d.Rssi} dBm");
-            _devices.SetItemTooltip(idx, d.AddressText);
+            _devices.SetItemTooltip(idx, $"{MonitorIdentity.Label(d.Type)}  ·  {d.AddressText}");
             if (stale) _devices.SetItemCustomFgColor(idx, UiTheme.Muted);
             if (d.Address == selected) _devices.Select(idx);
         }
