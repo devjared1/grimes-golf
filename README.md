@@ -1,13 +1,13 @@
 # Grimes Golf
 
-A golf simulator for the garage: hit real balls into a net with a **Square Golf Omni** launch monitor and play
-real courses in 3D, or practise on a driving range. It has its own ball-flight physics, hot-seat play for up to
+A golf simulator for the garage: hit real balls into a net with a **Square Golf Omni** or **Garmin Approach R10**
+launch monitor and play real courses in 3D, or practise on a driving range. It has its own ball-flight physics, hot-seat play for up to
 four players, team games, and (in development) online rounds with friends at their own simulators.
 
 Built with Godot 4.7 (.NET) and C#. Windows only, because it talks to the monitor over Windows Bluetooth LE.
 
-> This is an independent project, not made or endorsed by Invant / Square Golf. Square publishes no SDK; the
-> monitor protocol comes from community reverse-engineering notes.
+> This is an independent project, not made or endorsed by Invant / Square Golf or by Garmin. Neither publishes an
+> SDK; the monitor protocols come from community reverse-engineering work (see [Credits](#credits-and-data-licences)).
 
 ## Contents
 
@@ -28,6 +28,9 @@ Built with Godot 4.7 (.NET) and C#. Windows only, because it talks to the monito
 
 - **Square Golf Omni over Bluetooth LE**: finds and connects to the monitor by itself, follows the player's club and
   hand, and reconnects automatically if the link drops.
+- **Garmin Approach R10 over Bluetooth LE** (new, not yet tested on a real R10): connects straight to the R10, with no
+  phone app, connector or subscription, and its shots play exactly like the Square's. See the
+  [user guide](docs/user-guide.md#garmin-approach-r10) for pairing it.
 - **No monitor needed to try it**: a power slider with draw / fade and spin choices hits shots from the screen.
 - **Real courses**: Deer Run (Moulton, AL), all 18 holes from OpenStreetMap, on 1 m lidar elevation, with its
   ~9,900 real trees at their measured height and spread.
@@ -56,8 +59,8 @@ figures are guidance, not tested limits.
 | Operating system | Windows 10 version 2004 (build 19041) or later, 64-bit; Windows 11 | The Bluetooth code uses the Windows 10 19041 APIs. |
 | Graphics | A GPU with Vulkan 1.0 support | Godot's Forward+ renderer. On integrated graphics, use the Low or Medium graphics setting. |
 | Display | Any size | Laid out for 1600×900 and scales with the window; full screen works on TVs and projectors. |
-| Bluetooth | Bluetooth 4.0 (LE) or later, built in or a USB adapter | Only needed with a launch monitor. Don't pair the monitor in Windows settings. |
-| Launch monitor | Square Golf Omni | Optional offline (shots can be hit from the screen). The original Square (non-Omni) isn't supported. |
+| Bluetooth | Bluetooth 4.0 (LE) or later, built in or a USB adapter | Only needed with a launch monitor. Don't pair a Square in Windows settings; a Garmin R10 is paired once, the first time it connects. |
+| Launch monitor | Square Golf Omni or Garmin Approach R10 | Optional offline (shots can be hit from the screen). The original Square (non-Omni) isn't supported. R10 support is new and untested on hardware. |
 | .NET | Nothing to install | The exported build includes the .NET runtime. |
 | Input | Mouse and keyboard, or a gamepad, numpad or presenter clicker | |
 
@@ -68,7 +71,7 @@ on, both roles need everything above, plus:
 
 | | Host (creates the lobby) | Guest (joins with a code) |
 |---|---|---|
-| Launch monitor | Square Golf Omni, connected | Square Golf Omni, connected |
+| Launch monitor | Square Golf Omni or Garmin R10, connected | Square Golf Omni or Garmin R10, connected |
 | App version | The build every guest uses (versions must match exactly) | The host's build |
 | Relay | Its address. A relay has to be deployed once, by anyone in the group ([how](docs/deploying-the-relay.md)) | The address and the 5-character lobby code, from the host |
 | Network | Outbound internet to the relay (port 443 for a `wss://` relay). No port forwarding. | The same |
@@ -115,7 +118,9 @@ kept so existing data stays where it is). Updating or uninstalling doesn't touch
 ## Quick start
 
 1. Turn on the Square Golf Omni and **close the Square phone or tablet app**: only one app can hold the connection.
-   Don't pair the monitor in Windows Bluetooth settings; it doesn't pair.
+   Don't pair the monitor in Windows Bluetooth settings; it doesn't pair. With a **Garmin R10**, close the Garmin Golf
+   app and turn the phone's Bluetooth off instead; the first time, put the R10 in pairing mode (see the
+   [user guide](docs/user-guide.md#garmin-approach-r10)).
 2. Start Grimes Golf. It opens on the main menu and connects to the monitor by itself (the status card at the
    bottom of the menu shows when it's ready).
 3. Add the players in **Settings** (1-4, with names and left- or right-handed).
@@ -169,9 +174,9 @@ Command-line switches for development, the code layout of the game, and how to r
 | Path | What it is |
 |---|---|
 | `src/GrimesGolf.Godot` | The game (Godot 4.7, C#): worlds, camera, HUD, menus, input, online lobby |
-| `src/GrimesGolf.Core` | Platform-neutral game logic: courses, rounds, scoring, house rules, the Square protocol, saved data |
+| `src/GrimesGolf.Core` | Platform-neutral game logic: courses, rounds, scoring, house rules, the Square and Garmin R10 protocols, the device-neutral monitor interface, saved data |
 | `src/GrimesGolf.Physics` | The golf physics engine: impact, flight, wind, bounce, roll, putting ([README](src/GrimesGolf.Physics/README.md)) |
-| `src/GrimesGolf.Bluetooth` | The Windows Bluetooth LE link and monitor session (the only Windows-specific code) |
+| `src/GrimesGolf.Bluetooth` | The Windows Bluetooth LE scanner and links to the Square and the R10 (the only Windows-specific code) |
 | `src/GrimesGolf.Online` | Online play: the relay connection, the messages, the host and guest sessions |
 | `src/GrimesGolf.Relay` | The relay server (.NET 10, standalone), with a Dockerfile and `fly.toml` |
 | `tests/` | xUnit tests for each of the above |
@@ -183,6 +188,7 @@ Command-line switches for development, the code layout of the game, and how to r
 
 - [User guide](docs/user-guide.md): screens, game types, house rules, controls, the physics tuner, saved data
 - [Development guide](docs/development.md): running from source, command-line switches, code layout, course data, testing online play
+- [Garmin R10 protocol notes](docs/garmin-r10-protocol.md): how the app talks to the R10, its sources, open questions and the first hardware test
 - [Deploying the relay](docs/deploying-the-relay.md): Fly.io or any Docker host
 - [Online play plan](docs/online-play-plan.md): design and status of roadmap 1.2
 - [Physics engine specification](docs/physics-engine-spec.md) and the [physics README](src/GrimesGolf.Physics/README.md)
@@ -194,6 +200,10 @@ Command-line switches for development, the code layout of the game, and how to r
   been run against a real Square (hardware 1.5, LM firmware 1.10.29); shot parsing is covered by tests.
 - **Unverified monitor details:** club codes for 5W / 7W / 4H / 3I / LW, the left-handed club face and path signs,
   and impact location.
+- **The Garmin R10 hasn't been tried on a real one yet.** Its support is built from community reverse-engineering
+  and tested against a simulated R10; pairing from the app, the handshake on current firmware and the left-handed
+  signs need a real device (the [protocol notes](docs/garmin-r10-protocol.md#open-questions) list them). The app
+  doesn't send the R10 its distance to the tee yet.
 - **Physics isn't calibrated.** Carry, total and roll come from the app's own engine, not the monitor, and haven't
   been validated against measured shots, so expect them to differ from the Square app. Every value can be adjusted
   in the physics tuner.
@@ -214,6 +224,9 @@ See [ROADMAP.md](ROADMAP.md). Next up: proving it on real hardware (0.8), the 1.
 - Sky and ground textures: Poly Haven and ambientCG, CC0 (see
   [assets/CREDITS.md](src/GrimesGolf.Godot/assets/CREDITS.md)).
 - Square Golf protocol: the community reverse-engineering notes in `divotmaker/allsquare`.
+- Garmin Approach R10 protocol: ported from [gsp-r10-adapter](https://github.com/mholow/gsp-r10-adapter) by mholow
+  (MIT, notice in [NOTICE](NOTICE)), cross-checked against [10over](https://github.com/divotmaker/10over)
+  (Apache-2.0 / MIT), whose protocol bytes are also used as test fixtures.
 - Built with [Godot Engine](https://godotengine.org) (MIT).
 
 ## Licence

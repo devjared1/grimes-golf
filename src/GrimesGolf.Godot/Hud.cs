@@ -1,11 +1,14 @@
 using Godot;
 using GrimesGolf.Core;
 using GrimesGolf.Core.Course;
+using GrimesGolf.Core.Monitors;
 using GrimesGolf.Core.Storage;
 
 namespace GrimesGolf.Game;
 
-public sealed record DeviceEntry(ulong Address, string Name, string AddressText, int Rssi, DateTime SeenAt);
+/// <param name="Fake">A stand-in monitor for development runs (<c>--fake-monitor=r10</c> or <c>=square</c>).</param>
+public sealed record DeviceEntry(ulong Address, string Name, string AddressText, int Rssi, DateTime SeenAt,
+                                 LaunchMonitorType Type = LaunchMonitorType.Square, bool Fake = false);
 
 /// <summary>One player's (or team's) line on the small leaderboard; <paramref name="Up"/> marks whoever is playing.</summary>
 public sealed record LeaderboardRow(string Name, string Score, string Note, Color Color, bool Up);
@@ -55,7 +58,12 @@ public partial class Hud : Control
     public const int TopBarHeight = 64, TopGap = 16;
     public const int RangeBarHeight = 196, RightColumnWidth = 360, ShotPanelHeight = 178;
     public static readonly string[] StatKeys =
+        { "Name", "Address", "Signal", "Model", "Serial", "Hardware", "Firmware", "Firmware (LM)", "Firmware (MMI)", "Firmware (launcher)", "Uptime", "State", "Ball", "Alignment", "Shots" };
+
+    /// <summary>The device details each kind of monitor has (a Square's are the ones the drawer has always shown).</summary>
+    private static readonly string[] SquareStats =
         { "Name", "Address", "Signal", "Serial", "Hardware", "Firmware (LM)", "Firmware (MMI)", "Firmware (launcher)", "Uptime", "State", "Ball", "Alignment", "Shots" };
+    private static readonly string[] R10Stats = { "Name", "Address", "Signal", "Model", "Serial", "Firmware", "State", "Shots" };
 
     private static readonly (string Key, string Unit)[] RangeMetrics =
     {
@@ -116,7 +124,7 @@ public partial class Hud : Control
     public PlayersPanel Players { get; private set; } = null!;
     public AlignmentPanel Alignment { get; private set; } = null!;
 
-    private readonly Dictionary<string, Label> _stats = new();
+    private readonly Dictionary<string, Label> _stats = new(), _statNames = new();
     private readonly Dictionary<string, Label> _rangeValues = new();
     private readonly List<(string Club, double Carry, double Total, double Offline)> _session = new();
     private List<DeviceEntry> _shownDevices = new();

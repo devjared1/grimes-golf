@@ -41,6 +41,9 @@ public partial class Main
             _hud.Alignment.ShowReading(new Core.Square.StickEvent(Core.Square.StickStatus.Stable, Number(stick), 0, 0, 0));
         }
         if (Arg("--aligned") is { } aligned) { _alignedAngle = Number(aligned); _alignedAt = DateTime.Now; ShowAlignment(); }
+        // --fake-drop-at=20: the fake R10's link drops at this time (seconds after start), to check reconnecting.
+        if (double.TryParse(Arg("--fake-drop-at"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var drop))
+            GetTree().CreateTimer(drop).Timeout += () => { Log("--fake-drop-at: the fake R10's link drops"); _fakeR10?.Drop(); };
         if (args.Contains("--tuner")) _tuner.Toggle();
         if (args.Contains("--green-read")) SetGreenOverlay(true, true);
         if (args.Contains("--settings")) _openSettingsAtStart = true;

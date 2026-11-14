@@ -5,7 +5,7 @@ needs, see the [README](../README.md).
 
 ## Contents
 
-- [Connecting the launch monitor](#connecting-the-launch-monitor)
+- [Connecting the launch monitor](#connecting-the-launch-monitor) ([Garmin Approach R10](#garmin-approach-r10))
 - [Main menu and in-game menu](#main-menu-and-in-game-menu)
 - [Hitting shots](#hitting-shots)
 - [Camera](#camera)
@@ -23,15 +23,19 @@ needs, see the [README](../README.md).
 
 ## Connecting the launch monitor
 
-Turn on the Square Golf Omni and close the Square phone or tablet app (only one app can hold the connection). Don't
-pair the monitor in Windows Bluetooth settings: it doesn't pair, and the app connects to it directly.
+Two launch monitors work, each straight over Bluetooth with no other app, connector or subscription: the **Square
+Golf Omni** and the **Garmin Approach R10** (the R10 is new: see [its own section](#garmin-approach-r10)). The app
+looks for both unless **Settings > Launch monitor** says which one.
+
+**Square Golf Omni**: turn it on and close the Square phone or tablet app (only one app can hold the connection).
+Don't pair the monitor in Windows Bluetooth settings: it doesn't pair, and the app connects to it directly.
 
 **Connecting**: with auto-connect on (the default) the app connects by itself, to the monitor used last time, or
 to the strongest one it hears if that one isn't found within 8 s. If the link drops, a big banner says
 "Launch monitor disconnected — reconnecting…" and it keeps retrying (every few seconds) until it's back; Disconnect
-in the drawer stops that.
+in the drawer stops that. The main menu, the drawer and the status chip's tooltip say which monitor is connected.
 
-**Aligning with the stick**: the **Align** button (beside the club, once a monitor is connected) or **Align with
+**Aligning with the stick** (Square only): the **Align** button (beside the club, once a monitor is connected) or **Align with
 Stick** in the menu, any time between shots, even mid round. Lay the monitor's white stick on the mat pointing at
 your target. The panel shows its angle live; pick **Use This Alignment** once it's within 5°, then take the stick
 away. The button then shows the alignment you set ("Aligned R1.2°", with the time on its tooltip). It's only known
@@ -41,11 +45,73 @@ for this session, and is forgotten if the monitor restarts. Cancel leaves the al
 a tee or the mat, so you can tell why it isn't Ready. The green box is where balls have gone ready so far, as a
 guide: the monitor doesn't report its exact limits.
 
-**Monitor drawer** (`L` or the status chip): every Square it can hear over Bluetooth (with signal strength), Connect
-/ Disconnect, the monitor's serial, hardware, firmware (LM / MMI / launcher), uptime, state, ball-in-position
-status and battery, the left-handed setting, and the log.
+**Monitor drawer** (`L` or the status chip): every supported monitor it can hear over Bluetooth (with signal
+strength), Connect / Disconnect, the monitor's details (a Square's serial, hardware, firmware (LM / MMI / launcher),
+uptime, state and ball-in-position status; an R10's model, serial, firmware and state), its battery, the left-handed
+setting, and the log.
 
-When a new player is up, the monitor is switched to their hand and the club suggested for their shot.
+When a new player is up, the Square is switched to their hand and the club suggested for their shot. (The R10 has
+no club setting: it measures whatever is swung.)
+
+### Garmin Approach R10
+
+The app talks to the R10 the way the Garmin Golf app does, so it needs neither the Garmin Golf app nor a Garmin
+Golf subscription. This support is new and has only been tested against a simulated R10 so far, so please report
+what happens with a real one (see [Sending a log](#sending-a-log)).
+
+**First time: pair it with the PC.** The R10 only lets one device connect, and only shows up when nothing else is
+connected to it.
+
+1. On your phone, close the Garmin Golf app and turn the phone's Bluetooth off (or move the phone away), so the phone
+   doesn't connect to the R10 first.
+2. With the R10 **turned off**, hold its button until the status light turns **solid blue**: it's in pairing mode.
+   (Flashing blue means it's trying to reconnect to the phone it knows.)
+3. In Grimes Golf, open the drawer (`L`). The R10 appears as **Approach R10**; with auto-connect on it connects by
+   itself, otherwise pick it and **Connect**. The first time, Windows pairs with it (accept if Windows asks). If the
+   app says it can't pair, pair it once in **Windows Settings > Bluetooth & devices > Add device > Bluetooth** while
+   the light is solid blue, then connect from the app.
+
+After that, just turn the R10 on (and keep the phone from grabbing it): the app finds it and connects, and wakes it
+if it has gone to sleep.
+
+**Setting it up** (from Garmin's owner's manual):
+
+- Put the R10 on the floor **6 to 8 ft (1.8 to 2.4 m) behind the ball**, on its tripod, level and steady. On a
+  hitting mat, its bottom edge must sit above the mat.
+- Indoors, the ball must be **at least 8 ft (2.4 m) from the net**, with room for high and wayward shots and for the
+  swing.
+- Point the red **alignment line** on top through the ball at your target (a club laid on the floor between them
+  helps). The ball can be up to 1 ft either side of that line, in a 2 x 2 ft area starting 6 ft from the R10. Its
+  angles are measured from the line it's pointing along.
+- The light **flashes green** when it's ready for a shot, is **solid red** while it's busy, **flashes white** when
+  asleep and **flashes red** on an error. The app's Ready light follows it ("Ready — hit!", "Measuring…").
+
+**What's different from a Square**: no ball sensor (Ready means the R10 is armed, not that it sees a ball), no
+alignment stick (the Align button is hidden: line it up as above), and no club setting. Its spin is usually
+estimated from the launch rather than read off the ball (unless you use a marked ball); the log says so for each
+shot. Club path, face angle and attack angle come through when it tracked the club; on a slow swing it can't, and
+the shot is played from the ball numbers alone.
+
+**Troubleshooting**:
+
+- **It isn't found**: it's connected to something else. Close the Garmin Golf app, turn the phone's Bluetooth off,
+  turn the R10 off and on, and press **Scan** in the drawer.
+- **"Windows can't pair" or "didn't answer the handshake"**: remove the R10 in Windows Settings > Bluetooth & devices,
+  put it back in pairing mode (solid blue, see above) and connect again.
+- **"Monitor tilted — level it"**: move it to a level, steady surface, more in line with the ball.
+- **"Radar overloaded"**: something in front of it reflects too much (a metal frame, a close wall). Move it or the
+  obstruction, and keep to the distances above.
+- **Directions look off**: the alignment is out. Hit a short, straight wedge: if the app shows it starting right, the
+  R10 is aimed left of your target line (and the other way round). Turn it a little and try again.
+- **It keeps dropping**: keep the PC's Bluetooth adapter in sight of the R10 and within a few metres; USB adapters at
+  the back of a PC can be blocked by the case.
+
+### Sending a log
+
+Every R10 session saves its raw Bluetooth traffic to `monitor-logs\r10-<date>-<time>.log` in the data folder
+(`%APPDATA%\Square Range 3D`), and the drawer's log (also in `logs\godot.log` there) has a line per shot with the
+numbers exactly as the R10 sent them. The raw log leaves out the messages that carry the R10's serial number. Send
+both files (and what the Garmin Golf app showed for the same shots, if you can) with any report.
 
 ## Main menu and in-game menu
 
@@ -244,7 +310,9 @@ player: put a guest in the round with **Add** on New Game's Player List, or **+ 
 Add / Remove Players during a round. A player you don't save lasts until the app closes.
 
 **Settings** (main menu, the in-game menu, numpad `*` or gamepad Back): the home player, players (1-4, name and left-handed),
-house rules, auto-connect, text size (Small / Normal / Large / Extra large: smaller for a laptop, bigger for
+house rules, auto-connect, the launch monitor to look for (**Auto**, any supported one; or only a Square Golf Omni
+or only a Garmin Approach R10) and an optional exact **device name** (as listed under Devices nearby, for when there
+are several), text size (Small / Normal / Large / Extra large: smaller for a laptop, bigger for
 reading from the mat or a projector), full screen (the app always opens full screen; untick this for a window until you close it), graphics quality (Low / Medium / High / Ultra: anti-aliasing,
 shadow detail and reach, bounced light and reflections in the water, how far 3D grass reaches round the camera, and soft focus on grass right in front of a low camera;
 High is the default), the camera's hole flyover, sound effects (club, ball, cup and crowd; turn them off if you'd rather just hear your own strike), and a "Ready" chime when the launch monitor sees a ball and is ready for the shot (on by default, separate from the other sounds). The course last played and the camera mode are remembered too, so no command-line switches are
@@ -309,7 +377,8 @@ Saved data lives in `%APPDATA%\Square Range 3D` (the app's earlier name, kept so
 progress: every player's scorecard and ball, and whose turn it is), `rounds\` (finished rounds, the scorecards of
 everyone who played), `sessions\` (every shot, range and course, with the player's name, one JSON line each, a
 file per app session; a shot taken back with a mulligan is written again marked `"Mulligan": true`), `crash.log`
-(errors and unhandled exceptions) and `logs\` (Godot's own log). Shots are saved from the app's "shot finished"
+(errors and unhandled exceptions), `logs\` (Godot's own log, with everything the drawer's log shows) and
+`monitor-logs\` (a Garmin R10's raw Bluetooth traffic, a file per connection). Shots are saved from the app's "shot finished"
 event, which carries everything about a shot (launch data, club, player, lie, stance, plays-like distance, result,
 everyone's standing). Development runs that hit shots by themselves (`--demo-shots`, `--hole`, `--hit-at`,
 `--tune`) don't save or resume anything.
@@ -319,7 +388,8 @@ everyone's standing). Development runs that hit shots by themselves (`--demo-sho
 Online play is in development and only appears in debug builds for now (see the
 [README](../README.md#online-play)). In those builds:
 
-1. Everyone connects their Square Golf Omni first: the round can't start until every PC's monitor is live.
+1. Everyone connects their launch monitor (a Square Golf Omni or a Garmin R10) first: the round can't start until
+   every PC's monitor is live.
 2. The **host** picks **Play Online**, enters the relay's address (it's remembered) and picks **Host a Lobby**. The
    lobby shows a 5-character code to give to the others.
 3. Each **guest** picks **Play Online**, enters the same relay address and the code, and picks **Join**. Their
