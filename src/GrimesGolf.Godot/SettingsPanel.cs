@@ -24,7 +24,7 @@ public partial class SettingsPanel : Control
     private GuestListEditor _guests = null!;
     private Button _save = null!, _saveNewRound = null!;
     private SpinBox _mulligans = null!;
-    private CheckBox _doublePar = null!, _autoConnect = null!, _fullScreen = null!, _flyover = null!, _soundEffects = null!, _checkForUpdates = null!,
+    private CheckBox _doublePar = null!, _autoConnect = null!, _openConnect = null!, _fullScreen = null!, _flyover = null!, _soundEffects = null!, _checkForUpdates = null!,
                      _autoAlign = null!, _autoPutt = null!, _readySound = null!;
     private OptionButton _textSize = null!, _graphics = null!, _gimme = null!;
     private Label _roundNote = null!;
@@ -112,6 +112,13 @@ public partial class SettingsPanel : Control
         v.AddChild(UiTheme.Caption("Launch monitor"));
         _autoConnect = new CheckBox { Text = "Connect automatically (to the last monitor used, or the first one found)" };
         v.AddChild(_autoConnect);
+        _openConnect = new CheckBox
+        {
+            Text = "Accept shots from GSPro connector apps (for a Garmin R10, Rapsodo MLM2PRO and other monitors)",
+            TooltipText = "Listens where GSPro would (port 921 on this PC), so a monitor's GSPro connector sends its shots here.\n" +
+                          "Close GSPro first: only one app can use the port.",
+        };
+        v.AddChild(_openConnect);
         v.AddChild(UiTheme.Caption("Updates"));
         _checkForUpdates = new CheckBox { Text = "Tell me when there's a new version (checks GitHub when the app starts)" };
         v.AddChild(_checkForUpdates);
@@ -197,6 +204,7 @@ public partial class SettingsPanel : Control
         _autoAlign.ButtonPressed = r.AutoAlignPutts;
         _autoPutt.ButtonPressed = r.AutoPutt;
         _autoConnect.ButtonPressed = current.AutoConnect;
+        _openConnect.ButtonPressed = current.OpenConnect;
         _checkForUpdates.ButtonPressed = current.CheckForUpdates;
         _textSize.Selected = (int)current.TextSize;
         _fullScreen.ButtonPressed = current.FullScreen;
@@ -238,6 +246,7 @@ public partial class SettingsPanel : Control
             HouseRules = new HouseRules((int)_mulligans.Value, HouseRules.GimmeFeetChoices[Math.Max(0, _gimme.Selected)] * Units.FeetToMetres,
                                         _doublePar.ButtonPressed, _autoAlign.ButtonPressed, _autoPutt.ButtonPressed),
             AutoConnect = _autoConnect.ButtonPressed,
+            OpenConnect = _openConnect.ButtonPressed,
             CheckForUpdates = _checkForUpdates.ButtonPressed,
             TextSize = (TextSize)Math.Max(0, _textSize.Selected),
             FullScreen = _fullScreen.ButtonPressed,

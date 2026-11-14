@@ -149,6 +149,7 @@ public partial class Main : Node3D
         if (args.Contains("--ball-by-tree")) PutBallByTree();
         UpdateInsets();
         if (!_noBluetooth) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect"));
+        SetupOpenConnect();
         if (_openSettingsAtStart) OpenSettings();
         if (_openMenuAtStart) OpenGameMenu();
         // No saved player: ask for one, over the main menu (not in development runs, or copies playing by themselves).
@@ -335,6 +336,7 @@ public partial class Main : Node3D
         if (_online is HostSession { Phase: not (OnlinePhase.Lobby or OnlinePhase.Over) } host) host.Stop(paused: true);
         if (_online is ClientSession friend) friend.Leave();
         _scanner?.Dispose();
+        _openConnect?.Dispose();
         if (_session == null) { GetTree().Quit(); return; }
         // Let the session release the monitor before exiting, but don't hang on it.
         _quitting = true;

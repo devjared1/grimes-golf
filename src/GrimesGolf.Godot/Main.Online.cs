@@ -73,6 +73,7 @@ public partial class Main
         string? Arg(string name) => args.FirstOrDefault(a => a.StartsWith(name + "="))?[(name.Length + 1)..];
         _devRelay = Arg("--relay");
         _noBluetooth = args.Contains("--no-bluetooth");
+        ReadOpenConnectArgs(args);
         _autoPlay = args.Contains("--auto-play");
         _fakeMonitor = _autoPlay || args.Any(a => a == "--fake-monitor" || a.StartsWith("--fake-monitor="));
         if (Arg("--fake-monitor") is { } file) _fakeShots = ReadSessionShots(file);

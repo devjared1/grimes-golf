@@ -84,6 +84,7 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 | `--relay=ws://127.0.0.1:5080/ws` | Fills in the relay address |
 | `--data=user://host` | Keeps this copy's settings and rounds in their own folder (two copies on one PC) |
 | `--no-bluetooth` | Doesn't start Bluetooth |
+| `--open-connect`, `--open-connect=9921` | Accepts GSPro connectors (Open Connect) for this run, whatever the settings say, on port 921 or the one given; `tools/send-openconnect-shot.ps1 -Port 9921` sends it a test shot |
 | `--fake-monitor` | HIT SHOT stands in for a launch monitor; `--fake-monitor=sessions/2026-11-04_120000.jsonl` plays a saved session's shots instead |
 | `--auto-play` | The fake monitor hits by itself whenever it's this copy's turn |
 

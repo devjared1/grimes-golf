@@ -241,9 +241,10 @@ public partial class Main
     {
         if (_session != s) return;
         _session = null;
-        _monitorLive = _ballSeen = _ballReady = false;
+        _monitorLive = _connectorLive;   // a GSPro connector may still be sending shots
+        _ballSeen = _ballReady = false;
         if (_quitting) { GetTree().Quit(); return; }
-        _hud.SetMonitorLive(false);
+        _hud.SetMonitorLive(_monitorLive);
         _hud.SetBall(null);
         _aligning = false;
         _hud.Alignment.Close();
@@ -260,6 +261,7 @@ public partial class Main
             _hud.SetBanner(_reconnectTries == 0 ? "Launch monitor disconnected — reconnecting…"
                                                 : $"Launch monitor disconnected — reconnecting… (try {_reconnectTries + 1})");
         }
+        else if (_connectorLive) SetConnectorReady(true, true);
         else _hud.SetReady("Not connected", UiTheme.Muted);
         _scanClock = 0;
         StartScan();
@@ -272,6 +274,7 @@ public partial class Main
         if (_courseMode) UpdateAim(); else UpdateRangeAim();
         // Online, a club shown for a player at another PC isn't sent to this monitor (it's set when the turn comes here).
         if (_online != null && _courseMode && !_online.IsLocalTurn) return;
+        SendPlayerToConnector();
         SendClubToMonitor();
     }
 

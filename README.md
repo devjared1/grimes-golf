@@ -28,6 +28,8 @@ Built with Godot 4.7 (.NET) and C#. Windows only, because it talks to the monito
 
 - **Square Golf Omni over Bluetooth LE**: finds and connects to the monitor by itself, follows the player's club and
   hand, and reconnects automatically if the link drops.
+- **Other monitors through their GSPro connector**: it can stand in for GSPro's Open Connect server, so a Garmin
+  R10, Rapsodo MLM2PRO or any monitor with a GSPro connector app sends its shots here (off by default, in Settings).
 - **No monitor needed to try it**: a power slider with draw / fade and spin choices hits shots from the screen.
 - **Real courses**: Deer Run (Moulton, AL), all 18 holes from OpenStreetMap, on 1 m lidar elevation, with its
   ~9,900 real trees at their measured height and spread.
@@ -57,7 +59,7 @@ figures are guidance, not tested limits.
 | Graphics | A GPU with Vulkan 1.0 support | Godot's Forward+ renderer. On integrated graphics, use the Low or Medium graphics setting. |
 | Display | Any size | Laid out for 1600×900 and scales with the window; full screen works on TVs and projectors. |
 | Bluetooth | Bluetooth 4.0 (LE) or later, built in or a USB adapter | Only needed with a launch monitor. Don't pair the monitor in Windows settings. |
-| Launch monitor | Square Golf Omni | Optional offline (shots can be hit from the screen). The original Square (non-Omni) isn't supported. |
+| Launch monitor | Square Golf Omni, or any monitor with a GSPro Open Connect connector app | Optional offline (shots can be hit from the screen). The original Square (non-Omni) isn't supported. |
 | .NET | Nothing to install | The exported build includes the .NET runtime. |
 | Input | Mouse and keyboard, or a gamepad, numpad or presenter clicker | |
 
@@ -169,7 +171,7 @@ Command-line switches for development, the code layout of the game, and how to r
 | Path | What it is |
 |---|---|
 | `src/GrimesGolf.Godot` | The game (Godot 4.7, C#): worlds, camera, HUD, menus, input, online lobby |
-| `src/GrimesGolf.Core` | Platform-neutral game logic: courses, rounds, scoring, house rules, the Square protocol, saved data |
+| `src/GrimesGolf.Core` | Platform-neutral game logic: courses, rounds, scoring, house rules, the Square and GSPro Open Connect protocols, saved data |
 | `src/GrimesGolf.Physics` | The golf physics engine: impact, flight, wind, bounce, roll, putting ([README](src/GrimesGolf.Physics/README.md)) |
 | `src/GrimesGolf.Bluetooth` | The Windows Bluetooth LE link and monitor session (the only Windows-specific code) |
 | `src/GrimesGolf.Online` | Online play: the relay connection, the messages, the host and guest sessions |
@@ -199,6 +201,8 @@ Command-line switches for development, the code layout of the game, and how to r
   in the physics tuner.
 - **Trees are scenery**: balls don't hit them yet.
 - **Online play** hasn't been played between two houses yet (see above).
+- **GSPro connectors** are tested against the Open Connect spec and messages copied from the connectors' code, not yet
+  with a real connector and monitor. Club data beyond club speed (path, face, attack angle) isn't used yet.
 
 ## Roadmap
 
@@ -214,6 +218,8 @@ See [ROADMAP.md](ROADMAP.md). Next up: proving it on real hardware (0.8), the 1.
 - Sky and ground textures: Poly Haven and ambientCG, CC0 (see
   [assets/CREDITS.md](src/GrimesGolf.Godot/assets/CREDITS.md)).
 - Square Golf protocol: the community reverse-engineering notes in `divotmaker/allsquare`.
+- GSPro Open Connect: GSPro's published v1 documentation, and what the `mholow/gsp-r10-adapter` and
+  `Duwaynef/MLM2PRO-BT-APP` connectors send and expect. Not affiliated with GSPro.
 - Built with [Godot Engine](https://godotengine.org) (MIT).
 
 ## Licence

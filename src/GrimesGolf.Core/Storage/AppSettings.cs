@@ -39,6 +39,15 @@ public sealed record AppSettings(
     public bool SoundEffects { get; init; } = true;
     /// <summary>A chime when the launch monitor has a ball and is ready for the shot.</summary>
     public bool ReadySound { get; init; } = true;
+    /// <summary>
+    /// Stand in for GSPro's Open Connect server, so a monitor's GSPro connector app (Garmin R10, Rapsodo MLM2PRO, ...)
+    /// can send its shots here. Off by default: it uses GSPro's port, so it can't run while GSPro does.
+    /// </summary>
+    public bool OpenConnect { get; init; }
+    /// <summary>The port connectors send to (GSPro's is 921; only settings.json changes it).</summary>
+    public int OpenConnectPort { get; init; } = Core.OpenConnect.OpenConnectProtocol.DefaultPort;
+    /// <summary>Accept connectors running on other computers, not just this one (only settings.json changes it).</summary>
+    public bool OpenConnectFromNetwork { get; init; }
     /// <summary>Ask GitHub at start-up whether there's a newer version of the app (it only ever offers: nothing installs by itself).</summary>
     public bool CheckForUpdates { get; init; } = true;
     /// <summary>Online play: the relay's address (<c>wss://…/ws</c>), remembered.</summary>
