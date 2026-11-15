@@ -3,6 +3,12 @@
   <PropertyGroup>
     <!-- Windows target so the WinRT Bluetooth APIs (via GrimesGolf.Bluetooth) are available. -->
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <!--
+      Every other platform (the iPad) builds as plain .NET, without GrimesGolf.Bluetooth: see MonitorLinks.cs.
+      GodotTargetPlatform comes from the Godot SDK: the platform being exported for, or else the PC doing the build.
+      (Keep this as "!= windows": the Godot editor deletes a TargetFramework with an "== platform" condition.)
+    -->
+    <TargetFramework Condition=" '$(GodotTargetPlatform)' != 'windows' ">net8.0</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>enable</Nullable>
@@ -11,9 +17,14 @@
     <RootNamespace>GrimesGolf.Game</RootNamespace>
   </PropertyGroup>
 
+  <!-- GG_BLUETOOTH: this build has Bluetooth launch monitors (Windows only, so far). -->
+  <PropertyGroup Condition=" '$(GodotTargetPlatform)' == 'windows' ">
+    <DefineConstants>$(DefineConstants);GG_BLUETOOTH</DefineConstants>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\GrimesGolf.Core\GrimesGolf.Core.csproj" />
-    <ProjectReference Include="..\GrimesGolf.Bluetooth\GrimesGolf.Bluetooth.csproj" />
+    <ProjectReference Include="..\GrimesGolf.Bluetooth\GrimesGolf.Bluetooth.csproj" Condition=" '$(GodotTargetPlatform)' == 'windows' " />
     <ProjectReference Include="..\GrimesGolf.Online\GrimesGolf.Online.csproj" />
   </ItemGroup>
 
