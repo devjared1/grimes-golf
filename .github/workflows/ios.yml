@@ -1,0 +1,117 @@
+# Builds the iPad app on one of GitHub's Macs (there's no Mac here, and a public repository's runs are free), and
+# keeps the result as a download on the run's page. docs/ipad-testing.md says how to put it on an iPad.
+# Start it by hand from the Actions tab (Run workflow); it also runs for pull requests that touch the game.
+name: iPad build
+
+on:
+  workflow_dispatch:
+    inputs:
+      renderer:
+        description: Renderer (Forward+ looks like the Windows app; Mobile is lighter, for comparing frame rates)
+        type: choice
+        options: [forward_plus, mobile]
+        default: forward_plus
+  pull_request:
+    paths:
+      - src/**
+      - tests/GrimesGolf.AotSmoke/**
+      - tools/ios-export.sh
+      - .github/workflows/ios.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+  # Where the editor looks for export templates: the version as "4.7.2.stable.mono".
+  GODOT_TEMPLATES: 4.7.2.stable.mono
+  GODOT_RELEASE: https://github.com/godotengine/godot/releases/download/4.7.2-stable
+
+jobs:
+  # The iPad build compiles the C# ahead of time (NativeAOT) and trims what looks unused, which is where JSON breaks
+  # if a saved or sent type isn't in CoreJsonContext / OnlineJsonContext. This builds a small program the same way,
+  # has it save and read back everything, and checks it writes exactly what an ordinary build writes.
+  json:
+    name: JSON in an ahead-of-time build
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - name: Ordinary build
+        run: dotnet run --project tests/GrimesGolf.AotSmoke -c Release -- "$RUNNER_TEMP/json-ordinary.txt"
+      - name: Ahead-of-time build
+        run: |
+          dotnet publish tests/GrimesGolf.AotSmoke -c Release -r osx-arm64 -o "$RUNNER_TEMP/aot" -v q -nologo
+          "$RUNNER_TEMP/aot/GrimesGolf.AotSmoke" "$RUNNER_TEMP/json-aot.txt"
+      - name: Both wrote the same JSON
+        run: diff "$RUNNER_TEMP/json-ordinary.txt" "$RUNNER_TEMP/json-aot.txt"
+
+  # Unsigned, so it needs no secrets and works for pull requests from forks too.
+  unsigned:
+    name: Unsigned .ipa
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+
+      # The editor (200 MB) and the iOS export template, which comes inside a 1.2 GB file of every platform's.
+      - name: Godot editor and iOS template (cached)
+        id: godot
+        uses: actions/cache@v6
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-macos-ios
+      - name: Download Godot
+        if: steps.godot.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot/download && cd ~/godot/download
+          curl -fsSL --retry 3 -O "$GODOT_RELEASE/SHA512-SUMS.txt" \
+            -O "$GODOT_RELEASE/Godot_v${GODOT_VERSION}_mono_macos.universal.zip" \
+            -O "$GODOT_RELEASE/Godot_v${GODOT_VERSION}_mono_export_templates.tpz"
+          grep -E "_mono_macos.universal.zip|_mono_export_templates.tpz" SHA512-SUMS.txt | shasum -a 512 -c -
+          unzip -q "Godot_v${GODOT_VERSION}_mono_macos.universal.zip" -d ~/godot
+          unzip -q -j "Godot_v${GODOT_VERSION}_mono_export_templates.tpz" templates/ios.zip templates/version.txt -d ~/godot/templates
+          cd ~ && rm -rf ~/godot/download
+          ls -la ~/godot ~/godot/templates
+      - name: Install Godot
+        run: |
+          templates="$HOME/Library/Application Support/Godot/export_templates/$GODOT_TEMPLATES"
+          mkdir -p "$templates"
+          cp ~/godot/templates/* "$templates/"
+          echo "GODOT=$HOME/godot/Godot_mono.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+          "$HOME/godot/Godot_mono.app/Contents/MacOS/Godot" --version
+
+      - name: Build the .ipa
+        env:
+          # The bundle identifier, once it's registered with Apple (docs/ipad-release.md); the preset's placeholder until then.
+          IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+          IOS_BUILD_NUMBER: ${{ github.run_number }}
+          IOS_RENDERER: ${{ inputs.renderer }}
+        run: tools/ios-export.sh "$RUNNER_TEMP/ios"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: GrimesGolf-unsigned-ipa
+          path: ${{ runner.temp }}/ios/GrimesGolf-unsigned.ipa
+          if-no-files-found: error
+          # Already a zip: don't spend time compressing it again.
+          compression-level: 0
+      - name: Keep the logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ios-build-logs
+          path: |
+            ${{ runner.temp }}/ios/logs
+            ~/Library/Application Support/Godot/mono/build_logs
+          if-no-files-found: ignore

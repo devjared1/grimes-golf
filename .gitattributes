@@ -6,3 +6,6 @@
 *.hdr binary
 *.jpg binary
 *.png binary
+
+# Shell scripts run on a Mac (the iPad build), whatever PC they were checked out on
+*.sh text eol=lf

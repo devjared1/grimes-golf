@@ -61,6 +61,7 @@ public partial class Main : Node3D
         GetTree().AutoAcceptQuit = false;
         _dataFolder = DataFolderFor(OS.GetCmdlineUserArgs());
         CrashLog.Install(_dataFolder);
+        ShippedFiles.Unpack(_dataFolder, Log);
 
         (_world, _sun) = Scenery.AddSkyAndSun(this);
         _weather = new WeatherLook(_world, _sun);
@@ -212,7 +213,8 @@ public partial class Main : Node3D
     /// </summary>
     private void SetupTuner()
     {
-        GetViewport().GuiEmbedSubwindows = false;
+        // (Where there's only ever one window, a tablet, everything stays inside it.)
+        if (DisplayServer.HasFeature(DisplayServer.Feature.Subwindows)) GetViewport().GuiEmbedSubwindows = false;
         if (TunerWindow.LoadStartup() is { } startup)
         {
             ActivePhysics.Apply(startup);

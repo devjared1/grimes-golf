@@ -59,9 +59,13 @@ public partial class TunerWindow : Window
     /// <summary>Show the previous flight faintly in the 3D view for comparison.</summary>
     public bool ShowGhost => _ghost.ButtonPressed;
 
-    /// <summary>Folder for presets: <c>tuning</c> beside the exported app, or in the project when run from Godot.</summary>
+    /// <summary>
+    /// Folder for presets: <c>tuning</c> beside the exported app, or in the project when run from Godot. (In the data
+    /// folder for a build with them packed inside, the iPad's: see <see cref="ShippedFiles"/>.)
+    /// </summary>
     public static string PresetFolder =>
-        OS.HasFeature("template")
+        ShippedFiles.Packed ? ShippedFiles.Presets
+        : OS.HasFeature("template")
             ? Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath()) ?? ".", "tuning")
             : Path.Combine(ProjectSettings.GlobalizePath("res://"), "tuning");
 
