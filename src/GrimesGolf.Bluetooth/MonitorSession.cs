@@ -15,7 +15,7 @@ public sealed class MonitorSession
     private readonly SquareCommandBuilder _cmd = new();
     private readonly SemaphoreSlim _writeLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
-    private SquareBleLink? _link;
+    private ISquareDeviceLink? _link;
     private volatile bool _detecting = true, _aligning;
 
     public event Action<SquareDeviceInfo>? InfoRead;
@@ -69,7 +69,7 @@ public sealed class MonitorSession
         }
         void OnDisconnected() => channel.Writer.TryWrite(new DisconnectedEvent());
 
-        var link = new SquareBleLink(new MonitorOptions(), _log, _address);
+        var link = SquareLinks.Create(_address, _log);
         link.DataReceived += OnData;
         link.Disconnected += OnDisconnected;
         string reason = "Disconnected";

@@ -16,6 +16,7 @@ on:
       - src/**
       - tests/GrimesGolf.AotSmoke/**
       - tools/ios-export.sh
+      - tools/ios-native.sh
       - .github/actions/godot-ios/**
       - .github/workflows/ios.yml
 
@@ -45,6 +46,9 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 8.0.x
+      # Not JSON, but the same quick Mac: does the Bluetooth library (Objective-C) still compile?
+      - name: Native Bluetooth library compiles
+        run: tools/ios-native.sh "$RUNNER_TEMP/native"
       - name: Ordinary build
         run: dotnet run --project tests/GrimesGolf.AotSmoke -c Release -- "$RUNNER_TEMP/json-ordinary.txt"
       - name: Ahead-of-time build

@@ -73,6 +73,10 @@ echo "Renderer: $(sed -n 's/^renderer\/rendering_method.mobile="\(.*\)"/\1/p' "$
 # The courses and physics presets, which sit in folders beside the Windows app, go inside this one (ShippedFiles.cs).
 (cd "$project" && rm -f shipped.zip && zip -qr shipped.zip courses tuning -x '*/.gdignore')
 
+# The Bluetooth library for the Square (CoreBluetooth, in Objective-C), linked into the app by the Xcode builds below.
+"$root/tools/ios-native.sh" "$out/native"
+native_flags='$(inherited) -framework CoreBluetooth '"$out/native/libggble.a"
+
 # The editor needs the game's code built before it can import and export the project.
 dotnet build "$project/GrimesGolf.Godot.csproj" -c Debug -v q -nologo
 
@@ -109,7 +113,7 @@ if $signed; then
     echo "Archiving with Xcode ($(xcodebuild -version | tr '\n' ' '))..."
     xcodebuild -project "$out/$name.xcodeproj" -scheme "$name" -sdk iphoneos -configuration Release \
         -destination "generic/platform=iOS" -derivedDataPath "$out/xcode" -archivePath "$out/$name.xcarchive" archive \
-        CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_IDENTITY="$IOS_SIGN_IDENTITY" \
+        OTHER_LDFLAGS="$native_flags" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_IDENTITY="$IOS_SIGN_IDENTITY" \
         PROVISIONING_PROFILE_SPECIFIER="$IOS_PROFILE_NAME" > "$out/logs/xcodebuild.log" 2>&1 \
         || { tail -n 80 "$out/logs/xcodebuild.log"; echo "The Xcode archive failed." >&2; exit 1; }
 
@@ -153,7 +157,7 @@ fi
 echo "Building with Xcode ($(xcodebuild -version | tr '\n' ' '))..."
 xcodebuild -project "$out/$name.xcodeproj" -scheme "$name" -sdk iphoneos -configuration Release \
     -destination "generic/platform=iOS" -derivedDataPath "$out/xcode" build \
-    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" > "$out/logs/xcodebuild.log" 2>&1 \
+    OTHER_LDFLAGS="$native_flags" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" > "$out/logs/xcodebuild.log" 2>&1 \
     || { tail -n 80 "$out/logs/xcodebuild.log"; echo "The Xcode build failed." >&2; exit 1; }
 
 app="$out/xcode/Build/Products/Release-iphoneos/$name.app"

@@ -1,13 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Windows-only Bluetooth LE transport and monitor session, used by the game. -->
+  <!--
+    Bluetooth LE launch monitor sessions, with the transport under each in a folder of its own: Windows/ (the WinRT
+    APIs, so the Windows target) and Apple/ (CoreBluetooth through a small native library: the iPad). The plain .NET
+    target has the Apple one and is what the iPad build uses; the Windows target is only built on a Windows PC.
+  -->
   <PropertyGroup>
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetFrameworks>net8.0</TargetFrameworks>
+    <TargetFrameworks Condition=" $([MSBuild]::IsOSPlatform('Windows')) ">net8.0;net8.0-windows10.0.19041.0</TargetFrameworks>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
+
+  <ItemGroup Condition=" $(TargetFramework.Contains('-windows')) ">
+    <Compile Remove="Apple/**" />
+  </ItemGroup>
+  <ItemGroup Condition=" !$(TargetFramework.Contains('-windows')) ">
+    <Compile Remove="Windows/**" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\GrimesGolf.Core\GrimesGolf.Core.csproj" />
