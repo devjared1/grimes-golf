@@ -1,0 +1,127 @@
+# Builds the iPad app signed for the App Store and sends it to TestFlight. Started by hand from the Actions tab
+# (Run workflow), never by a pull request: it needs the Apple Developer account's secrets, which pull requests from
+# forks can't see. docs/ipad-release.md sets the account up and names every secret below.
+# UNTESTED until those secrets exist: written without an Apple Developer account to try it against.
+# No logs or signed .ipa are kept as downloads: this repository is public, so they'd be public too.
+name: iPad release (TestFlight)
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: "Send the build to TestFlight (off: only check that it builds and signs, and keep nothing)"
+        type: boolean
+        default: true
+      renderer:
+        description: Renderer (Forward+ is what the iPad build was tested with)
+        type: choice
+        options: [forward_plus, mobile]
+        default: forward_plus
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-release
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: 4.7.2-stable
+  GODOT_TEMPLATES: 4.7.2.stable.mono
+  GODOT_RELEASE: https://github.com/godotengine/godot/releases/download/4.7.2-stable
+
+jobs:
+  testflight:
+    name: Signed build for TestFlight
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 8.0.x
+      - uses: ./.github/actions/godot-ios
+
+      # Says which secret is missing, rather than failing somewhere later with something less clear.
+      - name: Check the account's secrets are set
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+          IOS_CERTIFICATE_P12: ${{ secrets.IOS_CERTIFICATE_P12 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          missing=""
+          for name in IOS_TEAM_ID IOS_BUNDLE_ID IOS_CERTIFICATE_P12 IOS_CERTIFICATE_PASSWORD IOS_PROVISIONING_PROFILE; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ "${{ inputs.upload }}" = "true" ]; then
+            for name in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do [ -n "${!name}" ] || missing="$missing $name"; done
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::Not set in the repository's secrets and variables:$missing. docs/ipad-release.md says how to make each."
+            exit 1
+          fi
+
+      # The certificate and profile go into a keychain made for this run, which is deleted at the end.
+      - name: Install the certificate and provisioning profile
+        env:
+          IOS_CERTIFICATE_P12: ${{ secrets.IOS_CERTIFICATE_P12 }}
+          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          IOS_PROVISIONING_PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password="$(uuidgen)"
+          echo "::add-mask::$password"
+          echo "KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          echo "$IOS_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          rm -f "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" login.keychain-db
+
+          # The certificate's name as the keychain has it.
+          identity="$(security find-identity -v -p codesigning "$keychain" | sed -n 's/.*"\(Apple Distribution:.*\)"/\1/p' | head -n 1)"
+          [ -n "$identity" ] || { echo "::error::No Apple Distribution certificate in the .p12 (see docs/ipad-release.md)."; exit 1; }
+          echo "::add-mask::$identity"   # it has the account holder's name in it, and this repository's logs are public
+          echo "IOS_SIGN_IDENTITY=$identity" >> "$GITHUB_ENV"
+
+          # The profile goes where Xcode looks for them, named by its UUID; its own name is what the build asks for.
+          echo "$IOS_PROVISIONING_PROFILE" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+          security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          uuid="$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")"
+          echo "IOS_PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          mv "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$uuid.mobileprovision"
+          rm -f "$RUNNER_TEMP/profile.plist"
+
+      - name: Build, sign and upload
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          IOS_BUNDLE_ID: ${{ vars.IOS_BUNDLE_ID }}
+          # Apple wants a higher build number for every upload of the same version; this run's number only goes up.
+          IOS_BUILD_NUMBER: ${{ github.run_number }}
+          IOS_RENDERER: ${{ inputs.renderer }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          if [ "${{ inputs.upload }}" = "true" ]; then
+            echo "$ASC_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+            export IOS_UPLOAD_KEY_FILE="$RUNNER_TEMP/AuthKey.p8" IOS_UPLOAD_KEY_ID="$ASC_KEY_ID" IOS_UPLOAD_ISSUER_ID="$ASC_ISSUER_ID"
+          fi
+          tools/ios-export.sh "$RUNNER_TEMP/ios"
+
+      # Always, so the certificate and the API key never stay on the runner.
+      - name: Delete the keychain, profile and key
+        if: always()
+        run: |
+          [ -z "${KEYCHAIN:-}" ] || security delete-keychain "$KEYCHAIN" || true
+          rm -f "$RUNNER_TEMP/AuthKey.p8" "$HOME"/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision

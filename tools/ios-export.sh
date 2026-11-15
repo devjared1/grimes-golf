@@ -13,7 +13,14 @@
 #   IOS_BUILD_NUMBER  the build number, which Apple wants higher for every upload (default: 1)
 #   IOS_RENDERER      forward_plus or mobile (default: the project's, rendering_method.mobile in project.godot)
 #
-# The build is unsigned: it can't be installed as it is. Sideloadly signs it with an Apple ID as it installs it.
+# Unsigned by default: that build can't be installed as it is, and Sideloadly signs it with an Apple ID as it installs
+# it. Given IOS_PROFILE_NAME and the settings below it makes a build signed for the App Store and TestFlight instead
+# (docs/ipad-release.md), which needs the Apple Developer account's certificate and profile installed on the Mac:
+#   IOS_TEAM_ID           the Apple Developer team ID
+#   IOS_SIGN_IDENTITY     the distribution certificate's name in the keychain ("Apple Distribution: ...")
+#   IOS_PROFILE_NAME      the name of the App Store provisioning profile
+#   IOS_UPLOAD_KEY_FILE   optional: an App Store Connect API key (.p8). With IOS_UPLOAD_KEY_ID and IOS_UPLOAD_ISSUER_ID
+#                         the build goes to TestFlight and no .ipa is kept; without it GrimesGolf-signed.ipa is.
 set -euo pipefail
 
 out="${1:?Usage: tools/ios-export.sh <output folder>}"
@@ -47,7 +54,14 @@ set_value() {   # file key variable
 }
 # Godot won't export without a team ID, and signs its libraries with whatever identity is named. An unsigned build
 # has neither: a made-up team, and "-" (no identity).
-export IOS_TEAM_ID="0000000000" IOS_SIGN_IDENTITY="-"
+signed=false
+if [ -n "${IOS_PROFILE_NAME:-}" ]; then
+    signed=true
+    : "${IOS_TEAM_ID:?IOS_TEAM_ID is needed to sign}" "${IOS_SIGN_IDENTITY:?IOS_SIGN_IDENTITY is needed to sign}"
+    echo "Signed build for the App Store"
+else
+    export IOS_TEAM_ID="0000000000" IOS_SIGN_IDENTITY="-"
+fi
 set_value "$project/export_presets.cfg" application/app_store_team_id IOS_TEAM_ID
 set_value "$project/export_presets.cfg" application/code_sign_identity_release IOS_SIGN_IDENTITY
 set_value "$project/export_presets.cfg" application/short_version IOS_SHORT_VERSION
@@ -88,6 +102,52 @@ if [ -n "$issues" ]; then
          "$(printf '%s\n' "$game" | grep -c 'System[.]Text[.]Json' || true) are the game's JSON calls," \
          "$(printf '%s\n' "$other" | grep -c . || true) more name the game's code, and the rest are Godot's own."
     printf '%s\n' "$other" | cut -c1-400 | head -n 20
+fi
+
+if $signed; then
+    # Archive with the distribution certificate and the App Store profile named, then export (and upload) the archive.
+    echo "Archiving with Xcode ($(xcodebuild -version | tr '\n' ' '))..."
+    xcodebuild -project "$out/$name.xcodeproj" -scheme "$name" -sdk iphoneos -configuration Release \
+        -destination "generic/platform=iOS" -derivedDataPath "$out/xcode" -archivePath "$out/$name.xcarchive" archive \
+        CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_IDENTITY="$IOS_SIGN_IDENTITY" \
+        PROVISIONING_PROFILE_SPECIFIER="$IOS_PROFILE_NAME" > "$out/logs/xcodebuild.log" 2>&1 \
+        || { tail -n 80 "$out/logs/xcodebuild.log"; echo "The Xcode archive failed." >&2; exit 1; }
+
+    destination=export
+    auth=()
+    if [ -n "${IOS_UPLOAD_KEY_FILE:-}" ]; then
+        destination=upload
+        auth=(-allowProvisioningUpdates -authenticationKeyPath "$IOS_UPLOAD_KEY_FILE"
+              -authenticationKeyID "${IOS_UPLOAD_KEY_ID:?IOS_UPLOAD_KEY_ID is needed to upload}"
+              -authenticationKeyIssuerID "${IOS_UPLOAD_ISSUER_ID:?IOS_UPLOAD_ISSUER_ID is needed to upload}")
+    fi
+    bundle="$(/usr/libexec/PlistBuddy -c 'Print :ApplicationProperties:CFBundleIdentifier' "$out/$name.xcarchive/Info.plist")"
+    options="$out/logs/ExportOptions.plist"
+    cat > "$options" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>method</key><string>app-store-connect</string>
+  <key>destination</key><string>$destination</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>teamID</key><string>$IOS_TEAM_ID</string>
+  <key>signingCertificate</key><string>$IOS_SIGN_IDENTITY</string>
+  <key>provisioningProfiles</key><dict><key>$bundle</key><string>$IOS_PROFILE_NAME</string></dict>
+  <key>uploadSymbols</key><false/>
+</dict></plist>
+PLIST
+    echo "Exporting the archive (destination: $destination)..."
+    rm -rf "$out/signed"
+    xcodebuild -exportArchive -archivePath "$out/$name.xcarchive" -exportPath "$out/signed" \
+        -exportOptionsPlist "$options" ${auth[@]+"${auth[@]}"} > "$out/logs/xcodebuild-export.log" 2>&1 \
+        || { tail -n 60 "$out/logs/xcodebuild-export.log"; echo "Exporting (or uploading) the archive failed." >&2; exit 1; }
+    if [ "$destination" = upload ]; then
+        echo "Uploaded build $IOS_BUILD_NUMBER. It shows in TestFlight once Apple has processed it (5 to 30 minutes)."
+    else
+        mv "$out/signed/$name.ipa" "$out/$name-signed.ipa"
+        echo "Made $out/$name-signed.ipa ($(du -h "$out/$name-signed.ipa" | cut -f1))"
+    fi
+    exit 0
 fi
 
 echo "Building with Xcode ($(xcodebuild -version | tr '\n' ' '))..."

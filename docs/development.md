@@ -225,6 +225,8 @@ workflow**); it also runs for pull requests that touch the game. A run takes abo
 about 85 MB. It needs an iPad with an A12 chip or newer, on iPadOS 15 or later.
 [Trying Grimes Golf on an iPad](ipad-testing.md) says how to install it from Windows, what to check and how to get
 the logs back (the data folder shows in the iPad's Files app).
+[Putting Grimes Golf on TestFlight](ipad-release.md) covers the signed build for TestFlight, which needs a paid Apple
+Developer account: `.github/workflows/ios-release.yml` makes it, by hand only, and it hasn't been run yet.
 
 What differs from the Windows build:
 
