@@ -58,7 +58,7 @@ Check("settings.json", () =>
         Players = new[] { new Golfer("Ann"), new Golfer("Bob", true) }, HouseRules = rules, LastMonitor = 0xC0FFEE123456UL,
         TextSize = TextSize.Large, Graphics = GraphicsQuality.Ultra, Game = setup, Course = "Deer Run",
         Home = new HomePlayer("Ann") { LaunchMonitor = "Square", ClubYards = new Dictionary<string, int> { ["DR"] = 230, ["I7"] = 150 } },
-        SavedGuests = new[] { new Golfer("Cat", true) }, MonitorType = LaunchMonitorType.GarminR10, OpenConnect = true,
+        SavedGuests = new[] { new Golfer("Cat", true) }, MonitorType = LaunchMonitorType.GarminR10, OpenConnect = true, ShowFrameRate = true,
         RejoinCode = "ABCD", RejoinUntil = when.AddHours(3),
     };
     string? error = null;

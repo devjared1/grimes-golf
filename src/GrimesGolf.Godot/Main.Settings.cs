@@ -72,7 +72,7 @@ public partial class Main
         s = s with { Home = old.Home };   // the home player saves by itself, and may have changed since the settings opened
         SaveSettingsAlways(s);
         if (s.TextSize != old.TextSize || s.FullScreen != old.FullScreen) ApplyDisplaySettings();
-        if (s.Graphics != old.Graphics) ApplyGraphics();
+        if (s.Graphics != old.Graphics || s.ShowFrameRate != old.ShowFrameRate) ApplyGraphics();
         if (s.AutoConnect != old.AutoConnect) _autoConnect = s.AutoConnect;
         if (s.OpenConnect != old.OpenConnect || s.OpenConnectPort != old.OpenConnectPort || s.OpenConnectFromNetwork != old.OpenConnectFromNetwork)
             SetupOpenConnect();

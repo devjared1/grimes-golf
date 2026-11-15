@@ -40,6 +40,8 @@ public sealed record AppSettings(
     public bool SoundEffects { get; init; } = true;
     /// <summary>A chime when the launch monitor has a ball and is ready for the shot.</summary>
     public bool ReadySound { get; init; } = true;
+    /// <summary>Shows the frame rate in a corner (and writes it to the log), to find the graphics quality a device can keep up with.</summary>
+    public bool ShowFrameRate { get; init; }
     /// <summary>
     /// Stand in for GSPro's Open Connect server, so a monitor's GSPro connector app (Garmin R10, Rapsodo MLM2PRO, ...)
     /// can send its shots here. Off by default: it uses GSPro's port, so it can't run while GSPro does.

@@ -223,6 +223,8 @@ builds it: `.github/workflows/ios.yml` runs `tools/ios-export.sh` on one of GitH
 repository) and keeps an unsigned `.ipa` with the run. Start it from the Actions tab (**iPad build** > **Run
 workflow**); it also runs for pull requests that touch the game. A run takes about 7 minutes and the `.ipa` is
 about 85 MB. It needs an iPad with an A12 chip or newer, on iPadOS 15 or later.
+[Trying Grimes Golf on an iPad](ipad-testing.md) says how to install it from Windows, what to check and how to get
+the logs back (the data folder shows in the iPad's Files app).
 
 What differs from the Windows build:
 

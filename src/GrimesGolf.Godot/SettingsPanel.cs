@@ -27,6 +27,7 @@ public partial class SettingsPanel : Control
     private SpinBox _mulligans = null!;
     private CheckBox _doublePar = null!, _autoConnect = null!, _openConnect = null!, _fullScreen = null!, _flyover = null!, _soundEffects = null!, _checkForUpdates = null!,
                      _autoAlign = null!, _autoPutt = null!, _readySound = null!;
+    private CheckBox _frameRate = null!;
     private OptionButton _textSize = null!, _graphics = null!, _gimme = null!, _monitorType = null!;
     private LineEdit _monitorName = null!;
     private Label _roundNote = null!;
@@ -150,6 +151,8 @@ public partial class SettingsPanel : Control
         _graphics.AddItem("High");
         _graphics.AddItem("Ultra");
         v.AddChild(Row("Graphics quality (shadows, lighting, smoothing)", _graphics));
+        _frameRate = new CheckBox { Text = "Show the frame rate", TooltipText = "In the top-left corner of the view, to find the graphics quality this device can keep up with" };
+        v.AddChild(_frameRate);
         v.AddChild(UiTheme.Caption("Camera"));
         _flyover = new CheckBox { Text = "Fly down each hole before the first tee shot (Space skips it)" };
         v.AddChild(_flyover);
@@ -223,6 +226,7 @@ public partial class SettingsPanel : Control
         _textSize.Selected = (int)current.TextSize;
         _fullScreen.ButtonPressed = current.FullScreen;
         _graphics.Selected = (int)current.Graphics;
+        _frameRate.ButtonPressed = current.ShowFrameRate;
         _flyover.ButtonPressed = current.HoleFlyover;
         _soundEffects.ButtonPressed = current.SoundEffects;
         _readySound.ButtonPressed = current.ReadySound;
@@ -267,6 +271,7 @@ public partial class SettingsPanel : Control
             TextSize = (TextSize)Math.Max(0, _textSize.Selected),
             FullScreen = _fullScreen.ButtonPressed,
             Graphics = (GraphicsQuality)Math.Max(0, _graphics.Selected),
+            ShowFrameRate = _frameRate.ButtonPressed,
             HoleFlyover = _flyover.ButtonPressed,
             SoundEffects = _soundEffects.ButtonPressed,
             ReadySound = _readySound.ButtonPressed,
