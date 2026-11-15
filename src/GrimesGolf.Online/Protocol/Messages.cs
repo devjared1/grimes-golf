@@ -40,6 +40,7 @@ public abstract record OnlineMessage
     {
         Converters = { new JsonStringEnumConverter() },
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        TypeInfoResolver = OnlineJsonContext.Resolver,
     };
 
     public string Encode() => JsonSerializer.Serialize(this, Json);

@@ -117,6 +117,7 @@ public sealed class GolfData
         WriteIndented = true,
         Converters = { new JsonStringEnumConverter() },
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        TypeInfoResolver = CoreJsonContext.Resolver,
     };
     private static readonly JsonSerializerOptions JsonLine = new(Json) { WriteIndented = false };
 
@@ -167,16 +168,19 @@ public sealed class GolfData
         });
 
     /// <summary>Saves the online round this PC hosts (any JSON-serializable record), to carry on later.</summary>
-    public void SaveOnlineRound<T>(T round) =>
-        Try("save the online round", () => WriteAtomic(OnlineRoundFile, JsonSerializer.Serialize(round, Json)));
+    public void SaveOnlineRound<T>(T round, JsonSerializerOptions? json = null) =>
+        Try("save the online round", () => WriteAtomic(OnlineRoundFile, JsonSerializer.Serialize(round, json ?? Json)));
+
+    /// <summary>One line of a session file as a shot (null for "null"; throws <see cref="JsonException"/> if it isn't one).</summary>
+    public static ShotRecord? ParseShot(string line) => JsonSerializer.Deserialize<ShotRecord>(line, Json);
 
     /// <summary>The online round this PC was hosting, if there is one (and it reads).</summary>
-    public T? LoadOnlineRound<T>() where T : class
+    public T? LoadOnlineRound<T>(JsonSerializerOptions? json = null) where T : class
     {
         T? r = null;
         Try("read the online round", () =>
         {
-            if (File.Exists(OnlineRoundFile)) r = JsonSerializer.Deserialize<T>(File.ReadAllText(OnlineRoundFile), Json);
+            if (File.Exists(OnlineRoundFile)) r = JsonSerializer.Deserialize<T>(File.ReadAllText(OnlineRoundFile), json ?? Json);
         });
         return r;
     }
@@ -227,7 +231,7 @@ public sealed class GolfData
                 {
                     if (line.Length == 0) continue;
                     ShotRecord? s;
-                    try { s = JsonSerializer.Deserialize<ShotRecord>(line, Json); }
+                    try { s = ParseShot(line); }
                     catch (JsonException) { continue; }   // a line cut short by a crash
                     if (s == null) continue;
                     if (s.Mulligan && byTime.TryGetValue((s.At, s.Player), out int i)) { list[i] = s; continue; }

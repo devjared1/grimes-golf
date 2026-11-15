@@ -24,9 +24,13 @@ public static partial class CourseCatalog
     /// <summary>Nothing bigger is downloaded (Deer Run's zip is about 7 MB).</summary>
     public const long MaxBytes = 300_000_000;
 
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        WriteIndented = true,
+        TypeInfoResolver = Storage.CoreJsonContext.Resolver,
+    };
 
-    private sealed record Document(int Format, CatalogCourse[]? Courses);
+    internal sealed record Document(int Format, CatalogCourse[]? Courses);
 
     public static string ToJson(IEnumerable<CatalogCourse> courses) => JsonSerializer.Serialize(new Document(Format, courses.OrderBy(c => c.Title, StringComparer.OrdinalIgnoreCase).ToArray()), Json);
 
