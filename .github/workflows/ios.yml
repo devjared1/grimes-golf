@@ -37,7 +37,7 @@ jobs:
   # has it save and read back everything, and checks it writes exactly what an ordinary build writes.
   json:
     name: JSON in an ahead-of-time build
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -54,9 +54,10 @@ jobs:
         run: diff "$RUNNER_TEMP/json-ordinary.txt" "$RUNNER_TEMP/json-aot.txt"
 
   # Unsigned, so it needs no secrets and works for pull requests from forks too.
+  # macOS 26 for its Xcode 26: Godot 4.7's iOS template doesn't link with an older one.
   unsigned:
     name: Unsigned .ipa
-    runs-on: macos-15
+    runs-on: macos-26
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
@@ -65,9 +66,10 @@ jobs:
           dotnet-version: 8.0.x
 
       # The editor (200 MB) and the iOS export template, which comes inside a 1.2 GB file of every platform's.
+      # (Restored and saved as two steps, so it's kept even when the build after it fails.)
       - name: Godot editor and iOS template (cached)
         id: godot
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v6
         with:
           path: ~/godot
           key: godot-${{ env.GODOT_VERSION }}-mono-macos-ios
@@ -83,6 +85,12 @@ jobs:
           unzip -q -j "Godot_v${GODOT_VERSION}_mono_export_templates.tpz" templates/ios.zip templates/version.txt -d ~/godot/templates
           cd ~ && rm -rf ~/godot/download
           ls -la ~/godot ~/godot/templates
+      - name: Keep Godot for next time
+        if: steps.godot.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-macos-ios
       - name: Install Godot
         run: |
           templates="$HOME/Library/Application Support/Godot/export_templates/$GODOT_TEMPLATES"

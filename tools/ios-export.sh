@@ -77,7 +77,13 @@ if [ ! -d "$out/$name.xcodeproj" ]; then
     echo "Godot's export didn't make $name.xcodeproj." >&2
     exit 1
 fi
-grep -E "warning (IL|CS)|ERROR|error" "$out/logs/godot-export.log" | sort | uniq -c | sort -rn | head -n 40 || true
+# Compiling ahead of time warns about code that might not survive it. Godot's own C# glue always has some; any that
+# name the game's code are worth reading (the full list is in Godot's build log, kept with the run's logs).
+issues="$(find "$HOME/Library/Application Support/Godot/mono/build_logs" -name msbuild_issues.csv 2>/dev/null | head -n 1)"
+if [ -n "$issues" ]; then
+    echo "Ahead-of-time warnings: $(grep -c 'warning,.*IL[0-9]' "$issues" || true) in all, $(grep -cE ',IL[0-9]+,"?GrimesGolf.' "$issues" || true) naming the game's code."
+    grep -E ',IL[0-9]+,"?GrimesGolf.' "$issues" | cut -c1-400 | head -n 20 || true
+fi
 
 echo "Building with Xcode ($(xcodebuild -version | tr '\n' ' '))..."
 xcodebuild -project "$out/$name.xcodeproj" -scheme "$name" -sdk iphoneos -configuration Release \
