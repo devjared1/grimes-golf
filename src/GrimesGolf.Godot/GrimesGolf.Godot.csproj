@@ -19,8 +19,8 @@
 
   <!--
     GG_BLUETOOTH: this build has Bluetooth launch monitors, through GrimesGolf.Bluetooth: WinRT on Windows, and
-    CoreBluetooth on the iPad (GG_IOS), where it calls a native library that tools/ios-export.sh links into the app,
-    so the platform invoke to "__Internal" is made direct (resolved when the app is linked, not looked up at run time).
+    CoreBluetooth on the iPad (GG_IOS), where it calls a native library that tools/ios-export.sh links into the
+    game's library, so the platform invoke to "__Internal" is made direct (resolved at link time, not looked up).
   -->
   <PropertyGroup Condition=" '$(GodotTargetPlatform)' == 'windows' Or '$(GodotTargetPlatform)' == 'ios' ">
     <DefineConstants>$(DefineConstants);GG_BLUETOOTH</DefineConstants>
@@ -28,8 +28,17 @@
   <PropertyGroup Condition=" '$(GodotTargetPlatform)' == 'ios' ">
     <DefineConstants>$(DefineConstants);GG_IOS</DefineConstants>
   </PropertyGroup>
+  <!--
+    The native library is linked into the game's own library, which Godot builds for the iPad and for each simulator:
+    GG_BLE_LIBS (set by tools/ios-export.sh) is the folder tools/ios-native.sh made, with one folder per runtime.
+    Without it the link fails, naming the missing gg_ble_* functions.
+  -->
   <ItemGroup Condition=" '$(GodotTargetPlatform)' == 'ios' ">
     <DirectPInvoke Include="__Internal" />
+  </ItemGroup>
+  <ItemGroup Condition=" '$(GodotTargetPlatform)' == 'ios' And '$(GG_BLE_LIBS)' != '' ">
+    <NativeLibrary Include="$(GG_BLE_LIBS)/$(RuntimeIdentifier)/libggble.a" />
+    <LinkerArg Include="-framework CoreBluetooth" />
   </ItemGroup>
 
   <ItemGroup>

@@ -73,9 +73,10 @@ echo "Renderer: $(sed -n 's/^renderer\/rendering_method.mobile="\(.*\)"/\1/p' "$
 # The courses and physics presets, which sit in folders beside the Windows app, go inside this one (ShippedFiles.cs).
 (cd "$project" && rm -f shipped.zip && zip -qr shipped.zip courses tuning -x '*/.gdignore')
 
-# The Bluetooth library for the Square (CoreBluetooth, in Objective-C), linked into the app by the Xcode builds below.
+# The Bluetooth library for the Square (CoreBluetooth, in Objective-C). The game's project file links it into the
+# game's own library (GG_BLE_LIBS), which Godot builds with the rest of the export.
 "$root/tools/ios-native.sh" "$out/native"
-native_flags='$(inherited) -framework CoreBluetooth '"$out/native/libggble.a"
+export GG_BLE_LIBS="$out/native"
 
 # The editor needs the game's code built before it can import and export the project.
 dotnet build "$project/GrimesGolf.Godot.csproj" -c Debug -v q -nologo
@@ -93,6 +94,14 @@ rm -rf "$out/$name" "$out/$name.xcodeproj" "$out/$name.xcframework"
 if [ ! -d "$out/$name.xcodeproj" ]; then
     tail -n 60 "$out/logs/godot-export.log"
     echo "Godot's export didn't make $name.xcodeproj." >&2
+    exit 1
+fi
+# Godot reports an export "completed with warnings" even when building the game's code failed, which leaves an app
+# without the game in it (it opens to nothing). So any build error it logged stops this build.
+errors="$(find "$HOME/Library/Application Support/Godot/mono/build_logs" -name msbuild_issues.csv -exec grep -h '^error,' {} + 2>/dev/null | cut -c1-600 || true)"
+if [ -n "$errors" ]; then
+    printf '%s\n' "$errors"
+    echo "Godot didn't build the game's code (see above, and the build logs)." >&2
     exit 1
 fi
 # Compiling ahead of time warns about code that might not survive it (the full list is in Godot's build log, kept
@@ -113,7 +122,7 @@ if $signed; then
     echo "Archiving with Xcode ($(xcodebuild -version | tr '\n' ' '))..."
     xcodebuild -project "$out/$name.xcodeproj" -scheme "$name" -sdk iphoneos -configuration Release \
         -destination "generic/platform=iOS" -derivedDataPath "$out/xcode" -archivePath "$out/$name.xcarchive" archive \
-        OTHER_LDFLAGS="$native_flags" CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_IDENTITY="$IOS_SIGN_IDENTITY" \
+        CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$IOS_TEAM_ID" CODE_SIGN_IDENTITY="$IOS_SIGN_IDENTITY" \
         PROVISIONING_PROFILE_SPECIFIER="$IOS_PROFILE_NAME" > "$out/logs/xcodebuild.log" 2>&1 \
         || { tail -n 80 "$out/logs/xcodebuild.log"; echo "The Xcode archive failed." >&2; exit 1; }
 
@@ -157,7 +166,7 @@ fi
 echo "Building with Xcode ($(xcodebuild -version | tr '\n' ' '))..."
 xcodebuild -project "$out/$name.xcodeproj" -scheme "$name" -sdk iphoneos -configuration Release \
     -destination "generic/platform=iOS" -derivedDataPath "$out/xcode" build \
-    OTHER_LDFLAGS="$native_flags" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" > "$out/logs/xcodebuild.log" 2>&1 \
+    CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" > "$out/logs/xcodebuild.log" 2>&1 \
     || { tail -n 80 "$out/logs/xcodebuild.log"; echo "The Xcode build failed." >&2; exit 1; }
 
 app="$out/xcode/Build/Products/Release-iphoneos/$name.app"

@@ -3,8 +3,9 @@
 How to put the test build on your own iPad from a Windows PC, with a free Apple ID and no Mac, and what to check
 once it's there. It takes about half an hour the first time and five minutes after that.
 
-This is a first test build, not a finished app: it has never run on an iPad, there's no Bluetooth launch monitor
-support on iPad yet, and the screens were made for a mouse and keyboard. Finding out what works is the point.
+This is a first test build, not a finished app: the screens were made for a mouse and keyboard, a Square connects over
+Bluetooth but that hasn't been tried with a real one yet, and the Garmin R10 isn't supported on iPad. Finding out what
+works is the point.
 
 ## Contents
 
@@ -98,12 +99,30 @@ Work down the list and note what happens; "it crashed here" is as useful as "fin
 | 8 | **Saving** | Play two holes, then close the app completely (swipe it away) and open it again. Does **Resume Game** bring the round back on the right hole with the right scores? Does History list the range shots? |
 | 9 | **Sound** | Club, ball and cup sounds; does the silent switch or volume behave as you'd expect? |
 | 10 | **Coming back to it** | Switch to another app for a minute and come back. Still running? |
+| 11 | **A Square** | See [Connecting a Square](#connecting-a-square) below. |
 
-If there's time, two extras:
+If there's time, two extras (the first once you've done check 5):
 
 - **The other renderer.** Run the workflow again with **Renderer: mobile**, install that build over the top, and
   repeat check 5. Mobile is lighter and may look a little different; the comparison decides which the iPad keeps.
 - **Online play.** Host or join a lobby with the Windows app (both need the same version).
+
+## Connecting a Square
+
+Needs a real Square Omni, and the Square phone app closed (a Square talks to one device at a time). The Garmin R10
+isn't supported on iPad yet; **Auto** and **Square** both look for a Square.
+
+1. Switch the Square on, and open Grimes Golf. The first time it scans, iOS asks whether the app may use Bluetooth:
+   tap **Allow**. (If you tapped Don't Allow: Settings > Grimes Golf > Bluetooth.)
+2. Open the monitor list (the Bluetooth button on the HUD, or Settings > Monitor) and see whether the Square shows up
+   and connects. Note how long that takes.
+3. On the driving range with the Square connected: change club (does the Square follow it?), hit a few shots and
+   compare the numbers with what the Square shows. Does the battery level show?
+4. Close the app and open it again: does auto-connect find the Square by itself?
+5. Switch the Square off, then on again: does it reconnect?
+
+Whatever happens, `logs/godot.log` has the story, including the `Connecting to the Square...`, `Connected`, `Device:`
+and `Shot raw:` lines. A Square that never shows up, or connects and then goes quiet, is a finding: send the log.
 
 ## Sending back the logs
 

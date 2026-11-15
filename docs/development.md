@@ -230,11 +230,18 @@ Developer account: `.github/workflows/ios-release.yml` makes it, by hand only, a
 
 What differs from the Windows build:
 
-- **No Bluetooth.** `GrimesGolf.Bluetooth` is Windows-only, so the game's project file leaves it out, and targets
-  plain .NET, when Godot builds for any other platform. No launch monitor is found on an iPad; on-screen shots, the
-  fake monitors and the GSPro Open Connect server don't need it. Keep the project file's `TargetFramework` condition
-  as `!= 'windows'`: the Godot editor tidies the file when it opens the project, and deletes one written as
-  `== 'windows'` or `== 'ios'`.
+- **Bluetooth is CoreBluetooth, for Squares only so far.** `GrimesGolf.Bluetooth` has a `Windows/` folder (WinRT,
+  built only for the Windows target) and an `Apple/` folder (the plain .NET target, which the iPad build uses). The
+  Apple one calls `Apple/Native/gg_ble.m`, a small Objective-C wrapper of CoreBluetooth that `tools/ios-native.sh`
+  builds into a `libggble.a` for each runtime (Godot builds the game's code for the iPad and both simulators).
+  `tools/ios-export.sh` points the game's project file at them (`GG_BLE_LIBS`), which links them into the game's own
+  library as a `NativeLibrary`; the C# reaches the functions by platform invoke to `__Internal`, made a
+  `DirectPInvoke` so NativeAOT links it directly. (Godot's export says "completed with warnings" even when building
+  the game's code failed, and the app is then built without the game: the script stops on any build error it logged.) iOS never shows a Bluetooth address, so a Square's "address" is made from the first six bytes of its
+  identifier, which is stable. The Garmin R10 isn't supported on the iPad (`R10Session` is portable: it needs an
+  `IR10Link` over the same wrapper). The game's project file targets plain .NET for any platform but Windows. Keep
+  its `TargetFramework` condition as `!= 'windows'`: the Godot editor tidies the file when it opens the project, and
+  deletes one written as `== 'windows'` or `== 'ios'`.
 - **Compiled ahead of time.** Godot builds C# for iOS with NativeAOT, which trims code that looks unused and can't
   work JSON types out by reflection as it runs. `CoreJsonContext` (in `GrimesGolf.Core/Storage`) and
   `OnlineJsonContext` (in `GrimesGolf.Online/Protocol`) hold that knowledge instead, generated at build time and
@@ -271,8 +278,8 @@ three, the R10 none). The Square is `SquareMonitorAdapter` over the unchanged `M
 `R10Session` (platform-free, in `GrimesGolf.Core/Garmin`, over an `IR10Link`: `R10BleLink` on Windows,
 `FakeR10Device` in tests and `--fake-monitor=r10`). See the [R10 protocol notes](garmin-r10-protocol.md).
 Bluetooth itself is the only code that differs by platform: the scanner is an `IMonitorScanner`, and
-`MonitorLinks.cs` in the game makes it and the links, from `GrimesGolf.Bluetooth` on Windows (where the project file
-defines `GG_BLUETOOTH`) and not at all elsewhere (see [The iPad build](#the-ipad-build)).
+`MonitorLinks.cs` in the game makes it and the links, from `GrimesGolf.Bluetooth` on Windows and the iPad (where the project file
+defines `GG_BLUETOOTH`, and `GG_IOS` for the iPad) and not at all elsewhere (see [The iPad build](#the-ipad-build)).
 
 The Godot code is split by topic: `Main.cs` (set-up, the "shot finished" event, saving shots), `Main.Monitor.cs`
 (Bluetooth, choosing the monitor, auto-connect and reconnecting), `Main.Shots.cs` (shots and the range), `Main.Course.cs` (rounds and
