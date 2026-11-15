@@ -77,12 +77,17 @@ if [ ! -d "$out/$name.xcodeproj" ]; then
     echo "Godot's export didn't make $name.xcodeproj." >&2
     exit 1
 fi
-# Compiling ahead of time warns about code that might not survive it. Godot's own C# glue always has some; any that
-# name the game's code are worth reading (the full list is in Godot's build log, kept with the run's logs).
+# Compiling ahead of time warns about code that might not survive it (the full list is in Godot's build log, kept
+# with the run's logs). Godot's own C# glue always has some, and every JSON call in the game has two, which the
+# workflow's JSON job shows are fine. Any others that name the game's code are worth reading, so they're printed.
 issues="$(find "$HOME/Library/Application Support/Godot/mono/build_logs" -name msbuild_issues.csv 2>/dev/null | head -n 1)"
 if [ -n "$issues" ]; then
-    echo "Ahead-of-time warnings: $(grep -c 'warning,.*IL[0-9]' "$issues" || true) in all, $(grep -cE ',IL[0-9]+,"?GrimesGolf.' "$issues" || true) naming the game's code."
-    grep -E ',IL[0-9]+,"?GrimesGolf.' "$issues" | cut -c1-400 | head -n 20 || true
+    game="$(grep -E ',IL[0-9]+,"?GrimesGolf[.]' "$issues" || true)"
+    other="$(printf '%s\n' "$game" | grep -v 'System[.]Text[.]Json' || true)"
+    echo "Ahead-of-time warnings: $(grep -cE ',IL[0-9]+,' "$issues" || true) in all;" \
+         "$(printf '%s\n' "$game" | grep -c 'System[.]Text[.]Json' || true) are the game's JSON calls," \
+         "$(printf '%s\n' "$other" | grep -c . || true) more name the game's code, and the rest are Godot's own."
+    printf '%s\n' "$other" | cut -c1-400 | head -n 20
 fi
 
 echo "Building with Xcode ($(xcodebuild -version | tr '\n' ' '))..."
