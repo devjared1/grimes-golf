@@ -17,9 +17,13 @@ public partial class Main
     private IReadOnlyList<CatalogCourse> _catalog = Array.Empty<CatalogCourse>();
     private CancellationTokenSource? _download;
 
-    /// <summary>The courses that came with the app: <c>courses</c> beside the exported app, or in the project when run from Godot.</summary>
+    /// <summary>
+    /// The courses that came with the app: <c>courses</c> beside the exported app, or in the project when run from Godot.
+    /// (A build with them packed inside, the iPad's, unpacks them into the data folder: see <see cref="ShippedFiles"/>.)
+    /// </summary>
     private static string ShippedCourses =>
-        OS.HasFeature("template")
+        ShippedFiles.Packed ? ShippedFiles.Courses
+        : OS.HasFeature("template")
             ? Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath()) ?? ".", "courses")
             : Path.Combine(ProjectSettings.GlobalizePath("res://"), "courses");
 
@@ -117,11 +121,14 @@ public partial class Main
         _hud.Store.ShowRows(StoreRows(), message);
     }
 
-    /// <summary>Exported builds, if it's allowed: asks GitHub for the newest version once, and offers it on the main menu. Failing just means no offer.</summary>
+    /// <summary>
+    /// Exported builds, if it's allowed: asks GitHub for the newest version once, and offers it on the main menu. Failing
+    /// just means no offer. Not on a phone or tablet: the offer is the Windows installer, and theirs update another way.
+    /// </summary>
     private async void CheckForUpdate(string[] args)
     {
         bool forced = OS.IsDebugBuild() && args.Contains("--check-update");
-        if (!forced && (!OS.HasFeature("template") || !_settings.CheckForUpdates)) return;
+        if (!forced && (!OS.HasFeature("template") || OS.HasFeature("mobile") || !_settings.CheckForUpdates)) return;
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));

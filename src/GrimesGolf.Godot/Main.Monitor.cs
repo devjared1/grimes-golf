@@ -1,5 +1,4 @@
 ﻿using Godot;
-using GrimesGolf.Bluetooth;
 using GrimesGolf.Core;
 using GrimesGolf.Core.Audio;
 using GrimesGolf.Core.Course;
@@ -17,7 +16,7 @@ namespace GrimesGolf.Game;
 /// </summary>
 public partial class Main
 {
-    private MonitorScanner? _scanner;
+    private IMonitorScanner? _scanner;
     private ILaunchMonitorSession? _session;
     private readonly Dictionary<ulong, DeviceEntry> _devices = new();
     private bool _devicesDirty, _quitting;
@@ -60,7 +59,13 @@ public partial class Main
         }
         try
         {
-            _scanner = new MonitorScanner();
+            _scanner = MonitorLinks.NewScanner();
+            if (_scanner == null)
+            {
+                Log("Bluetooth launch monitors aren't supported on this device yet.");
+                _hud.SetStatus("No Bluetooth launch monitors on this device yet");
+                return;
+            }
             _scanner.DeviceSeen += a => Post(() => OnDeviceSeen(a));
             _scanner.Stopped += err => Post(() =>
             {
@@ -300,9 +305,9 @@ public partial class Main
                 _fake = device;
                 return new R10Session(() => device, SessionLog, capture.Write);
             }
-            return new R10Session(() => new R10BleLink(d.Address, SessionLog), SessionLog, capture.Write);
+            return new R10Session(() => MonitorLinks.NewR10Link(d.Address, SessionLog), SessionLog, capture.Write);
         }
-        return new SquareMonitorAdapter(d.Address, SessionLog);
+        return MonitorLinks.NewSquareSession(d.Address, SessionLog);
     }
 
     /// <summary>A shot from the monitor, into the same pipeline as every other shot.</summary>

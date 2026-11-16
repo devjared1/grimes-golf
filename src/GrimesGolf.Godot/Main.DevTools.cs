@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using Godot;
-using GrimesGolf.Bluetooth;
 using GrimesGolf.Core;
 using GrimesGolf.Core.Course;
 using GrimesGolf.Core.Square;

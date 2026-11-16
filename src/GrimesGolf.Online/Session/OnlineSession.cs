@@ -1,7 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using GrimesGolf.Core;
 using GrimesGolf.Core.Course;
+using GrimesGolf.Core.Storage;
 using GrimesGolf.Online.Protocol;
 using GrimesGolf.Online.Transport;
 
@@ -24,7 +26,11 @@ public enum OnlinePhase
 }
 
 /// <summary>An online round the host can carry on later (<c>online-round.json</c>).</summary>
-public sealed record OnlineSave(string Code, string Token, RoundConfig Config, MatchSnapshot Snapshot, int Seq, DateTime Saved);
+public sealed record OnlineSave(string Code, string Token, RoundConfig Config, MatchSnapshot Snapshot, int Seq, DateTime Saved)
+{
+    /// <summary>The app's usual JSON, knowing this type: for <c>GolfData.SaveOnlineRound</c> and <c>LoadOnlineRound</c>.</summary>
+    public static readonly JsonSerializerOptions Json = new(GolfData.Json) { TypeInfoResolver = OnlineJsonContext.Resolver };
+}
 
 /// <summary>
 /// One PC's side of an online round, host (<see cref="HostSession"/>) or friend (<see cref="ClientSession"/>).

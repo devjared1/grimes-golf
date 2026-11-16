@@ -12,7 +12,7 @@ namespace GrimesGolf.Bluetooth;
 /// Windows BLE transport using the WinRT Bluetooth LE APIs.
 /// The Omni does not pair or bond: do NOT pair it in Windows Bluetooth settings; connect as a plain GATT client.
 /// </summary>
-public sealed class SquareBleLink : ISquareLink
+public sealed class SquareBleLink : ISquareDeviceLink
 {
     private readonly MonitorOptions _o;
     private readonly Action<string> _log;

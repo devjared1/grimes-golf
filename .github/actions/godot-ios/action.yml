@@ -1,0 +1,42 @@
+# Sets up the Godot .NET editor and its iOS export template on a Mac, for the iPad build workflows. Sets GODOT.
+# The editor (200 MB) and the iOS template, which comes inside a 1.2 GB file of every platform's, are cached.
+name: Godot for iOS
+description: Installs the Godot .NET editor and the iOS export template (cached) and sets GODOT to the editor.
+
+runs:
+  using: composite
+  steps:
+    # Restored and saved as two steps, so it's kept even when the build after it fails.
+    - name: Godot editor and iOS template (cached)
+      id: godot
+      uses: actions/cache/restore@v6
+      with:
+        path: ~/godot
+        key: godot-${{ env.GODOT_VERSION }}-mono-macos-ios
+    - name: Download Godot
+      if: steps.godot.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        mkdir -p ~/godot/download && cd ~/godot/download
+        curl -fsSL --retry 3 -O "$GODOT_RELEASE/SHA512-SUMS.txt" \
+          -O "$GODOT_RELEASE/Godot_v${GODOT_VERSION}_mono_macos.universal.zip" \
+          -O "$GODOT_RELEASE/Godot_v${GODOT_VERSION}_mono_export_templates.tpz"
+        grep -E "_mono_macos.universal.zip|_mono_export_templates.tpz" SHA512-SUMS.txt | shasum -a 512 -c -
+        unzip -q "Godot_v${GODOT_VERSION}_mono_macos.universal.zip" -d ~/godot
+        unzip -q -j "Godot_v${GODOT_VERSION}_mono_export_templates.tpz" templates/ios.zip templates/version.txt -d ~/godot/templates
+        cd ~ && rm -rf ~/godot/download
+        ls -la ~/godot ~/godot/templates
+    - name: Keep Godot for next time
+      if: steps.godot.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ~/godot
+        key: godot-${{ env.GODOT_VERSION }}-mono-macos-ios
+    - name: Install Godot
+      shell: bash
+      run: |
+        templates="$HOME/Library/Application Support/Godot/export_templates/$GODOT_TEMPLATES"
+        mkdir -p "$templates"
+        cp ~/godot/templates/* "$templates/"
+        echo "GODOT=$HOME/godot/Godot_mono.app/Contents/MacOS/Godot" >> "$GITHUB_ENV"
+        "$HOME/godot/Godot_mono.app/Contents/MacOS/Godot" --version

@@ -27,5 +27,8 @@ desktop.ini
 *.secrets.json
 .env
 
+# The courses and presets packed for the iPad build (made by .github/workflows/ios.yml; see ShippedFiles.cs)
+/src/GrimesGolf.Godot/shipped.zip
+
 # Courses made with tools/make-course.ps1 (they can be downloaded again; published as release assets)
 /courses/

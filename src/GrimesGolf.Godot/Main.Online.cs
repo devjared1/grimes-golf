@@ -57,7 +57,7 @@ public partial class Main
         _hud.Online.RejoinPressed += () => StartOnline(_settings.RelayUrl ?? "", host: false, _settings.RejoinCode, null);
         _hud.Online.ResumeHostPressed += () =>
         {
-            if (_data?.LoadOnlineRound<OnlineSave>() is { } save) StartOnline(_settings.RelayUrl ?? "", host: true, save.Code, save);
+            if (_data?.LoadOnlineRound<OnlineSave>(OnlineSave.Json) is { } save) StartOnline(_settings.RelayUrl ?? "", host: true, save.Code, save);
         };
         _hud.Online.StartPressed += () => { if (OnlineHost?.Start(ActivePhysics.Tuning.ToJson()) == false) _hud.Toast("Not everyone's ready yet", UiTheme.Warn); };
         _hud.Online.LeavePressed += () => LeaveOnline("Left the lobby.");
@@ -102,7 +102,7 @@ public partial class Main
                 if (line.Length == 0) continue;
                 try
                 {
-                    if (JsonSerializer.Deserialize<ShotRecord>(line, GolfData.Json) is { Demo: false, Replay: false } r)
+                    if (GolfData.ParseShot(line) is { Demo: false, Replay: false } r)
                         q.Enqueue(new RangeShot(r.BallMph, r.LaunchDeg, r.DirectionDeg, r.SpinRpm, r.SpinAxisDeg, r.ClubMph, null) { Source = ShotSource.Monitor });
                 }
                 catch (JsonException) { }
@@ -120,7 +120,7 @@ public partial class Main
         if (CourseLibrary.All.Count == 0) { _hud.Toast("There are no courses on this PC", UiTheme.Warn); return; }
         _hud.MainMenu.Close();
         string? rejoin = _settings.RejoinCode is { } code && _settings.RejoinUntil > DateTime.Now ? $"Rejoin lobby {code}" : null;
-        string? resume = _data?.LoadOnlineRound<OnlineSave>() is { } s && s.Saved > DateTime.Now.AddHours(-12)
+        string? resume = _data?.LoadOnlineRound<OnlineSave>(OnlineSave.Json) is { } s && s.Saved > DateTime.Now.AddHours(-12)
             ? $"Carry on your round at {s.Config.Course} ({string.Join(", ", s.Config.Seats.Select(x => x.Name))}), lobby {s.Code}" : null;
         _hud.Online.OpenHome(_settings.RelayUrl ?? _devRelay ?? "", rejoin, resume,
             MonitorLiveOnline ? null : "Connect your launch monitor first: online rounds are played with real shots.");
@@ -151,7 +151,7 @@ public partial class Main
         if (host)
         {
             var h = new HostSession(link, _bridge, PostOnline, OnlineClock, token, AppVersion, _settings.Golfers, MonitorLiveOnline);
-            h.Checkpoint += s => _data?.SaveOnlineRound(s);
+            h.Checkpoint += s => _data?.SaveOnlineRound(s, OnlineSave.Json);
             h.Configure(CourseName, _settings.Setup, _settings.Rules);
             _online = h;
         }

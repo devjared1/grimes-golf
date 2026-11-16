@@ -10,6 +10,7 @@ comes from. For the tools to install, see [System requirements](../README.md#to-
 - [Command-line switches](#command-line-switches)
 - [Comparing physics with GSPro](#comparing-physics-with-gspro)
 - [Making a release build](#making-a-release-build)
+- [The iPad build](#the-ipad-build)
 - [Code layout](#code-layout)
 - [Course data](#course-data)
 - [Online play on one PC](#online-play-on-one-pc)
@@ -215,6 +216,58 @@ tuner can still save presets beside the exe. It isn't code-signed, so Windows Sm
    as it is, even if it's not on this PC, and zips nothing lists any more are deleted. `-Remove <id>` takes a course
    off the list. A published course is credited to OpenStreetMap under the ODbL, as the app does for Deer Run.
 
+## The iPad build
+
+An experiment so far: the app builds for iPad and nothing more is promised. There's no Mac here, so GitHub Actions
+builds it: `.github/workflows/ios.yml` runs `tools/ios-export.sh` on one of GitHub's Macs (free for a public
+repository) and keeps an unsigned `.ipa` with the run. Start it from the Actions tab (**iPad build** > **Run
+workflow**); it also runs for pull requests that touch the game. A run takes about 7 minutes and the `.ipa` is
+about 85 MB. It needs an iPad with an A12 chip or newer, on iPadOS 15 or later.
+[Trying Grimes Golf on an iPad](ipad-testing.md) says how to install it from Windows, what to check and how to get
+the logs back (the data folder shows in the iPad's Files app).
+[Putting Grimes Golf on TestFlight](ipad-release.md) covers the signed build for TestFlight, which needs a paid Apple
+Developer account: `.github/workflows/ios-release.yml` makes it, by hand only, and it hasn't been run yet.
+
+What differs from the Windows build:
+
+- **Bluetooth is CoreBluetooth, for Squares only so far.** `GrimesGolf.Bluetooth` has a `Windows/` folder (WinRT,
+  built only for the Windows target) and an `Apple/` folder (the plain .NET target, which the iPad build uses). The
+  Apple one calls `Apple/Native/gg_ble.m`, a small Objective-C wrapper of CoreBluetooth that `tools/ios-native.sh`
+  builds into a `libggble.a` for each runtime (Godot builds the game's code for the iPad and both simulators).
+  `tools/ios-export.sh` points the game's project file at them (`GG_BLE_LIBS`), which links them into the game's own
+  library as a `NativeLibrary`; the C# reaches the functions by platform invoke to `__Internal`, made a
+  `DirectPInvoke` so NativeAOT links it directly. (Godot's export says "completed with warnings" even when building
+  the game's code failed, and the app is then built without the game: the script stops on any build error it logged.) iOS never shows a Bluetooth address, so a Square's "address" is made from the first six bytes of its
+  identifier, which is stable. The Garmin R10 isn't supported on the iPad (`R10Session` is portable: it needs an
+  `IR10Link` over the same wrapper). The game's project file targets plain .NET for any platform but Windows. Keep
+  its `TargetFramework` condition as `!= 'windows'`: the Godot editor tidies the file when it opens the project, and
+  deletes one written as `== 'windows'` or `== 'ios'`.
+- **Compiled ahead of time.** Godot builds C# for iOS with NativeAOT, which trims code that looks unused and can't
+  work JSON types out by reflection as it runs. `CoreJsonContext` (in `GrimesGolf.Core/Storage`) and
+  `OnlineJsonContext` (in `GrimesGolf.Online/Protocol`) hold that knowledge instead, generated at build time and
+  used only in such a build. **A type saved or sent as JSON has to be listed in one of them**, or the iPad build
+  fails where it's used. The workflow's JSON job checks: it publishes `tests/GrimesGolf.AotSmoke` the same way, has
+  it save and read back everything, and compares what it wrote with an ordinary build's, byte for byte. Add new
+  JSON there too. To run it on Windows (it needs Visual Studio's C++ build tools):
+
+  ```bash
+  dotnet publish tests/GrimesGolf.AotSmoke -c Release -r win-x64 -o dist/aot-smoke
+  ```
+
+  ```bash
+  dist/aot-smoke/GrimesGolf.AotSmoke.exe
+  ```
+
+- **Courses and presets inside the app.** There are no folders beside an iPad app, so the build zips `courses/` and
+  `tuning/` into `shipped.zip` in the project, the "iOS" preset packs it, and `ShippedFiles.cs` unpacks it into the
+  data folder at first start and after an update. (A `shipped.zip` left in the project makes a run from the editor
+  do the same.)
+- **Renderer.** Forward+, as on Windows (`rendering_method.mobile` in `project.godot`). Run workflow offers
+  Mobile instead, to compare frame rates on a real iPad without changing anything.
+- **Versions.** The workflow downloads Godot 4.7.2 and its iOS export template (the names are at the top of the
+  file: change them when the project moves to a new Godot). It runs on the macOS 26 image because that Godot's
+  template only links with Xcode 26.
+
 ## Code layout
 
 Launch monitors sit behind `ILaunchMonitorSession` (`GrimesGolf.Core/Monitors/LaunchMonitor.cs`): connection,
@@ -224,6 +277,9 @@ interfaces the UI checks for: `IBallSensingMonitor`, `IAlignmentMonitor` and `IM
 three, the R10 none). The Square is `SquareMonitorAdapter` over the unchanged `MonitorSession`; the R10 is
 `R10Session` (platform-free, in `GrimesGolf.Core/Garmin`, over an `IR10Link`: `R10BleLink` on Windows,
 `FakeR10Device` in tests and `--fake-monitor=r10`). See the [R10 protocol notes](garmin-r10-protocol.md).
+Bluetooth itself is the only code that differs by platform: the scanner is an `IMonitorScanner`, and
+`MonitorLinks.cs` in the game makes it and the links, from `GrimesGolf.Bluetooth` on Windows and the iPad (where the project file
+defines `GG_BLUETOOTH`, and `GG_IOS` for the iPad) and not at all elsewhere (see [The iPad build](#the-ipad-build)).
 
 The Godot code is split by topic: `Main.cs` (set-up, the "shot finished" event, saving shots), `Main.Monitor.cs`
 (Bluetooth, choosing the monitor, auto-connect and reconnecting), `Main.Shots.cs` (shots and the range), `Main.Course.cs` (rounds and

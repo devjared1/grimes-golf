@@ -43,6 +43,7 @@ public partial class Main : Node3D
     private CameraRig _camera = null!;
     private Camera3D _mapCamera = null!;
     private Hud _hud = null!;
+    private FrameRateMeter _frameRate = null!;
     /// <summary>Seconds until the shot plan is refreshed for a physics change (countdown; negative = nothing pending).</summary>
     private double _replanIn = -1;
 
@@ -61,6 +62,7 @@ public partial class Main : Node3D
         GetTree().AutoAcceptQuit = false;
         _dataFolder = DataFolderFor(OS.GetCmdlineUserArgs());
         CrashLog.Install(_dataFolder);
+        ShippedFiles.Unpack(_dataFolder, Log);
 
         (_world, _sun) = Scenery.AddSkyAndSun(this);
         _weather = new WeatherLook(_world, _sun);
@@ -77,6 +79,8 @@ public partial class Main : Node3D
         var ui = new CanvasLayer();
         _hud = new Hud();
         ui.AddChild(_hud);
+        _frameRate = new FrameRateMeter { Visible = false };
+        ui.AddChild(_frameRate);
         AddChild(ui);
         SetupMinimap();
         SetupTuner();
@@ -114,6 +118,7 @@ public partial class Main : Node3D
         if (OS.HasFeature("template")) _settings = _settings with { FullScreen = true };
         ApplyDisplaySettings();
         ApplyGraphics();
+        Log(FrameRateMeter.DeviceLine(GetViewport()));
         SetupSettings();
         _game = _settings.Setup;
         SetupDevTools(args);
@@ -212,7 +217,8 @@ public partial class Main : Node3D
     /// </summary>
     private void SetupTuner()
     {
-        GetViewport().GuiEmbedSubwindows = false;
+        // (Where there's only ever one window, a tablet, everything stays inside it.)
+        if (DisplayServer.HasFeature(DisplayServer.Feature.Subwindows)) GetViewport().GuiEmbedSubwindows = false;
         if (TunerWindow.LoadStartup() is { } startup)
         {
             ActivePhysics.Apply(startup);
@@ -245,7 +251,12 @@ public partial class Main : Node3D
     private WeatherLook? _weather;
 
     /// <summary>3D quality (anti-aliasing, shadows, lighting effects): see <see cref="Graphics"/>.</summary>
-    private void ApplyGraphics() => Graphics.Apply(_settings.Graphics, GetViewport(), _world, _sun);
+    private void ApplyGraphics()
+    {
+        Graphics.Apply(_settings.Graphics, GetViewport(), _world, _sun);
+        _frameRate.Quality = _settings.Graphics.ToString();
+        _frameRate.Visible = _settings.ShowFrameRate;
+    }
 
     /// <summary>
     /// Tells the camera how much of the screen the UI covers, so the ball stays centred in what's left (in UI units,

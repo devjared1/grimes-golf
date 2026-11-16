@@ -92,9 +92,14 @@ public static class OpenConnectProtocol
         PropertyNameCaseInsensitive = true,   // "APIversion" and "APIVersion" are both sent
         NumberHandling = JsonNumberHandling.AllowReadingFromString,
         ReadCommentHandling = JsonCommentHandling.Skip,
+        TypeInfoResolver = Storage.CoreJsonContext.Resolver,
     };
 
-    private static readonly JsonSerializerOptions Write = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+    private static readonly JsonSerializerOptions Write = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        TypeInfoResolver = Storage.CoreJsonContext.Resolver,
+    };
 
     /// <summary>Parses one JSON object; null if it isn't a message (bad JSON, or not an object).</summary>
     public static OpenConnectMessage? Parse(string json)

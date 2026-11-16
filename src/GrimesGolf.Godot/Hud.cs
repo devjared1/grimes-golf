@@ -89,16 +89,39 @@ public partial class Hud : Control
 
     private readonly List<Button> _zoomButtons = new(), _aimButtons = new();
 
+    /// <summary>The height of a row of buttons: a fingertip's worth on a touch screen, a mouse pointer's otherwise.</summary>
+    public static float TapHeight => DisplayServer.IsTouchscreenAvailable() ? 48 : 36;
+
+    /// <summary>
+    /// Holding the button repeats it, like holding an arrow key (the touch screen's way of nudging the aim): after the
+    /// first press, a repeat every 0.1 s once 0.4 s have passed, and after holding it for 1.5 s in big steps (the
+    /// keyboard's Shift). The button must be pressed on the way down, which is what makes the first step immediate.
+    /// </summary>
+    private static void HoldToRepeat(Button button, Action<bool> repeat)
+    {
+        const double Delay = 0.4, Interval = 0.1, BigAfter = 1.5;
+        button.ActionMode = BaseButton.ActionModeEnum.Press;
+        var timer = new Godot.Timer { OneShot = false, WaitTime = Delay };
+        button.AddChild(timer);
+        double held = 0;
+        button.ButtonDown += () => { held = 0; timer.WaitTime = Delay; timer.Start(); };
+        button.ButtonUp += timer.Stop;
+        button.VisibilityChanged += timer.Stop;   // hidden mid-press (a monitor connects): no button-up will come
+        timer.Timeout += () => { held += timer.WaitTime; timer.WaitTime = Interval; repeat(held >= BigAfter); };
+    }
+
     /// <summary>The aim buttons (‹ ›, Shift for big steps) and the landing-view toggle, for an aim row.</summary>
     private void AddAimButtons(HBoxContainer row, float width)
     {
-        var left = new Button { Text = "‹", CustomMinimumSize = new Vector2(width, 36), TooltipText = $"Aim left {AimStep}°  [←, Shift = {AimStepBig}°]" };
+        var left = new Button { Text = "‹", CustomMinimumSize = new Vector2(width, TapHeight), TooltipText = $"Aim left {AimStep}°  [←, Shift = {AimStepBig}°]" };
         left.AddThemeFontSizeOverride("font_size", 22);
         left.Pressed += () => AimPressed?.Invoke(-(Input.IsKeyPressed(Key.Shift) ? AimStepBig : AimStep));
-        var right = new Button { Text = "›", CustomMinimumSize = new Vector2(width, 36), TooltipText = $"Aim right {AimStep}°  [→, Shift = {AimStepBig}°]" };
+        HoldToRepeat(left, big => AimPressed?.Invoke(-(big ? AimStepBig : AimStep)));
+        var right = new Button { Text = "›", CustomMinimumSize = new Vector2(width, TapHeight), TooltipText = $"Aim right {AimStep}°  [→, Shift = {AimStepBig}°]" };
         right.AddThemeFontSizeOverride("font_size", 22);
         right.Pressed += () => AimPressed?.Invoke(Input.IsKeyPressed(Key.Shift) ? AimStepBig : AimStep);
-        var zoom = new Button { Text = "Zoom", ToggleMode = true, CustomMinimumSize = new Vector2(0, 36),
+        HoldToRepeat(right, big => AimPressed?.Invoke(big ? AimStepBig : AimStep));
+        var zoom = new Button { Text = "Zoom", ToggleMode = true, CustomMinimumSize = new Vector2(0, TapHeight),
                                 TooltipText = "Look at where the ball will land with this aim and power; again to come back  [Z, numpad 1, left stick click]" };
         zoom.Pressed += () => LandingViewPressed?.Invoke();
         _zoomButtons.Add(zoom);

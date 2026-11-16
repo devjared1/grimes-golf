@@ -42,6 +42,7 @@ public sealed record MatchSnapshot(
     {
         Converters = { new JsonStringEnumConverter() },
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        TypeInfoResolver = Storage.CoreJsonContext.Resolver,
     };
 
     public string ToJson() => JsonSerializer.Serialize(this, Options);

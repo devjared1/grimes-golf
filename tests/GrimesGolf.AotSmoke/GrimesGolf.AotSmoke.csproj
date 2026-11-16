@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A check for the iPad build, which is compiled ahead of time (NativeAOT) with unused code trimmed away: saving and
+    reading back every kind of JSON the app keeps or sends. Published the same way as the game is for iOS, then run:
+      dotnet publish tests/GrimesGolf.AotSmoke -c Release -r <win-x64|osx-arm64> -o out
+    It isn't in GrimesGolf.sln: publishing needs a C++ linker, which an ordinary build doesn't.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\GrimesGolf.Core\GrimesGolf.Core.csproj" />
+    <ProjectReference Include="..\..\src\GrimesGolf.Online\GrimesGolf.Online.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -3,17 +3,12 @@ using Windows.Devices.Bluetooth.Advertisement;
 
 namespace GrimesGolf.Bluetooth;
 
-public sealed record MonitorAdvertisement(LaunchMonitorType Type, string Name, ulong Address, short Rssi, DateTime SeenAt)
-{
-    public string AddressText => string.Join(":", BitConverter.GetBytes(Address).Take(6).Reverse().Select(b => b.ToString("X2")));
-}
-
 /// <summary>
 /// Continuously reports every advertising launch monitor the app supports (one event per advertisement): a Square
 /// by its name, a Garmin R10 by its name or by Garmin's manufacturer data. An R10 only advertises while nothing
 /// else (a phone) is connected to it.
 /// </summary>
-public sealed class MonitorScanner : IDisposable
+public sealed class MonitorScanner : IMonitorScanner
 {
     private readonly BluetoothLEAdvertisementWatcher _watcher = new() { ScanningMode = BluetoothLEScanningMode.Active };
     /// <summary>Names heard per address: the R10 can send its name and its manufacturer data in separate packets.</summary>

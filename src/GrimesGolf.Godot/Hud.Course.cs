@@ -226,7 +226,7 @@ public partial class Hud
     /// <summary>Shows the alignment and opens the panel to change it (with a monitor connected).</summary>
     private Button AlignButton()
     {
-        var b = new Button { Text = _alignmentShort, Visible = false, CustomMinimumSize = new Vector2(0, 36), SizeFlagsHorizontal = SizeFlags.ShrinkBegin,
+        var b = new Button { Text = _alignmentShort, Visible = false, CustomMinimumSize = new Vector2(0, TapHeight), SizeFlagsHorizontal = SizeFlags.ShrinkBegin,
                              TooltipText = _alignmentLong, FocusMode = FocusModeEnum.None };
         b.Pressed += () => AlignPressed?.Invoke();
         _alignButtons.Add(b);

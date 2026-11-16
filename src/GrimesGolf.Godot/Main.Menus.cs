@@ -158,6 +158,7 @@ public partial class Main
             if (_online == null)
                 items.Add(new(_capture == null ? "Replay a Capture" : "Replay a Capture (on)", OpenCaptureList,
                               "Fly shots recorded beside GSPro with your physics, with GSPro's numbers beside them"));
+            if (_capture != null && _captureIndex > 0) items.Add(new("Previous Captured Shot", () => PlayCapture(-1), "Fly the one before again  [Shift+N]"));
             items.Add(new("Main Menu", ShowMainMenu, "New game, resume, settings, quit"));
         }
         items.Add(new(_camera.Follow ? "Camera: Follow Ball" : "Camera: Stay Behind", ToggleCamera, "Follow the ball or stay behind it  [C]"));
