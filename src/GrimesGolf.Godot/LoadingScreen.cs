@@ -3,7 +3,7 @@ using Godot;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// Shown over everything while a course loads (New Game, Resume Game): the logo, the course (with its logo when there
+/// Shown over everything while a course loads (New Round, Resume Round): the logo, the course (with its logo when there
 /// is one), what's being done, and a spinning ring. It takes all input while it's up and fades out when done.
 /// </summary>
 public partial class LoadingScreen : Control

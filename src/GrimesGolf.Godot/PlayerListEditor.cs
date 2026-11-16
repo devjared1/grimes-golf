@@ -5,7 +5,7 @@ namespace GrimesGolf.Game;
 
 /// <summary>
 /// Editing the players (1-4): a row each with their colour, name, handedness and Remove, "+ Add player" and a pick from
-/// the saved players. Used by the settings screen, New Game's player list and Add / Remove Players during a round. Each
+/// the saved players. Used by the settings screen, New Round's player list and Add / Remove Players during a round. Each
 /// row remembers which of the players it was loaded from (<see cref="Origins"/>), so a round can carry their scores over.
 /// </summary>
 public partial class PlayerListEditor : VBoxContainer

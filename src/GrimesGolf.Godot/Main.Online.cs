@@ -20,7 +20,7 @@ namespace GrimesGolf.Game;
 /// <para>
 /// Offline nothing here runs: <see cref="_online"/> is null and every guard in the other files is a no-op.
 /// </para>
-/// Development switches (debug builds only): <c>--online</c> shows Play Online on the main menu (it is always shown
+/// Development switches (debug builds only): <c>--online</c> shows Online Round on the main menu (it is always shown
 /// in debug builds for now), <c>--relay=ws://localhost:5080/ws</c> fills in the relay, <c>--data=folder</c> keeps
 /// this run's settings and rounds apart (two copies on one PC), <c>--no-bluetooth</c>, <c>--fake-monitor</c>
 /// (HIT SHOT stands in for a monitor; <c>--fake-monitor=session.jsonl</c> plays a saved session's shots), and
@@ -274,7 +274,7 @@ public partial class Main
         var session = _online;
         if (session == null) return;
         int index = CourseLibrary.All.ToList().FindIndex(e => e.Name == config.Course);
-        if (index < 0) { OnlineFailed($"This PC doesn't have the course {config.Course}. Download it with New Game > Get More Courses, then join again."); return; }
+        if (index < 0) { OnlineFailed($"This PC doesn't have the course {config.Course}. Download it with New Round > Get More Courses, then join again."); return; }
         if (_outcome != null) FinishShot();
         _courseIndex = index;
         _game = config.Setup;
@@ -297,7 +297,7 @@ public partial class Main
                 : config.Setup.Pick(_courseDef.Holes);
             if (holes.Count == 0 || (config.HoleNumbers.Length > 0 && holes.Count != config.HoleNumbers.Length))
             {
-                problem = "This PC's course has different holes from the host's. Update it with New Game > Get More Courses, or check you're both on the same version.";
+                problem = "This PC's course has different holes from the host's. Update it with New Round > Get More Courses, or check you're both on the same version.";
                 return;
             }
             try
@@ -370,8 +370,8 @@ public partial class Main
             else SaveSettings(_settings with { RejoinCode = null, RejoinUntil = null });
         }
         string message = paused
-            ? (session.IsHost ? "The round is kept: carry it on from Play Online within 12 hours, and your friends rejoin with the same code."
-                              : "The host has paused the round. Rejoin from Play Online when they carry it on (within 12 hours).")
+            ? (session.IsHost ? "The round is kept: carry it on from Online Round within 12 hours, and your friends rejoin with the same code."
+                              : "The host has paused the round. Rejoin from Online Round when they carry it on (within 12 hours).")
             : $"Final: {summary}. The scorecard is saved with your rounds.";
         _hud.Overlay.Open(paused ? "Round paused" : "Round over", message,
             new MenuItem[] { new("Main Menu", () => LeaveOnline(), Primary: true), new("Scorecard", () => _hud.ShowScorecard(true)) });
@@ -393,7 +393,7 @@ public partial class Main
         if (OnlineHost is { } h)
         {
             if (h.CanSkip) items.Add(new("Skip Now", h.SkipNow, "Skip the player who has dropped out, without waiting", Primary: true));
-            items.Add(new("Pause the Round", () => ConfirmOnline("Pause the round?", "Everyone stops here. Carry it on later from Play Online; friends rejoin with the same code.", "Pause", () => h.Stop(paused: true))));
+            items.Add(new("Pause the Round", () => ConfirmOnline("Pause the round?", "Everyone stops here. Carry it on later from Online Round; friends rejoin with the same code.", "Pause", () => h.Stop(paused: true))));
             items.Add(new("End the Round", () => ConfirmOnline("End the round for everyone?", "It finishes here, scores as they stand.", "End It", () => h.Stop(paused: false))));
         }
         else

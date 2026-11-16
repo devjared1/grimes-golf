@@ -5,7 +5,7 @@ using GrimesGolf.Online.Protocol;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// Play Online: host a lobby or join one with its 5-character code, then the lobby itself (the code to give friends,
+/// Online Round: host a lobby or join one with its 5-character code, then the lobby itself (the code to give friends,
 /// who's in, whose launch monitor is live, the course and settings, Start for the host). See <c>Main.Online.cs</c>.
 /// </summary>
 public partial class OnlinePanel : Control
@@ -52,7 +52,7 @@ public partial class OnlinePanel : Control
         _home = new VBoxContainer();
         _home.AddThemeConstantOverride("separation", 10);
         column.AddChild(_home);
-        _home.AddChild(UiTheme.Text("Play Online", 34, UiTheme.Ink, bold: true));
+        _home.AddChild(UiTheme.Text("Online Round", 34, UiTheme.Ink, bold: true));
         var intro = UiTheme.Text("Play a round with friends at their own simulators. Everyone needs a Square launch monitor and this same version of the app.", 15, UiTheme.Muted);
         intro.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _home.AddChild(intro);
@@ -178,7 +178,7 @@ public partial class OnlinePanel : Control
     public void SetLobby(LobbyState s, int courseIndex)
     {
         _lobbyCode.Text = s.Code.Length > 0 ? $"Lobby  {s.Code}" : _lobbyCode.Text;
-        _lobbyStatus.Text = _host ? "Give your friends this code. They pick Play Online, then Join." : "In the lobby. The host picks the course and starts the round.";
+        _lobbyStatus.Text = _host ? "Give your friends this code. They pick Online Round, then Join." : "In the lobby. The host picks the course and starts the round.";
         if (courseIndex >= 0) _course.Select(courseIndex);
         _courseLabel.Text = s.Course ?? "Course not picked yet";
         _setup.Text = $"{s.Setup.Summary(s.Seats.Length)}  ·  {Rules(s.Rules)}";

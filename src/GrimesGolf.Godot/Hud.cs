@@ -418,7 +418,7 @@ public partial class Hud : Control
     public HomePlayerPanel Home { get; private set; } = null!;
     public event Action? EditHomePressed;
 
-    /// <summary>Get More Courses, from New Game.</summary>
+    /// <summary>Get More Courses, from New Round.</summary>
     public CourseStorePanel Store { get; private set; } = null!;
 
     /// <summary>History, from the main menu: finished rounds and practice by day.</summary>
@@ -427,7 +427,7 @@ public partial class Hud : Control
     /// <summary>A panel that takes all the input is open: the main menu, the in-game menu or a question, or the players panel.</summary>
     public bool ModalOpen => MainMenu.IsOpen || Overlay.IsOpen || Players.IsOpen || Online.IsOpen || Alignment.IsOpen;
 
-    /// <summary>Play Online: hosting, joining and the lobby.</summary>
+    /// <summary>Online Round: hosting, joining and the lobby.</summary>
     public OnlinePanel Online { get; private set; } = null!;
 
     /// <summary>

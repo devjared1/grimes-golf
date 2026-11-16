@@ -65,7 +65,7 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 | `--demo-shots=N` | Hits N demo shots |
 | `--hit-at=2,8.5` | Presses HIT SHOT at those times (seconds after start) |
 | `--screenshot=file.png` | Saves the window and quits (after `--screenshot-delay=seconds`, default 4, or once the demo shots finish) |
-| `--monitor-drawer`, `--settings`, `--menu`, `--new-game`, `--scorecard` | Opens that screen (the scorecard just before the screenshot) |
+| `--monitor-drawer`, `--settings`, `--menu`, `--new-game`, `--practice`, `--scorecard` | Opens that screen (`--new-game` is New Round, `--practice` Practice Options; the scorecard just before the screenshot) |
 | `--history`, `--history=practice` | Opens History on the Rounds (or Practice) tab |
 | `--home-player`, `--home-player=clubs` | Opens the home player panel (with the club distances open). It's otherwise only asked for on a normal run with no player saved |
 | `--monitor-ui` | Uses the layout and status for a connected monitor (no on-screen shot controls, lie card in the shot panel, leaderboard, "Ready — hit!" at 85% battery), to check it without one |
@@ -390,5 +390,5 @@ godot --path src/GrimesGolf.Godot -- --relay=ws://127.0.0.1:5080/ws --data=user:
 godot --path src/GrimesGolf.Godot -- --relay=ws://127.0.0.1:5080/ws --data=user://friend --no-bluetooth --fake-monitor --auto-play
 ```
 
-In the first, pick Play Online and Host a Lobby; in the second, Join with the code it shows. Plain `ws://` is only
+In the first, pick Online Round and Host a Lobby; in the second, Join with the code it shows. Plain `ws://` is only
 accepted for a relay on this machine or the local network, or in a debug build; real relays use `wss://`.

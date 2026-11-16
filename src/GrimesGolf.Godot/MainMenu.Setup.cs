@@ -4,7 +4,7 @@ using GrimesGolf.Core.Course;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// New Game's Game Setup, under the player list: the game (stroke play, scramble, best ball, match play), which holes,
+/// New Round's Game Setup, under the player list: the game (stroke play, scramble, best ball, match play), which holes,
 /// the weather (wind, altitude, temperature and rain) and the course (fairway speed, green firmness and speed). Each
 /// choice is a row of buttons (one press with a gamepad), with a line saying what the game and holes mean for the
 /// players picked. Opens with the last setup used.
@@ -124,7 +124,7 @@ public partial class MainMenu
         return buttons;
     }
 
-    /// <summary>Esc / B: from New Game back to the menu.</summary>
+    /// <summary>Esc / B: from New Round back to the menu.</summary>
     public void Back() => ShowHome();
 
     /// <summary>What the chosen game and holes mean here: the teams, or why the game can't be played; how long the round is.</summary>

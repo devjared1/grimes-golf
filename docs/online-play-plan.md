@@ -8,18 +8,18 @@
 | M1 | Done and tested: `MatchSnapshot` with `Match.Capture/Restore`, `Match.SetAway`, `HoleRound.Load/PickUpHole/SkipScore`, `CourseFingerprint`, `RangeShot.Source`, `online-round.json` and `GolfData.FileRound`, `TunerWindow.FreezeStartup`. |
 | M2 | Built and tested in-process and over real sockets on one machine. **Not deployed.** |
 | M3 | Done and tested: 18 holes for all four game types with 2 and 3 PCs stay in step; drops, rejoins, duplicate and off-turn shots, late acks, mulligan races, host leaving, pause and resume. |
-| M4-M6 | Written and compiling, **not yet run in Godot**: `Main.Online.cs`, `OnlinePanel.cs`, the guards in `Main.*`, the debug-only switches. Play Online shows only in debug builds. |
+| M4-M6 | Written and compiling, **not yet run in Godot**: `Main.Online.cs`, `OnlinePanel.cs`, the guards in `Main.*`, the debug-only switches. Online Round shows only in debug builds. |
 | M7 | Not started: needs a friend's Square, an exported build and a deployed relay. |
 
 What's simpler than planned, for now:
-- The lobby has no Game Setup page: the host's round uses the game, holes and conditions last chosen under New Game, and the house rules from Settings. The course can be picked in the lobby.
+- The lobby has no Game Setup page: the host's round uses the game, holes and conditions last chosen under New Round, and the house rules from Settings. The course can be picked in the lobby.
 - A dead monitor skips only the player up (a PC that has gone skips all its players).
 - The scorecard doesn't mark away players; their picked-up holes show as scores.
 
 
 ## Context
 
-Roadmap 1.2 asks for friends at different locations to play together: the creator generates a lobby, picks the course and settings, and starts once everyone is connected. It is limited to Square launch monitor users, with other monitors possible later. The app has no networking today and must stay fully offline unless someone opens Play Online.
+Roadmap 1.2 asks for friends at different locations to play together: the creator generates a lobby, picks the course and settings, and starts once everyone is connected. It is limited to Square launch monitor users, with other monitors possible later. The app has no networking today and must stay fully offline unless someone opens Online Round.
 
 **Decided with you:** small relay server with lobby codes; shared turns where everyone watches each shot; 1-4 players per PC, 4 total.
 
@@ -159,4 +159,4 @@ No online UI is visible until M7. Sizes are relative.
 - Testing online end to end needs a friend's Square; until M7 the fake monitor stands in.
 - There's no auto-update, so friends must install the same build, and an unsigned exe will trigger SmartScreen.
 - The relay is this project's first always-on public service, with a small hosting bill.
-- Update `ROADMAP.md:117`'s offline note at M7: 1.0 stays offline, and only Play Online uses the internet.
+- Update `ROADMAP.md:117`'s offline note at M7: 1.0 stays offline, and only Online Round uses the internet.

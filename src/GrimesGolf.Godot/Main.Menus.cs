@@ -7,7 +7,7 @@ using GrimesGolf.Core.Storage;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// The main menu (New Game, Resume Game, Driving Range, History, Settings, Quit) and the in-game menu (Settings, holes,
+/// The main menu (New Round, Resume Round, Driving Range, History, Settings, Quit) and the in-game menu (Settings, holes,
 /// players, restart and end the game, camera, physics, monitor).
 /// </summary>
 public partial class Main
@@ -29,7 +29,7 @@ public partial class Main
     }
 
     /// <summary>
-    /// The main menu, over the range: a course being played is put away (its round is saved, for Resume Game).
+    /// The main menu, over the range: a course being played is put away (its round is saved, for Resume Round).
     /// </summary>
     private void ShowMainMenu()
     {
@@ -41,7 +41,7 @@ public partial class Main
         _hud.MainMenu.Open(ResumeText(), courses, _courseIndex, _settings.Golfers, _settings.SavedPlayers, _settings.Home?.Name, _settings.Setup);
     }
 
-    /// <summary>"Deer Run · hole 5 of 18 · Ann, Bob · Tue 14:05" for the round Resume Game would carry on (null = none).</summary>
+    /// <summary>"Deer Run · hole 5 of 18 · Ann, Bob · Tue 14:05" for the round Resume Round would carry on (null = none).</summary>
     private string? ResumeText()
     {
         if (_match is { RoundComplete: false } m && _courseDef != null)
@@ -57,7 +57,7 @@ public partial class Main
         return null;
     }
 
-    /// <summary>New Game's player list was edited: it applies straight away.</summary>
+    /// <summary>New Round's player list was edited: it applies straight away.</summary>
     private void EditMenuPlayers(IReadOnlyList<Golfer> players)
     {
         SaveSettingsAlways(_settings with { Players = players });
@@ -66,7 +66,7 @@ public partial class Main
         ShowRangePlayer();
     }
 
-    /// <summary>Save on a row of New Game's player list: kept as a guest (the home player is saved already).</summary>
+    /// <summary>Save on a row of New Round's player list: kept as a guest (the home player is saved already).</summary>
     private void SaveMenuGuest(Golfer guest)
     {
         if (guest.Name.Equals(_settings.Home?.Name, StringComparison.OrdinalIgnoreCase)) return;
@@ -75,7 +75,7 @@ public partial class Main
         _hud.Toast($"{guest.Name} saved as a guest", UiTheme.Accent);
     }
 
-    /// <summary>Resume Game: the round in memory if there is one, otherwise the one saved last time.</summary>
+    /// <summary>Resume Round: the round in memory if there is one, otherwise the one saved last time.</summary>
     private async void ResumeGame()
     {
         if (_loading) return;
@@ -103,7 +103,7 @@ public partial class Main
         _hud.History.Open(_data.LoadRounds(), History.Days(_data.LoadShots()));
     }
 
-    /// <summary>Loads a course in the background for its stats line in the New Game list (it's kept for playing it).</summary>
+    /// <summary>Loads a course in the background for its stats line in the New Round list (it's kept for playing it).</summary>
     private void LoadCourseStats(int index)
     {
         var entry = CourseLibrary.All[index];
@@ -159,7 +159,7 @@ public partial class Main
                 items.Add(new(_capture == null ? "Replay a Capture" : "Replay a Capture (on)", OpenCaptureList,
                               "Fly shots recorded beside GSPro with your physics, with GSPro's numbers beside them"));
             if (_capture != null && _captureIndex > 0) items.Add(new("Previous Captured Shot", () => PlayCapture(-1), "Fly the one before again  [Shift+N]"));
-            items.Add(new("Main Menu", ShowMainMenu, "New game, resume, settings, quit"));
+            items.Add(new("Main Menu", ShowMainMenu, "New round, resume, settings, quit"));
         }
         items.Add(new(_camera.Follow ? "Camera: Follow Ball" : "Camera: Stay Behind", ToggleCamera, "Follow the ball or stay behind it  [C]"));
         items.Add(new("Launch Monitor", _hud.ToggleDrawer, "Devices, connect / disconnect, battery, log  [L]"));
@@ -180,7 +180,7 @@ public partial class Main
     {
         bool done = _match?.RoundComplete ?? true;
         _hud.Overlay.Open("End the game?",
-            done ? "The round is finished and saved with your scorecards." : "Keep the round to carry on later with Resume Game on the main menu, or throw it away.",
+            done ? "The round is finished and saved with your scorecards." : "Keep the round to carry on later with Resume Round on the main menu, or throw it away.",
             done ? new MenuItem[] { new("Main Menu", ShowMainMenu, Primary: true), new("Cancel", null) }
                  : new MenuItem[] { new("Keep It and Go to Menu", ShowMainMenu, Primary: true), new("Discard the Round", DiscardRound), new("Cancel", null) });
     }

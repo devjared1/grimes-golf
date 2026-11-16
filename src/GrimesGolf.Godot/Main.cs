@@ -27,7 +27,7 @@ namespace GrimesGolf.Game;
 /// and <c>--screenshot=file.png</c> saves the window to a PNG (after <c>--screenshot-delay=seconds</c>, default 4, or
 /// once the demo shots have finished) and quits; <c>--monitor-drawer</c> opens the launch monitor drawer;
 /// <c>--settings</c> opens the settings; <c>--home-player</c> (<c>=clubs</c> with the club distances open) opens the home
-/// player panel; <c>--menu</c> opens the in-game menu; <c>--new-game</c> opens New Game;
+/// player panel; <c>--menu</c> opens the in-game menu; <c>--new-game</c> opens New Round; <c>--practice</c> opens Practice Options;
 /// <c>--game=Scramble</c>, <c>--holes=Back9</c>, <c>--wind=Breezy</c> and <c>--weather=Wet</c> set up
 /// the round for this run; <c>--green-read</c> turns on the green
 /// heat map and grid; <c>--hit-at=t1,t2,…</c> presses HIT SHOT at those times (seconds after start); <c>--tuner</c>
@@ -151,11 +151,12 @@ public partial class Main : Node3D
         if (args.Contains("--course")) { if (LoadCourse(resume: true)) EnterCourse(); }
         else if (!args.Contains("--range") && !devRun) ShowMainMenu();
         if (args.Contains("--new-game")) _hud.MainMenu.OpenCoursePage();
+        if (args.Contains("--practice")) _hud.MainMenu.OpenPracticePage();
         if (_match != null && _courseMode && args.FirstOrDefault(a => a.StartsWith("--hole=")) is { } h && int.TryParse(h[7..], out int n) && n >= 2 && n <= _match.Holes.Count)
             StartHole(n - 1);
         if (args.Contains("--ball-by-tree")) PutBallByTree();
-        UpdateInsets();
         if (args.Contains("--ball-on-green")) PutBallOnGreen();
+        UpdateInsets();
         if (!_noBluetooth || _fakeKind != null) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect") || _fakeKind != null);
         SetupOpenConnect();
         if (_openSettingsAtStart) OpenSettings();

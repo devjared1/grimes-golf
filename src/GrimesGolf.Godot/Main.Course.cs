@@ -152,7 +152,7 @@ public partial class Main
 
     /// <summary>
     /// Abandons the round in progress and starts again from the first tee, with the players and rules in the
-    /// settings (away from the course: the round is dropped, and New Game starts the next one).
+    /// settings (away from the course: the round is dropped, and New Round starts the next one).
     /// </summary>
     private void NewRound()
     {
@@ -168,7 +168,7 @@ public partial class Main
         StartHole(0, fresh: false);
     }
 
-    /// <summary>New Game: a new round on course <paramref name="index"/> with the players in the settings, set up as <paramref name="setup"/>.</summary>
+    /// <summary>New Round: a new round on course <paramref name="index"/> with the players in the settings, set up as <paramref name="setup"/>.</summary>
     private async void StartNewGame(int index, GameSetup setup)
     {
         if (_loading || index >= CourseLibrary.All.Count) return;

@@ -5,7 +5,7 @@ codes) and passes messages between the host's PC and the guests' PCs. It never r
 nothing on disk, and logs only counts (lobbies and connected PCs), never codes, names or addresses.
 
 One relay serves any number of rounds, so a group of friends only needs one, deployed once by any of them. Everyone
-then enters its address in **Play Online**, for example `wss://my-golf-relay.fly.dev/ws`.
+then enters its address in **Online Round**, for example `wss://my-golf-relay.fly.dev/ws`.
 
 ## Contents
 

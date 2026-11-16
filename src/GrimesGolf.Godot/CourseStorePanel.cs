@@ -7,7 +7,7 @@ namespace GrimesGolf.Game;
 /// <param name="Removable">It was downloaded (one that came with the app stays).</param>
 public sealed record StoreRow(CatalogCourse Course, int? InstalledVersion, bool Removable);
 
-/// <summary>Get More Courses, from New Game: the courses that can be downloaded, one at a time.</summary>
+/// <summary>Get More Courses, from New Round: the courses that can be downloaded, one at a time.</summary>
 public partial class CourseStorePanel : Control
 {
     public event Action<CatalogCourse>? DownloadPressed;
@@ -67,7 +67,7 @@ public partial class CourseStorePanel : Control
         _cancel.Pressed += () => CancelDownload?.Invoke();
         buttons.AddChild(_cancel);
         buttons.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
-        _close = new Button { Text = "Done", ThemeTypeVariation = "FlatButton", CustomMinimumSize = new Vector2(120, 48), TooltipText = "Back to New Game  [Esc, gamepad B]" };
+        _close = new Button { Text = "Done", ThemeTypeVariation = "FlatButton", CustomMinimumSize = new Vector2(120, 48), TooltipText = "Back to New Round  [Esc, gamepad B]" };
         _close.Pressed += Close;
         buttons.AddChild(_close);
         v.AddChild(buttons);
@@ -109,7 +109,7 @@ public partial class CourseStorePanel : Control
         _cancel.Visible = false;
         _retry.Visible = false;
         _close.Disabled = false;
-        _status.Text = message ?? (rows.Count == 0 ? "There are no courses to download yet." : "Downloaded courses appear on the New Game list.");
+        _status.Text = message ?? (rows.Count == 0 ? "There are no courses to download yet." : "Downloaded courses appear on the New Round list.");
         ClearRows();
         Button? first = null;
         foreach (var row in rows)

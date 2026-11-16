@@ -177,6 +177,7 @@ public partial class Hud
     {
         if (_monitorLive == live) return;
         _monitorLive = live;
+        MainMenu?.SetMonitorConnected(live);
         UpdateShotLayout();
     }
 

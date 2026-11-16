@@ -126,7 +126,7 @@ kept so existing data stays where it is). Updating or uninstalling doesn't touch
 2. Start Grimes Golf. It opens on the main menu and connects to the monitor by itself (the status card at the
    bottom of the menu shows when it's ready).
 3. Add the players in **Settings** (1-4, with names and left- or right-handed).
-4. Pick **Driving Range** to warm up, or **New Game** to choose a course and game, then **Start Round**.
+4. Pick **Practice**, then **Range**, to warm up, or **New Round** to choose a course and game, then **Start Round**.
 5. Hit the ball. With no monitor, set the power and press **HIT SHOT** (`Space`).
 
 The [user guide](docs/user-guide.md) covers the course screen, game types, house rules, the controls for gamepad,
@@ -138,7 +138,7 @@ Friends at different houses play one round through a small relay server. The hos
 are sent each outcome with the whole match after it and animate that, so scores can't drift apart.
 
 **Status:** the relay, the networking and the game integration are built and tested in code, but not yet played
-between two houses. Until then **Play Online only appears in debug builds**, and the release build stays fully
+between two houses. Until then **Online Round only appears in debug builds**, and the release build stays fully
 offline. The design and progress are in the [online play plan](docs/online-play-plan.md).
 
 To try it now, deploy a relay ([guide](docs/deploying-the-relay.md)) or run one locally, then run two copies of the

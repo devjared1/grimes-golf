@@ -92,7 +92,7 @@ public partial class Main
         {
             await _store.Install(course, p => Post(() => panel.SetProgress(p)), cancel.Token);
             ScanCourses();
-            message = $"{course.Title} is ready: pick it on the New Game list.";
+            message = $"{course.Title} is ready: pick it on the New Round list.";
         }
         catch (OperationCanceledException) when (cancel.IsCancellationRequested) { message = "Download cancelled."; }
         catch (Exception ex) when (ex is HttpRequestException or IOException or UnauthorizedAccessException or InvalidDataException or TaskCanceledException)

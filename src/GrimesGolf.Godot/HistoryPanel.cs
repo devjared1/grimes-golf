@@ -114,7 +114,7 @@ public partial class HistoryPanel : Control
         ClearList();
         if (_rounds.Count == 0)
         {
-            Empty("No finished rounds yet", "A round is kept here when its last hole is played. Unfinished rounds are under Resume Game.");
+            Empty("No finished rounds yet", "A round is kept here when its last hole is played. Unfinished rounds are under Resume Round.");
             _roundsTab.GrabFocus();
             return;
         }

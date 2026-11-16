@@ -144,7 +144,7 @@ public partial class Main
         }
         if (GetViewport().GuiGetFocusOwner() is LineEdit line)
         {
-            // New Game's player list: Esc / B still goes back a page from a name box.
+            // New Round's player list: Esc / B still goes back a page from a name box.
             if (CommandFor(e) is Command.Back && _hud.MainMenu.OnSubPage)
             {
                 line.ReleaseFocus();

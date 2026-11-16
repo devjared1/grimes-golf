@@ -106,7 +106,7 @@ public partial class SettingsPanel : Control
         _autoPutt = new CheckBox { Text = "Auto-putting (no putting: 1 putt inside the gimme circle, 2 inside twice that, 2 or 3 beyond)",
                                    TooltipText = "Once the ball stops on the green, the hole is finished with the putts its distance from the hole calls for" };
         v.AddChild(_autoPutt);
-        var setupNote = UiTheme.Text("The game, holes, wind, weather and course conditions are picked for each round under Game Setup on New Game.", 13, UiTheme.Muted);
+        var setupNote = UiTheme.Text("The game, holes, wind, weather and course conditions are picked for each round under Game Setup on New Round.", 13, UiTheme.Muted);
         setupNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         v.AddChild(setupNote);
         v.AddChild(new HSeparator());
