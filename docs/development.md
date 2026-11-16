@@ -160,6 +160,21 @@ isn't changed. GSPro isn't copied where it plays unlike the real thing:
 
 `--only=air`, `--only=ground` or `--only=green` runs one stage.
 
+### Publishing tuning without an app update
+
+Exported builds (Windows and iPad, when "Check for updates" is on) fetch
+`https://github.com/devjared1/grimes-golf/releases/download/tuning/default.json` at start-up. It's a normal tuning
+file with a `"version"` number added at the top level. When that version is higher than the last one the PC applied
+(kept in `tuning-version.txt` in the data folder), the app **replaces** the PC's `tuning/startup.json` with it and
+switches to it straight away (not during online play; then it waits for the next start). The same version, a lower one,
+a failed download, or a file that isn't valid tuning changes nothing, so a player's own tweaks last until you next
+publish.
+
+To publish: copy a preset (for instance a fitted one), add `"version": N` with N one higher than last time, and upload
+it as `default.json` to the `tuning` release (create it once as a pre-release, like `courses`; re-upload with
+`gh release upload tuning default.json --clobber`). To try one first, a debug build takes
+`--fetch-tuning=<https url>`; it writes into the tuning folder of what's running, so use an exported copy.
+
 To watch the shots, use **Replay a Capture** in the range menu (or `--replay=latest`). It lists recent captures.
 N or HIT SHOT flies the next shot, and Shift+N goes back one. Each shot flies with the physics as it is now, and
 GSPro's numbers show beside ours once the ball stops. With the tuner open, F5 flies the same shot again, so a

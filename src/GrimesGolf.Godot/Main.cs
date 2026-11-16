@@ -138,6 +138,7 @@ public partial class Main : Node3D
         ScanCourses();
         SetupCourseStore(args);
         CheckForUpdate(args);
+        if (!devRun && !screenshot) FetchPublishedTuning(args);
         // The course on offer: the one with a round left unfinished (closed or crashed), else the last one picked.
         var unfinished = _data?.LoadCurrentRound();
         int savedCourse = unfinished == null ? -1 : CourseLibrary.All.ToList().FindIndex(e => e.Name == unfinished.Course);
