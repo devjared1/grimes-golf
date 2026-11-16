@@ -2,7 +2,7 @@
 
 How Grimes Golf talks to a Garmin Approach R10 over Bluetooth LE, and what is and isn't known. Garmin publishes no
 SDK; everything here comes from community reverse-engineering, listed below. The code is in
-`src/GrimesGolf.Core/Garmin` (platform-free, unit-tested) and `src/GrimesGolf.Bluetooth/R10BleLink.cs` (Windows).
+`src/GrimesGolf.Core/Garmin` (platform-free, unit-tested) and `src/GrimesGolf.Bluetooth/Windows/R10BleLink.cs` (Windows) and `Apple/AppleR10Link.cs` (the iPad).
 
 **Status:** implemented from the sources and tested against a simulated R10 (`FakeR10Device`), not yet against
 real hardware. Points that only a real device can settle are under [Open questions](#open-questions).

@@ -1,4 +1,4 @@
-// CoreBluetooth side of the iPad build's Square link: see gg_ble.h. Compiled with ARC.
+// CoreBluetooth side of the iPad build's Square and Garmin R10 links: see gg_ble.h. Compiled with ARC.
 #import <CoreBluetooth/CoreBluetooth.h>
 #import <Foundation/Foundation.h>
 #include "gg_ble.h"
@@ -12,6 +12,15 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
     uint64_t address = 0;
     for (int i = 0; i < 6; i++) address = (address << 8) | bytes[i];
     return address;
+}
+
+/// A characteristic's key: its UUID in full, upper case. CoreBluetooth shortens the standard ones ("2A19"), and the
+/// app asks for them by their full form ("00002a19-0000-1000-8000-00805f9b34fb").
+static NSString *KeyOf(NSString *uuid) {
+    NSString *u = uuid.uppercaseString;
+    if (u.length == 4) return [NSString stringWithFormat:@"0000%@-0000-1000-8000-00805F9B34FB", u];
+    if (u.length == 8) return [NSString stringWithFormat:@"%@-0000-1000-8000-00805F9B34FB", u];
+    return u;
 }
 
 @interface GgBle : NSObject <CBCentralManagerDelegate, CBPeripheralDelegate>
@@ -39,6 +48,14 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
     BOOL _writeWithResponse;  // the command characteristic has no write-without-response
     BOOL _writeInFlight;      // a with-response write is waiting for its answer
     int _written, _notifications;        // this connection, for the log
+
+    // The "all characteristics" connection (the Garmin R10): the caller subscribes to and writes what it chooses.
+    BOOL _generic;
+    int _pendingServices;                                  // services still being searched for characteristics
+    NSMutableArray<NSString *> *_listing;                  // what was found, for GG_CONNECTED
+    NSMutableDictionary<NSString *, NSNumber *> *_subscriptions;   // characteristic UUID -> token
+    NSMutableArray<NSDictionary *> *_genericOutbox;        // writes waiting: @{c, data, token}
+    NSDictionary *_genericInFlight;                        // the with-response write waiting for its answer
 }
 
 + (GgBle *)shared {
@@ -55,6 +72,9 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
         _characteristics = [NSMutableDictionary dictionary];
         _reads = [NSMutableDictionary dictionary];
         _outbox = [NSMutableArray array];
+        _subscriptions = [NSMutableDictionary dictionary];
+        _genericOutbox = [NSMutableArray array];
+        _listing = [NSMutableArray array];
     }
     return self;
 }
@@ -125,7 +145,9 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
     _known[@(address)] = peripheral;
     if (_reportAdverts && g_advert) {
         NSString *name = advertisementData[CBAdvertisementDataLocalNameKey] ?: peripheral.name ?: @"";
-        g_advert(address, name.UTF8String, RSSI.intValue);
+        NSData *manufacturer = advertisementData[CBAdvertisementDataManufacturerDataKey];
+        g_advert(address, name.UTF8String, RSSI.intValue,
+                 manufacturer ? (const uint8_t *)manufacturer.bytes : NULL, manufacturer ? (int)manufacturer.length : 0);
     }
     if (_findTarget && address == _target) {
         _findTarget = NO;
@@ -138,10 +160,23 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
 
 - (void)connect:(uint64_t)address service:(NSString *)service command:(NSString *)command notify:(NSString *)notify timeout:(int)seconds {
     if (_peripheral) [self closeConnection];
-    _target = address;
+    _generic = NO;
     _serviceUUID = [CBUUID UUIDWithString:service];
     _commandUUID = [CBUUID UUIDWithString:command];
     _notifyUUID = [CBUUID UUIDWithString:notify];
+    [self begin:address timeout:seconds notFound:@"No Square launch monitor found. Is it on, and not connected to the phone app?"];
+}
+
+- (void)connectAll:(uint64_t)address timeout:(int)seconds notFound:(NSString *)notFound {
+    if (_peripheral) [self closeConnection];
+    _generic = YES;
+    _serviceUUID = nil; _commandUUID = nil; _notifyUUID = nil;
+    [self begin:address timeout:seconds notFound:notFound];
+}
+
+/// The part of connecting that's the same for both kinds: find the monitor (scanning if it hasn't been heard) and open it.
+- (void)begin:(uint64_t)address timeout:(int)seconds notFound:(NSString *)notFound {
+    _target = address;
     _ready = NO;
     _written = 0; _notifications = 0;
     int attempt = ++_attempt;
@@ -152,7 +187,7 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
         self->_findTarget = NO;
         [self stopScanningIfUnwanted];
         if (self->_peripheral) [self closeConnection];
-        [self emitText:GG_CONNECT_FAILED token:0 text:@"No Square launch monitor found. Is it on, and not connected to the phone app?"];
+        [self emitText:GG_CONNECT_FAILED token:0 text:notFound];
     });
 
     CBPeripheral *known = _known[@(address)];
@@ -174,6 +209,10 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
     _writeInFlight = NO;
     [_characteristics removeAllObjects];
     [_reads removeAllObjects];
+    [_subscriptions removeAllObjects];
+    [_genericOutbox removeAllObjects];
+    _genericInFlight = nil;
+    _pendingServices = 0;
     if (peripheral) [_central cancelPeripheralConnection:peripheral];
 }
 
@@ -184,7 +223,8 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
 }
 
 - (void)centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral {
-    [peripheral discoverServices:@[_serviceUUID]];
+    if (peripheral != _peripheral) return;
+    [peripheral discoverServices:_generic ? nil : @[_serviceUUID]];
 }
 
 - (void)centralManager:(CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
@@ -206,6 +246,16 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
 
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverServices:(NSError *)error {
     if (peripheral != _peripheral) return;
+    if (_generic) {
+        if (error || peripheral.services.count == 0) {
+            [self failConnection:[NSString stringWithFormat:@"The monitor's Bluetooth services weren't found: %@", error.localizedDescription ?: @"it has none"]];
+            return;
+        }
+        [_listing removeAllObjects];
+        _pendingServices = (int)peripheral.services.count;
+        for (CBService *service in peripheral.services) [peripheral discoverCharacteristics:nil forService:service];
+        return;
+    }
     CBService *service = peripheral.services.firstObject;
     if (error || !service) { [self failConnection:@"The Square's Bluetooth service wasn't found."]; return; }
     [peripheral discoverCharacteristics:nil forService:service];
@@ -213,8 +263,21 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
 
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverCharacteristicsForService:(CBService *)service error:(NSError *)error {
     if (peripheral != _peripheral) return;
+    if (_generic) {
+        if (error) [self log:[NSString stringWithFormat:@"Couldn't list the characteristics of service %@: %@", KeyOf(service.UUID.UUIDString), error.localizedDescription]];
+        [_listing addObject:[NSString stringWithFormat:@"S %@", KeyOf(service.UUID.UUIDString)]];
+        for (CBCharacteristic *c in service.characteristics) {
+            _characteristics[KeyOf(c.UUID.UUIDString)] = c;
+            [_listing addObject:[NSString stringWithFormat:@"C %@ %lX", KeyOf(c.UUID.UUIDString), (unsigned long)c.properties]];
+        }
+        if (--_pendingServices > 0) return;
+        _ready = YES;
+        NSString *listing = [_listing componentsJoinedByString:@"\n"];
+        [self emit:GG_CONNECTED token:0 address:_target data:(const uint8_t *)listing.UTF8String length:(int)strlen(listing.UTF8String)];
+        return;
+    }
     for (CBCharacteristic *c in service.characteristics) {
-        _characteristics[c.UUID.UUIDString.uppercaseString] = c;
+        _characteristics[KeyOf(c.UUID.UUIDString)] = c;
         if ([c.UUID isEqual:_commandUUID]) _command = c;
         if ([c.UUID isEqual:_notifyUUID]) _notify = c;
     }
@@ -230,7 +293,20 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateNotificationStateForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
-    if (peripheral != _peripheral || _ready) return;
+    if (peripheral != _peripheral) return;
+    if (_generic) {
+        NSString *key = KeyOf(characteristic.UUID.UUIDString);
+        NSNumber *token = _subscriptions[key];
+        if (!token) return;
+        if (error || !characteristic.isNotifying) {
+            [_subscriptions removeObjectForKey:key];
+            [self emitText:GG_SUBSCRIBE_FAILED token:token.intValue text:error.localizedDescription ?: @"refused"];
+        } else {
+            [self emit:GG_SUBSCRIBED token:token.intValue address:_target data:NULL length:0];
+        }
+        return;
+    }
+    if (_ready) return;
     if (error || !characteristic.isNotifying) {
         [self failConnection:[NSString stringWithFormat:@"Couldn't subscribe to the Square's notifications: %@", error.localizedDescription ?: @"refused"]];
         return;
@@ -243,7 +319,7 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
     if (peripheral != _peripheral) return;
-    NSString *key = characteristic.UUID.UUIDString.uppercaseString;
+    NSString *key = KeyOf(characteristic.UUID.UUIDString);
     NSNumber *token = _reads[key];
     if (token) {   // the answer to a read, not a notification
         [_reads removeObjectForKey:key];
@@ -253,6 +329,17 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
             NSData *value = characteristic.value;
             [self emit:GG_READ_DONE token:token.intValue address:_target data:value.bytes length:(int)value.length];
         }
+        return;
+    }
+    if (_generic) {
+        NSNumber *subscription = _subscriptions[key];
+        if (error || !subscription || !characteristic.value) {
+            if (error) [self log:[NSString stringWithFormat:@"Update error on %@: %@", key, error.localizedDescription]];
+            return;
+        }
+        NSData *heard = characteristic.value;
+        if (_notifications++ == 0) [self log:[NSString stringWithFormat:@"First notification: %lu bytes, from %@", (unsigned long)heard.length, key]];
+        [self emit:GG_NOTIFICATION token:subscription.intValue address:_target data:heard.bytes length:(int)heard.length];
         return;
     }
     if (error || characteristic != _notify || !characteristic.value) {
@@ -293,21 +380,73 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
 }
 
 - (void)peripheralIsReadyToSendWriteWithoutResponse:(CBPeripheral *)peripheral {
-    if (peripheral == _peripheral) [self pump];
+    if (peripheral != _peripheral) return;
+    if (_generic) [self pumpGeneric]; else [self pump];
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didWriteValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
     if (peripheral != _peripheral) return;
+    if (_generic) {
+        NSDictionary *item = _genericInFlight;
+        _genericInFlight = nil;
+        if (item) {
+            int token = [item[@"token"] intValue];
+            if (error) [self emitText:GG_WRITE_FAILED token:token text:error.localizedDescription ?: @"refused"];
+            else [self emit:GG_WRITE_DONE token:token address:_target data:NULL length:0];
+        }
+        [self pumpGeneric];
+        return;
+    }
     _writeInFlight = NO;
     if (error) [self log:[NSString stringWithFormat:@"A command write failed: %@", error.localizedDescription]];
     [self pump];
 }
 
 - (void)read:(NSString *)uuid token:(int)token {
-    CBCharacteristic *c = _characteristics[uuid.uppercaseString];
+    CBCharacteristic *c = _characteristics[KeyOf(uuid)];
     if (!_peripheral || !c) { [self emitText:GG_READ_FAILED token:token text:@"not connected, or no such characteristic"]; return; }
-    _reads[uuid.uppercaseString] = @(token);
+    _reads[KeyOf(uuid)] = @(token);
     [_peripheral readValueForCharacteristic:c];
+}
+
+// ---- The "all characteristics" connection
+
+- (void)subscribe:(NSString *)uuid token:(int)token {
+    CBCharacteristic *c = _characteristics[KeyOf(uuid)];
+    if (!_peripheral || !_ready || !c) { [self emitText:GG_SUBSCRIBE_FAILED token:token text:@"not connected, or no such characteristic"]; return; }
+    _subscriptions[KeyOf(uuid)] = @(token);
+    [_peripheral setNotifyValue:YES forCharacteristic:c];
+}
+
+- (void)writeTo:(NSString *)uuid data:(NSData *)data token:(int)token {
+    CBCharacteristic *c = _characteristics[KeyOf(uuid)];
+    if (!_peripheral || !_ready || !c) { [self emitText:GG_WRITE_FAILED token:token text:@"not connected, or no such characteristic"]; return; }
+    if (!(c.properties & (CBCharacteristicPropertyWrite | CBCharacteristicPropertyWriteWithoutResponse))) {
+        [self emitText:GG_WRITE_FAILED token:token text:@"the characteristic can't be written to"];
+        return;
+    }
+    [_genericOutbox addObject:@{ @"c": c, @"data": data, @"token": @(token) }];
+    [self pumpGeneric];
+}
+
+/// Sends the writes waiting, one at a time: a with-response write waits for its answer, and one without a response
+/// waits until CoreBluetooth has room (it throws away what it has no room for).
+- (void)pumpGeneric {
+    while (_genericOutbox.count > 0 && _peripheral && _ready && !_genericInFlight) {
+        NSDictionary *item = _genericOutbox.firstObject;
+        CBCharacteristic *c = item[@"c"];
+        BOOL withResponse = (c.properties & CBCharacteristicPropertyWrite) != 0;
+        if (!withResponse && !_peripheral.canSendWriteWithoutResponse) return;
+        [_genericOutbox removeObjectAtIndex:0];
+        _written++;
+        if (withResponse) {
+            _genericInFlight = item;
+            [_peripheral writeValue:item[@"data"] forCharacteristic:c type:CBCharacteristicWriteWithResponse];
+            return;
+        }
+        [_peripheral writeValue:item[@"data"] forCharacteristic:c type:CBCharacteristicWriteWithoutResponse];
+        [self emit:GG_WRITE_DONE token:[item[@"token"] intValue] address:_target data:NULL length:0];
+    }
 }
 
 - (void)disconnect {
@@ -346,4 +485,20 @@ int gg_ble_write(const uint8_t *data, int length) {
 void gg_ble_read(const char *characteristic, int token) {
     NSString *uuid = @(characteristic);
     [[GgBle shared] run:^{ [[GgBle shared] read:uuid token:token]; }];
+}
+
+void gg_ble_connect_all(uint64_t address, int timeout_seconds, const char *not_found) {
+    NSString *text = @(not_found);
+    [[GgBle shared] run:^{ [[GgBle shared] connectAll:address timeout:timeout_seconds notFound:text]; }];
+}
+
+void gg_ble_subscribe(const char *characteristic, int token) {
+    NSString *uuid = @(characteristic);
+    [[GgBle shared] run:^{ [[GgBle shared] subscribe:uuid token:token]; }];
+}
+
+void gg_ble_write_to(const char *characteristic, const uint8_t *data, int length, int token) {
+    NSString *uuid = @(characteristic);
+    NSData *copy = [NSData dataWithBytes:data length:length];
+    [[GgBle shared] run:^{ [[GgBle shared] writeTo:uuid data:copy token:token]; }];
 }

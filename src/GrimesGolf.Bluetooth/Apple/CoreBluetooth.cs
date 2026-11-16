@@ -11,15 +11,16 @@ namespace GrimesGolf.Bluetooth;
 /// </summary>
 internal static unsafe class CoreBluetooth
 {
-    public const int ScanStopped = 1, Connected = 2, ConnectFailed = 3, Disconnected = 4, Notification = 5, ReadDone = 6, ReadFailed = 7, Log = 8;
+    public const int ScanStopped = 1, Connected = 2, ConnectFailed = 3, Disconnected = 4, Notification = 5, ReadDone = 6, ReadFailed = 7, Log = 8,
+        Subscribed = 9, SubscribeFailed = 10, WriteDone = 11, WriteFailed = 12;
 
-    /// <summary>A monitor was heard: its address (made up from its identifier), name and signal strength.</summary>
-    public static event Action<ulong, string, int>? Advert;
+    /// <summary>A monitor was heard: its address (made up from its identifier), name, signal strength and manufacturer data (company identifier first; empty if none).</summary>
+    public static event Action<ulong, string, int, byte[]>? Advert;
     /// <summary>Something happened: the kind (see above), the read token, the address, and the bytes (or text) with it.</summary>
     public static event Action<int, int, ulong, byte[]>? Event;
 
     [DllImport("__Internal")]
-    private static extern void gg_ble_set_callbacks(delegate* unmanaged[Cdecl]<ulong, byte*, int, void> advert,
+    private static extern void gg_ble_set_callbacks(delegate* unmanaged[Cdecl]<ulong, byte*, int, byte*, int, void> advert,
         delegate* unmanaged[Cdecl]<int, int, ulong, byte*, int, void> onEvent);
 
     [DllImport("__Internal")] private static extern void gg_ble_start_scan();
@@ -34,6 +35,15 @@ internal static unsafe class CoreBluetooth
 
     [DllImport("__Internal")]
     private static extern void gg_ble_read([MarshalAs(UnmanagedType.LPUTF8Str)] string characteristic, int token);
+
+    [DllImport("__Internal")]
+    private static extern void gg_ble_connect_all(ulong address, int timeoutSeconds, [MarshalAs(UnmanagedType.LPUTF8Str)] string notFound);
+
+    [DllImport("__Internal")]
+    private static extern void gg_ble_subscribe([MarshalAs(UnmanagedType.LPUTF8Str)] string characteristic, int token);
+
+    [DllImport("__Internal")]
+    private static extern void gg_ble_write_to([MarshalAs(UnmanagedType.LPUTF8Str)] string characteristic, byte* data, int length, int token);
 
     private static bool _ready;
 
@@ -71,11 +81,36 @@ internal static unsafe class CoreBluetooth
         gg_ble_read(characteristic.ToString(), token);
     }
 
+    /// <summary>Connects and finds every service and characteristic (a Garmin R10's): the answer is a <see cref="Connected"/> event listing them, or <see cref="ConnectFailed"/>.</summary>
+    public static void ConnectAll(ulong address, int timeoutSeconds, string notFound)
+    {
+        EnsureReady();
+        gg_ble_connect_all(address, timeoutSeconds, notFound);
+    }
+
+    /// <summary>Turns notifications on for a characteristic: <see cref="Subscribed"/> or <see cref="SubscribeFailed"/> with the token, and then <see cref="Notification"/> events with it.</summary>
+    public static void Subscribe(Guid characteristic, int token)
+    {
+        EnsureReady();
+        gg_ble_subscribe(characteristic.ToString(), token);
+    }
+
+    /// <summary>Writes to a characteristic: <see cref="WriteDone"/> or <see cref="WriteFailed"/> with the token.</summary>
+    public static void WriteTo(Guid characteristic, byte[] data, int token)
+    {
+        EnsureReady();
+        fixed (byte* p = data) gg_ble_write_to(characteristic.ToString(), p, data.Length, token);
+    }
+
     // An exception must never leave a callback: it would take the app down with it.
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
-    private static void OnAdvert(ulong address, byte* name, int rssi)
+    private static void OnAdvert(ulong address, byte* name, int rssi, byte* manufacturer, int manufacturerLength)
     {
-        try { Advert?.Invoke(address, Marshal.PtrToStringUTF8((IntPtr)name) ?? "", rssi); }
+        try
+        {
+            var data = manufacturer == null || manufacturerLength <= 0 ? Array.Empty<byte>() : new ReadOnlySpan<byte>(manufacturer, manufacturerLength).ToArray();
+            Advert?.Invoke(address, Marshal.PtrToStringUTF8((IntPtr)name) ?? "", rssi, data);
+        }
         catch { /* the listener's problem, not Bluetooth's */ }
     }
 

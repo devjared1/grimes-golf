@@ -8,8 +8,8 @@ namespace GrimesGolf.Game;
 
 /// <summary>
 /// The Bluetooth side of launch monitors, which is different code on each platform (GrimesGolf.Bluetooth, built in
-/// when <c>GG_BLUETOOTH</c> is defined: see the project file). Windows has Squares and the Garmin R10; the iPad
-/// (<c>GG_IOS</c>) has Squares only so far. Where there's none there's no scanner, so no monitor is ever found, and
+/// when <c>GG_BLUETOOTH</c> is defined: see the project file). Windows and the iPad (<c>GG_IOS</c>) both have Squares
+/// and the Garmin R10. Where there's none there's no scanner, so no monitor is ever found, and
 /// shots come from the screen, a GSPro connector app or the development stand-ins.
 /// </summary>
 internal static class MonitorLinks
@@ -25,7 +25,7 @@ internal static class MonitorLinks
     public static ILaunchMonitorSession NewSquareSession(ulong address, Action<string> log) => new SquareMonitorAdapter(address, log);
 
 #if GG_IOS
-    public static IR10Link NewR10Link(ulong address, Action<string> log) => throw new NotSupportedException("The Garmin R10 isn't supported on this device yet.");
+    public static IR10Link NewR10Link(ulong address, Action<string> log) => new AppleR10Link(address, log);
 #else
     public static IR10Link NewR10Link(ulong address, Action<string> log) => new R10BleLink(address, log);
 #endif

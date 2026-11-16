@@ -246,7 +246,7 @@ Developer account: `.github/workflows/ios-release.yml` makes it, by hand only, a
 
 What differs from the Windows build:
 
-- **Bluetooth is CoreBluetooth, for Squares only so far.** `GrimesGolf.Bluetooth` has a `Windows/` folder (WinRT,
+- **Bluetooth is CoreBluetooth, for Squares and the Garmin R10.** `GrimesGolf.Bluetooth` has a `Windows/` folder (WinRT,
   built only for the Windows target) and an `Apple/` folder (the plain .NET target, which the iPad build uses). The
   Apple one calls `Apple/Native/gg_ble.m`, a small Objective-C wrapper of CoreBluetooth that `tools/ios-native.sh`
   builds into a `libggble.a` for each runtime (Godot builds the game's code for the iPad and both simulators).
@@ -254,8 +254,10 @@ What differs from the Windows build:
   library as a `NativeLibrary`; the C# reaches the functions by platform invoke to `__Internal`, made a
   `DirectPInvoke` so NativeAOT links it directly. (Godot's export says "completed with warnings" even when building
   the game's code failed, and the app is then built without the game: the script stops on any build error it logged.) iOS never shows a Bluetooth address, so a Square's "address" is made from the first six bytes of its
-  identifier, which is stable. The Garmin R10 isn't supported on the iPad (`R10Session` is portable: it needs an
-  `IR10Link` over the same wrapper). The game's project file targets plain .NET for any platform but Windows. Keep
+  identifier, which is stable. The Garmin R10 has its own link over the same wrapper
+  (`Apple/AppleR10Link.cs`, an `IR10Link` for the portable `R10Session`): it asks the wrapper to find every service and
+  characteristic (`gg_ble_connect_all`), then subscribes and writes by characteristic. It has never been run against
+  a real R10, and the Objective-C side has only been built by the macOS check in `ios.yml`. The game's project file targets plain .NET for any platform but Windows. Keep
   its `TargetFramework` condition as `!= 'windows'`: the Godot editor tidies the file when it opens the project, and
   deletes one written as `== 'windows'` or `== 'ios'`.
 - **Compiled ahead of time.** Godot builds C# for iOS with NativeAOT, which trims code that looks unused and can't

@@ -4,7 +4,7 @@ How to put the test build on your own iPad from a Windows PC, with a free Apple 
 once it's there. It takes about half an hour the first time and five minutes after that.
 
 This is a first test build, not a finished app: the screens were made for a mouse and keyboard, a Square connects over
-Bluetooth but that hasn't been tried with a real one yet, and the Garmin R10 isn't supported on iPad. Finding out what
+Bluetooth and a Garmin R10 too, but neither has been tried with the real thing yet. Finding out what
 works is the point.
 
 ## Contents
@@ -109,8 +109,8 @@ If there's time, two extras (the first once you've done check 5):
 
 ## Connecting a Square
 
-Needs a real Square Omni, and the Square phone app closed (a Square talks to one device at a time). The Garmin R10
-isn't supported on iPad yet; **Auto** and **Square** both look for a Square.
+Needs a real Square Omni, and the Square phone app closed (a Square talks to one device at a time). **Auto** and
+**Square** look for a Square; for a Garmin R10, see [Connecting a Garmin R10](#connecting-a-garmin-r10).
 
 1. Switch the Square on, and open Grimes Golf. The first time it scans, iOS asks whether the app may use Bluetooth:
    tap **Allow**. (If you tapped Don't Allow: Settings > Grimes Golf > Bluetooth.)
@@ -123,6 +123,25 @@ isn't supported on iPad yet; **Auto** and **Square** both look for a Square.
 
 Whatever happens, `logs/godot.log` has the story, including the `Connecting to the Square...`, `Connected`, `Device:`
 and `Shot raw:` lines. A Square that never shows up, or connects and then goes quiet, is a finding: send the log.
+
+## Connecting a Garmin R10
+
+Needs a Garmin Approach R10, charged, with the Garmin Golf app closed on every phone and tablet (an R10 talks to one
+device at a time, and only advertises while nothing is connected to it). Set **Settings > Monitor** to **Auto** or
+**Garmin R10**.
+
+1. Switch the R10 on. If it was never paired with this iPad, hold its button until the light is solid blue (pairing
+   mode). Open Grimes Golf; the first time it scans, iOS asks whether the app may use Bluetooth: tap **Allow**.
+2. Open the monitor list (the Bluetooth button on the HUD, or Settings > Monitor): does "Approach R10" show up? Tap it
+   (or let auto-connect do it).
+3. **iOS may now show a "Bluetooth Pairing Request" for the R10. Tap Pair.** The app waits up to 90 seconds for that.
+   If there is no prompt and it never connects, note that: it's the first thing a real R10 will tell us.
+4. It should reach "Armed - hit away" with the model, serial, firmware and battery on the drawer. Hit some shots and
+   compare the numbers with the Garmin Golf app's. Switch the R10 off and on again: does it reconnect?
+
+The log has the story: the `R10 GATT:` lines list every service and characteristic the R10 offered, and
+`monitor-logs/r10-*.log` has the raw traffic (send both back, see below). The questions the first test should answer are
+the [first hardware test](garmin-r10-protocol.md#first-hardware-test)'s, from the iPad.
 
 ## Sending back the logs
 

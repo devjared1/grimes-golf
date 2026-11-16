@@ -213,7 +213,7 @@ Not built or covered here, but found on the way:
 - An App Store release is a separate step with its own requirements: screenshots at iPad sizes, an age rating,
   a privacy policy and the privacy questionnaire (the app keeps its data on the device and talks to other players
   only in online play), and Apple's review.
-- Review has to be able to try the app, so Bluetooth launch monitor support (not on iPad yet) and the keyboard-only
+- Review has to be able to try the app, so Bluetooth launch monitor support (untested with real monitors) and the keyboard-only
   features would count against it; so would the placeholder `com.grimesgolf.app` bundle identifier if it's still there.
 - `NSLocalNetworkUsageDescription` and `ITSAppUsesNonExemptEncryption` are already set in the export preset, which
   saves two common rejections and the export-compliance question on every upload.
