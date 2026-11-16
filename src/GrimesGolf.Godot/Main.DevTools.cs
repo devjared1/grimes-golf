@@ -124,6 +124,19 @@ public partial class Main
         Log($"--ball-by-tree: ball at {ball.X:0.0},{ball.Z:0.0}, past a {tree.Height:0} m tree.");
     }
 
+    /// <summary>--ball-on-green: the ball 6 m short of the pin, on the green (to check the flag, the grid and the putting view).</summary>
+    private void PutBallOnGreen()
+    {
+        if (_match?.Current is not { } round) return;
+        var hole = round.Hole;
+        var line = hole.Pin - hole.Tee;
+        var ball = hole.Pin - line * (6 / line.Length);
+        var s = round.Save();
+        round.Restore(s with { Ball = ball, Strokes = Math.Max(s.Strokes, 1) });
+        _player.PlaceBall(RestingBall(round));
+        PrepareNextShot(snapCamera: true);
+    }
+
     private static double Number(string s) => double.Parse(s, System.Globalization.CultureInfo.InvariantCulture);
 
     private (string Key, double Value)? _devTune;

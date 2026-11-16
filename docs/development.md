@@ -74,7 +74,8 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 | `--players=Ann,Bob,Cat:L` | Players for this run (`:L` = left-handed) |
 | `--text-size=Large`, `--graphics=Ultra` | Display settings for this run |
 | `--game=Scramble`, `--holes=Back9`, `--wind=Breezy`, `--weather=Wet` | Game setup for this run (game: Stroke, Scramble, BestBall, MatchPlay) |
-| `--green-read` | Turns on the green heat map and grid |
+| `--green-read` | Turns on the green heat map and grid (the grid is on by default; this adds the heat map) |
+| `--ball-on-green` | Puts the ball 6 m short of the pin (needs `--course`), to check the flag, the grid and the putting view |
 | `--landing-view` | Presses Zoom just before the screenshot, to check how the landing ring looks |
 | `--ball-closeup` | Holds the camera right beside the ball, to check how it looks (with `--graphics=Medium`: High and Ultra blur anything this near) |
 | `--tuner`, `--tuner-tab=Lies` | Opens the physics tuner (the screenshot also saves it as `file-tuner.png`), on a tab (`Flight`, `Lies`, or a surface such as `Green`) |

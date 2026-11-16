@@ -155,6 +155,7 @@ public partial class Main : Node3D
             StartHole(n - 1);
         if (args.Contains("--ball-by-tree")) PutBallByTree();
         UpdateInsets();
+        if (args.Contains("--ball-on-green")) PutBallOnGreen();
         if (!_noBluetooth || _fakeKind != null) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect") || _fakeKind != null);
         SetupOpenConnect();
         if (_openSettingsAtStart) OpenSettings();

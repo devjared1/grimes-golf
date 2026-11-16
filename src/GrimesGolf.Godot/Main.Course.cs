@@ -26,8 +26,8 @@ public partial class Main
     private CourseWorld? _course;
     private double _aimHeading;
     private bool _flagWhenPutting;
-    /// <summary>Green-reading aids on the green being played (kept from hole to hole).</summary>
-    private bool _heatMap, _grid;
+    /// <summary>Green-reading aids on the green being played (kept from hole to hole). The grid starts on; the heat map doesn't.</summary>
+    private bool _heatMap, _grid = true;
     /// <summary>The last course shot, applied to the HUD/ball once its animation finishes (so the result isn't spoiled).</summary>
     private ShotOutcome? _outcome;
     private DateTime _roundStarted = DateTime.Now;
