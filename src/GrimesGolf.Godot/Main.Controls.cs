@@ -110,6 +110,14 @@ public partial class Main
     {
         // A course is loading: nothing to do until it's ready.
         if (_loading) { GetViewport().SetInputAsHandled(); return; }
+        // A tap on the touch screen skips the fly-over of the hole (the keyboard has Esc). Only a finger: a mouse
+        // click on the screen is the player reaching for a button.
+        if (e is InputEventScreenTouch { Pressed: true } && _camera.Flying && !_hud.ModalOpen && !_hud.SettingsOpen)
+        {
+            _camera.SkipFlyover();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         // The home player panel (it can open over the settings): like the settings, the UI has everything but closing it.
         if (_hud.Home.IsOpen)
         {

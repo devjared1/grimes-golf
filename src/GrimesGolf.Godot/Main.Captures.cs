@@ -89,7 +89,7 @@ public partial class Main
     {
         if (_capture is not { } c || _courseMode) return false;
         int next = _captureIndex + step;
-        if (next >= c.Shots.Count) { _hud.Toast("That was the last captured shot (Shift+N goes back)", UiTheme.Ink); return true; }
+        if (next >= c.Shots.Count) { _hud.Toast("That was the last captured shot (Shift+N, or the menu, goes back)", UiTheme.Ink); return true; }
         if (next < 0) { _hud.Toast("That's the first captured shot", UiTheme.Ink); return true; }
         _captureIndex = next;
         var s = c.Shots[next];

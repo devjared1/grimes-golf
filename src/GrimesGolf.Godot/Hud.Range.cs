@@ -37,7 +37,7 @@ public partial class Hud
         var aimRow = new HBoxContainer();
         aimRow.AddThemeConstantOverride("separation", 6);
         AddAimButtons(aimRow, 40);
-        _rangeTarget = new Button { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, 36),
+        _rangeTarget = new Button { SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new Vector2(0, TapHeight),
                                     TooltipText = "Aim at the next flag (then straight down the range)  [F, Shift+F back, gamepad Y]" };
         _rangeTarget.Pressed += () => RangeTargetPressed?.Invoke(Input.IsKeyPressed(Key.Shift) ? -1 : 1);
         aimRow.AddChild(_rangeTarget);
