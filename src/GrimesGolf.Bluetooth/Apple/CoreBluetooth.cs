@@ -11,7 +11,7 @@ namespace GrimesGolf.Bluetooth;
 /// </summary>
 internal static unsafe class CoreBluetooth
 {
-    public const int ScanStopped = 1, Connected = 2, ConnectFailed = 3, Disconnected = 4, Notification = 5, ReadDone = 6, ReadFailed = 7;
+    public const int ScanStopped = 1, Connected = 2, ConnectFailed = 3, Disconnected = 4, Notification = 5, ReadDone = 6, ReadFailed = 7, Log = 8;
 
     /// <summary>A monitor was heard: its address (made up from its identifier), name and signal strength.</summary>
     public static event Action<ulong, string, int>? Advert;

@@ -34,6 +34,11 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
     NSMutableDictionary<NSString *, NSNumber *> *_reads;       // characteristic UUID -> token
     BOOL _ready;
     int _attempt;             // told apart from an earlier connection's timeout
+
+    NSMutableArray<NSData *> *_outbox;   // commands waiting to go out, in order
+    BOOL _writeWithResponse;  // the command characteristic has no write-without-response
+    BOOL _writeInFlight;      // a with-response write is waiting for its answer
+    int _written, _notifications;        // this connection, for the log
 }
 
 + (GgBle *)shared {
@@ -49,6 +54,7 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
         _known = [NSMutableDictionary dictionary];
         _characteristics = [NSMutableDictionary dictionary];
         _reads = [NSMutableDictionary dictionary];
+        _outbox = [NSMutableArray array];
     }
     return self;
 }
@@ -65,6 +71,9 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
     const char *utf8 = text.UTF8String;
     [self emit:kind token:token address:_target data:(const uint8_t *)utf8 length:(int)strlen(utf8)];
 }
+
+/// A line for the app's log.
+- (void)log:(NSString *)text { [self emitText:GG_LOG token:0 text:text]; }
 
 // ---- Scanning
 
@@ -134,6 +143,7 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
     _commandUUID = [CBUUID UUIDWithString:command];
     _notifyUUID = [CBUUID UUIDWithString:notify];
     _ready = NO;
+    _written = 0; _notifications = 0;
     int attempt = ++_attempt;
 
     // Give up if it hasn't worked in time (a monitor that's off, or out of range, or already in another app's hands).
@@ -160,6 +170,8 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
 - (void)closeConnection {
     CBPeripheral *peripheral = _peripheral;
     _peripheral = nil; _command = nil; _notify = nil; _ready = NO;
+    [_outbox removeAllObjects];
+    _writeInFlight = NO;
     [_characteristics removeAllObjects];
     [_reads removeAllObjects];
     if (peripheral) [_central cancelPeripheralConnection:peripheral];
@@ -183,6 +195,10 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
 - (void)centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
     if (peripheral != _peripheral) return;
     BOOL wasReady = _ready;
+    // Why iOS says the link ended: a timeout, or the monitor hanging up, read very differently.
+    [self log:[NSString stringWithFormat:@"iOS reports the link ended (%@ %ld: %@); %d commands sent, %d notifications heard, %d unsent",
+               error.domain ?: @"no error", (long)error.code, error.localizedDescription ?: @"none",
+               _written, _notifications, (int)_outbox.count]];
     if (!wasReady) { [self failConnection:@"The monitor disconnected while connecting."]; return; }
     [self closeConnection];
     [self emit:GG_DISCONNECTED token:0 address:_target data:NULL length:0];
@@ -203,6 +219,13 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
         if ([c.UUID isEqual:_notifyUUID]) _notify = c;
     }
     if (error || !_command || !_notify) { [self failConnection:@"The Square's characteristics weren't found."]; return; }
+    // Write without response is what the official app uses; if this monitor doesn't offer it, write with a response
+    // (asking CoreBluetooth for a type the characteristic lacks gets the write thrown away).
+    _writeWithResponse = !(_command.properties & CBCharacteristicPropertyWriteWithoutResponse);
+    [self log:[NSString stringWithFormat:@"Command characteristic properties 0x%lX (%@), notify characteristic properties 0x%lX, MTU %lu",
+               (unsigned long)_command.properties, _writeWithResponse ? @"writing with a response" : @"writing without a response",
+               (unsigned long)_notify.properties,
+               (unsigned long)[peripheral maximumWriteValueLengthForType:CBCharacteristicWriteWithoutResponse]]];
     [peripheral setNotifyValue:YES forCharacteristic:_notify];
 }
 
@@ -232,8 +255,12 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
         }
         return;
     }
-    if (error || characteristic != _notify || !characteristic.value) return;
+    if (error || characteristic != _notify || !characteristic.value) {
+        if (error) [self log:[NSString stringWithFormat:@"Update error on %@: %@", key, error.localizedDescription]];
+        return;
+    }
     NSData *value = characteristic.value;
+    if (_notifications++ == 0) [self log:[NSString stringWithFormat:@"First notification: %lu bytes", (unsigned long)value.length]];
     [self emit:GG_NOTIFICATION token:0 address:_target data:value.bytes length:(int)value.length];
 }
 
@@ -242,8 +269,38 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
 - (BOOL)canWrite { return _ready; }
 
 - (void)write:(NSData *)data {
-    if (!_peripheral || !_command || !_ready) return;
-    [_peripheral writeValue:data forCharacteristic:_command type:CBCharacteristicWriteWithoutResponse];
+    if (!_peripheral || !_command || !_ready) { [self log:@"A command was dropped: no connection to send it on"]; return; }
+    [_outbox addObject:data];
+    [self pump];
+}
+
+/// Sends what's waiting, one at a time as CoreBluetooth allows: it throws away write-without-response data
+/// it has no room for, so a burst of commands has to wait for peripheralIsReadyToSendWriteWithoutResponse.
+- (void)pump {
+    while (_outbox.count > 0 && _peripheral && _command && _ready) {
+        if (_writeWithResponse) {
+            if (_writeInFlight) return;
+            _writeInFlight = YES;
+        } else if (!_peripheral.canSendWriteWithoutResponse) {
+            return;
+        }
+        NSData *data = _outbox.firstObject;
+        [_outbox removeObjectAtIndex:0];
+        [_peripheral writeValue:data forCharacteristic:_command
+                           type:_writeWithResponse ? CBCharacteristicWriteWithResponse : CBCharacteristicWriteWithoutResponse];
+        _written++;
+    }
+}
+
+- (void)peripheralIsReadyToSendWriteWithoutResponse:(CBPeripheral *)peripheral {
+    if (peripheral == _peripheral) [self pump];
+}
+
+- (void)peripheral:(CBPeripheral *)peripheral didWriteValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
+    if (peripheral != _peripheral) return;
+    _writeInFlight = NO;
+    if (error) [self log:[NSString stringWithFormat:@"A command write failed: %@", error.localizedDescription]];
+    [self pump];
 }
 
 - (void)read:(NSString *)uuid token:(int)token {

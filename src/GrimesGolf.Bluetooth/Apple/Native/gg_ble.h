@@ -21,7 +21,8 @@ enum {
     GG_DISCONNECTED = 4,
     GG_NOTIFICATION = 5,    // data is what the monitor sent
     GG_READ_DONE = 6,       // data is the value
-    GG_READ_FAILED = 7      // data is why
+    GG_READ_FAILED = 7,     // data is why
+    GG_LOG = 8              // data is a line for the log
 };
 
 void gg_ble_set_callbacks(gg_ble_advert_fn advert, gg_ble_event_fn event);

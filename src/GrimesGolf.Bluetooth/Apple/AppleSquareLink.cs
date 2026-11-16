@@ -83,6 +83,7 @@ public sealed class AppleSquareLink : ISquareDeviceLink
             case CoreBluetooth.Connected when address == _address: _connected?.TrySetResult(); break;
             case CoreBluetooth.ConnectFailed: _connected?.TrySetException(new IOException(Encoding.UTF8.GetString(data))); break;
             case CoreBluetooth.Notification when address == _address: DataReceived?.Invoke(data); break;
+            case CoreBluetooth.Log: _log("Bluetooth: " + Encoding.UTF8.GetString(data)); break;
             case CoreBluetooth.Disconnected when address == _address: Disconnected?.Invoke(); break;
         }
     }
