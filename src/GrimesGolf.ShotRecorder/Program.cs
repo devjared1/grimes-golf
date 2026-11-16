@@ -6,6 +6,7 @@ using System.Text.Json.Nodes;
 using GrimesGolf.Bluetooth;
 using GrimesGolf.Core;
 using GrimesGolf.Core.Course;
+using GrimesGolf.Core.Monitors;
 using GrimesGolf.Core.Square;
 
 namespace GrimesGolf.ShotRecorder;
@@ -153,7 +154,7 @@ public static class Program
         Task work;
         if (drive)
         {
-            string addressText = new SquareAdvertisement("", address, 0, DateTime.Now).AddressText;
+            string addressText = new MonitorAdvertisement(LaunchMonitorType.Square, "", address, 0, DateTime.Now).AddressText;
             work = DriveAsync(address, addressText, club, lh, OnPacket, Log, capture, s => session = s, cts.Token);
             Say($"Driving the monitor at {addressText} ({club}{(lh ? ", LH" : "")}). Type 'help' for commands.");
         }
@@ -530,9 +531,9 @@ public static class Program
     private static async Task<ulong> ScanAsync(CancellationToken ct)
     {
         Say("Scanning for a Square monitor (30 s)...");
-        using var scanner = new SquareBleScanner();
-        var found = new TaskCompletionSource<SquareAdvertisement>(TaskCreationOptions.RunContinuationsAsynchronously);
-        scanner.DeviceSeen += a => found.TrySetResult(a);
+        using var scanner = new MonitorScanner();
+        var found = new TaskCompletionSource<MonitorAdvertisement>(TaskCreationOptions.RunContinuationsAsynchronously);
+        scanner.DeviceSeen += a => { if (a.Type == LaunchMonitorType.Square) found.TrySetResult(a); };
         scanner.Start();
         try
         {

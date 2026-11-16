@@ -20,7 +20,7 @@ public sealed record TunerResult(
 public partial class TunerWindow : Window
 {
     private const int MaxResults = 6;
-    private const string StartupFile = "startup.json";
+    internal const string StartupFile = "startup.json";
 
     public event Action? ReplayPressed;
 

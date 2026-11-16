@@ -122,6 +122,37 @@ public partial class Main
     }
 
     /// <summary>
+    /// Exported builds, if updates are allowed: fetches the published physics tuning, and if it's newer than the one last
+    /// applied, saves it as this PC's start-up tuning (replacing what was there) and switches to it. Failing just means
+    /// the tuning stays as it is. <c>--fetch-tuning=url</c> (debug builds) tries one from somewhere else; it saves into the
+    /// tuning folder of whatever's running, so use a copy of the project's.
+    /// </summary>
+    private async void FetchPublishedTuning(string[] args)
+    {
+        string? custom = OS.IsDebugBuild() ? args.FirstOrDefault(a => a.StartsWith("--fetch-tuning="))?[15..] : null;
+        if (custom == null && (!OS.HasFeature("template") || !_settings.CheckForUpdates)) return;
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            string json = await Web.GetStringAsync(string.IsNullOrEmpty(custom) ? Releases.TuningUrl : custom, timeout.Token);
+            if (TuningFeed.Read(json) is not { } published) { Log("Published tuning: not a valid tuning file, ignored."); return; }
+            string versionFile = Path.Combine(_dataFolder, "tuning-version.txt");
+            int applied = TuningFeed.ParseApplied(File.Exists(versionFile) ? File.ReadAllText(versionFile) : null);
+            // Not while online play is using the host's numbers (the next start-up gets it).
+            if (published.Version <= applied || TunerWindow.FreezeStartup || _online != null) return;
+            Directory.CreateDirectory(TunerWindow.PresetFolder);
+            File.WriteAllText(Path.Combine(TunerWindow.PresetFolder, TunerWindow.StartupFile), published.Tuning.ToJson());
+            File.WriteAllText(versionFile, published.Version.ToString());
+            ActivePhysics.Apply(published.Tuning);
+            Log($"Physics: updated to published tuning version {published.Version} (\"{published.Tuning.Name}\").");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException)
+        {
+            GD.Print($"Tuning update: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Exported builds, if it's allowed: asks GitHub for the newest version once, and offers it on the main menu. Failing
     /// just means no offer. Not on a phone or tablet: the offer is the Windows installer, and theirs update another way.
     /// </summary>

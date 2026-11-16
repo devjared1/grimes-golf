@@ -10,6 +10,9 @@ public static class Releases
     /// <summary>The downloadable courses are the assets of one release (a pre-release, so it's never "the latest version").</summary>
     public const string CoursesUrl = $"https://github.com/{Repo}/releases/download/courses/";
 
+    /// <summary>The published physics tuning: <c>default.json</c>, an asset of a "tuning" pre-release (see <see cref="TuningFeed"/>).</summary>
+    public const string TuningUrl = $"https://github.com/{Repo}/releases/download/tuning/default.json";
+
     /// <summary>The newest version of the app, as GitHub describes it.</summary>
     public const string LatestUrl = $"https://api.github.com/repos/{Repo}/releases/latest";
 
