@@ -47,6 +47,9 @@ public sealed record Course(string Name, IReadOnlyList<Hole> Holes)
     /// <summary>Ground heights, if elevation data was loaded (null = flat).</summary>
     public Terrain? Terrain { get; init; }
 
+    /// <summary>Set for a practice green (<see cref="PracticeGreen"/>): there's no tee, out-of-bounds line or yardage to draw.</summary>
+    public PracticeKind? Practice { get; init; }
+
     /// <summary>Attribution to show for the map data, if any.</summary>
     public string? Credit { get; init; }
 

@@ -36,6 +36,8 @@ public sealed record AppSettings(
     public HomePlayer? Home { get; init; }
     /// <summary>Guests kept for next time, name and hand only. Read them through <see cref="Guests"/>.</summary>
     public IReadOnlyList<Golfer>? SavedGuests { get; init; }
+    /// <summary>What was chosen on Closest to the Pin's setup page last time (null = nothing yet).</summary>
+    public ClosestToPinSetup? ClosestToPin { get; init; }
     /// <summary>Play the sound effects (off for the club and ball's own noise alone).</summary>
     public bool SoundEffects { get; init; } = true;
     /// <summary>A chime when the launch monitor has a ball and is ready for the shot.</summary>

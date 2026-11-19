@@ -209,5 +209,5 @@ public partial class Hud
         _sessionSummary.Text = NoShotsYet;
     }
 
-    private const string NoShotsYet = "No shots yet. Hit one with the monitor, or press HIT SHOT.";
+    private const string NoShotsYet = "No shots yet. Hit one with your launch monitor.";
 }

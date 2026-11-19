@@ -21,7 +21,7 @@ public partial class Main
         _hud.Home.Saved += SaveHomePlayer;
     }
 
-    private void OpenSettings() => _hud.OpenSettings(_settings, roundInProgress: _match is { RoundComplete: false });
+    private void OpenSettings() => _hud.OpenSettings(_settings, roundInProgress: _practice == null && _pin == null && _match is { RoundComplete: false });
 
     private void OpenHomePlayer(bool showClubs = false)
     {
@@ -86,7 +86,7 @@ public partial class Main
             NewRound();
             if (_courseMode) _hud.Toast("New round started", UiTheme.Accent);
             else if (_hud.MainMenu.IsOpen) StartNewGame(_courseIndex, _settings.Setup);   // from the main menu: straight to the first tee
-            else _hud.Toast("Saved. New Game on the main menu starts the round.", UiTheme.Accent);
+            else _hud.Toast("Saved. New Round on the main menu starts the round.", UiTheme.Accent);
         }
         else if (_match != null && (!s.Golfers.SequenceEqual(_match.Players) || s.Rules != _match.Rules))
             _hud.Toast("Saved. Player and rule changes apply from the next round.", UiTheme.Accent);

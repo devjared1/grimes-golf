@@ -34,6 +34,7 @@ public partial class CourseWorld : Node3D
 
     public Course Course => _courseDef;
     private bool Shared => _courseDef.SharedLayout;
+    private bool IsPractice => _courseDef.Practice != null;
     private Terrain? Ground => _courseDef.Terrain;
 
     /// <summary>Ground height at a point (0 on a flat course).</summary>
@@ -57,7 +58,7 @@ public partial class CourseWorld : Node3D
         foreach (var hole in Shared ? _courseDef.Holes : new[] { h })
         {
             if (hole.Tees.Count == 0 && Ground == null) AddTeeBox(hole);
-            AddTeeMarkers(hole);
+            if (!IsPractice) AddTeeMarkers(hole);
             _pins[hole] = AddPin(hole.Pin);
         }
         _mapPin = new MeshInstance3D
@@ -69,9 +70,10 @@ public partial class CourseWorld : Node3D
         };
         AddChild(_mapPin);
         ShowHole(h);
-        AddStakes();
+        // A practice green has no tee, out-of-bounds line or yardages: just the green, its cups, and trees round the edge.
+        if (!IsPractice) AddStakes();
         AddTrees();
-        foreach (var hole in Shared ? _courseDef.Holes : new[] { h }) AddYardageMarkers(hole);
+        if (!IsPractice) foreach (var hole in Shared ? _courseDef.Holes : new[] { h }) AddYardageMarkers(hole);
         AddRakes(h);
         _grass = new GrassPatch();
         AddChild(_grass);
@@ -404,7 +406,9 @@ public partial class CourseWorld : Node3D
         });
         AddChild(cup);
 
-        var flag = Scenery.AddFlag(this, top - new Vector3(0, depth, 0), new Color(0.86f, 0.12f, 0.12f), 1.2f);
+        // (The putting green's flagsticks are short ones.)
+        float scale = _courseDef.Practice == PracticeKind.Putting ? PracticeGreen.MiniFlag : PracticeGreen.FullFlag;
+        var flag = Scenery.AddFlag(this, top - new Vector3(0, depth, 0), new Color(0.86f, 0.12f, 0.12f), scale);
         return (disc, cup, flag);
     }
 

@@ -167,7 +167,13 @@ balls or play a round with me, and never see a console, a command-line flag or a
 
 ## 1.1 — Party games
 
-- [ ] Closest to the pin, long drive (with a fairway grid), target challenges, HORSE
+- [ ] Long drive (with a fairway grid), target challenges, HORSE
+- [x] **Games** on the main menu, listing the party games (Long Drive and Putt Putt show as coming soon)
+- [x] **Closest to the Pin:** up to 6 players, shots each, all in a row or taking turns, any par 3 and tee box of a
+      downloaded course, wind, weather and green conditions; standings with tiebreaks (next-closest shot)
+- [ ] **Long Drive:** up to 6 players, tournament-style matches (the winner moves on), a scoring zone (fairway grid) a drive
+      must land and stop in (out of bounds scores zero), 5 balls on a 2 minute clock, ties broken by the next-best qualifying drive
+- [ ] **Putt Putt:** a kid-friendly 18-hole putt-putt course
 - [x] 9-hole and "par 3s only" rounds (0.9.5)
 - [x] Scramble, best ball and match-play scoring (0.9.5)
 
@@ -206,6 +212,10 @@ Hooks into the "shot finished" event through one `Commentator` service; the game
 
 ## 1.4 — Practice tools and AI coach
 
+- [x] **Practice greens:** a putting green (six holes, short flagsticks, contours that break putts) and a chipping green
+      (four holes, regular flagsticks, bunkers, fairway, rough, uphill and downhill lies). Put the ball on any of a
+      set of spots or anywhere on the map, aim at any hole, retry a shot as often as wanted, and keep the session's
+      numbers (1-putts, 3-putts, putts per hole; up and downs, chip-ins, average leave)
 - [ ] Report of each club's average carry and total, with the gaps between clubs
 - [ ] Dispersion ellipses on the range, a combine-style test, comparing sessions
 - [ ] Per-player stats over time, CSV export

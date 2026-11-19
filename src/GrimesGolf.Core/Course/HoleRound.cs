@@ -68,7 +68,7 @@ public sealed class HoleRound
     private static readonly GolfPhysicsEngine Engine = new();
 
     private readonly int?[] _scores;
-    private (P2 Ball, double Heading, double Speed, int Physics)? _read;
+    private (P2 Ball, int Hole, double Heading, double Speed, int Physics)? _read;
     /// <summary>The round before the last counted shot on this hole, for a mulligan.</summary>
     private State? _beforeLast;
 
@@ -119,6 +119,21 @@ public sealed class HoleRound
         PickedUp = false;
         _beforeLast = null;
         _scores[index] = null;
+    }
+
+    /// <summary>
+    /// Practice: puts the ball down at <paramref name="at"/> as a fresh attempt at this hole: no strokes, not holed, and
+    /// the lie whatever the ground is there (never the tee, which a practice green doesn't have).
+    /// </summary>
+    public void Place(P2 at)
+    {
+        Ball = at;
+        Lie = Hole.LieAt(at);
+        Strokes = 0;
+        Holed = false;
+        PickedUp = false;
+        _beforeLast = null;
+        _scores[HoleIndex] = null;
     }
 
     /// <summary>Where the round stands (hole, ball, lie, strokes, that hole's score), to replay a shot from.</summary>
@@ -655,7 +670,7 @@ public sealed class HoleRound
     /// </summary>
     public (double Heading, double Speed) ReadPutt()
     {
-        if (_read is { } r && r.Ball == Ball && r.Physics == ActivePhysics.Version) return (r.Heading, r.Speed);
+        if (_read is { } r && r.Ball == Ball && r.Hole == HoleIndex && r.Physics == ActivePhysics.Version) return (r.Heading, r.Speed);
         var pin = Hole.Pin;
         double straight = Heading(Ball, pin), d = Ball.DistanceTo(pin);
         double friction = RollDecel(Lie);
@@ -681,29 +696,43 @@ public sealed class HoleRound
                 return (trace.Miss, trace.ToHole, trace.Rolled);
             }
 
+            // Aim: bisect the sideways miss to zero within +-half of centre (aiming further right moves the miss right).
+            // False if it can't be done there (e.g. the putt rolls back).
+            bool Aim(double centre, double half, int steps, out double aimed)
+            {
+                double lo = centre - half, hi = centre + half;
+                double missLo = Trial(lo, speed).Miss, missHi = Trial(hi, speed).Miss;
+                aimed = centre;
+                if (Math.Sign(missLo) == Math.Sign(missHi)) return false;
+                for (int k = 0; k < steps; k++)
+                {
+                    double mid = (lo + hi) / 2, m = Trial(mid, speed).Miss;
+                    if (Math.Sign(m) == Math.Sign(missLo)) { lo = mid; missLo = m; } else hi = mid;
+                }
+                aimed = (lo + hi) / 2;
+                return true;
+            }
+
             for (int round = 0; round < 4; round++)
             {
                 if (Terrain != null)
                 {
-                    // Aim: bisect the sideways miss to zero (aiming further right moves the miss right).
-                    double lo = straight - 0.6, hi = straight + 0.6;
-                    double missLo = Trial(lo, speed).Miss, missHi = Trial(hi, speed).Miss;
-                    if (Math.Sign(missLo) == Math.Sign(missHi)) break;   // can't get there (e.g. it rolls back): keep the last
-                    for (int k = 0; k < 24; k++)
-                    {
-                        double mid = (lo + hi) / 2, m = Trial(mid, speed).Miss;
-                        if (Math.Sign(m) == Math.Sign(missLo)) { lo = mid; missLo = m; } else hi = mid;
-                    }
-                    heading = (lo + hi) / 2;
+                    // The first round looks wide (34 degrees each way, to a few thousandths of a degree); the later ones, with the
+                    // pace changed a little, only round where the last one ended.
+                    bool found = round == 0 ? Aim(straight, 0.6, 15, out double h) : Aim(heading, 0.08, 11, out h) || Aim(straight, 0.6, 15, out h);
+                    if (!found) break;   // keep the last
+                    heading = h;
                 }
                 // Pace: scale so it would roll ~40 cm past the hole.
                 var (_, toHole, total) = Trial(heading, speed);
                 if (total < 0.01) break;
                 double want = toHole + 0.4;
-                speed *= Math.Clamp(Math.Sqrt(want / total), 0.7, 1.4);
+                double scale = Math.Clamp(Math.Sqrt(want / total), 0.7, 1.4);
+                speed *= scale;
+                if (round >= 1 && Math.Abs(scale - 1) < 0.003) break;   // settled
             }
         }
-        _read = (Ball, heading, speed, ActivePhysics.Version);
+        _read = (Ball, HoleIndex, heading, speed, ActivePhysics.Version);
         return (heading, speed);
     }
 

@@ -232,6 +232,7 @@ public partial class Hud : Control
         BuildShotControls();
         BuildRangeView();
         BuildCourseView();
+        BuildPracticePanel();
         BuildMinimap();
         BuildTopBar();
         BuildDrawer();
@@ -247,6 +248,7 @@ public partial class Hud : Control
         MainMenu.SetMonitorStatus(ChipText(), _chipColor);
         Overlay = new MenuOverlay();
         AddChild(Overlay);
+        BuildPinResults();
         Players = new PlayersPanel();
         AddChild(Players);
         Alignment = new AlignmentPanel();
@@ -418,16 +420,16 @@ public partial class Hud : Control
     public HomePlayerPanel Home { get; private set; } = null!;
     public event Action? EditHomePressed;
 
-    /// <summary>Get More Courses, from New Game.</summary>
+    /// <summary>Get More Courses, from New Round.</summary>
     public CourseStorePanel Store { get; private set; } = null!;
 
     /// <summary>History, from the main menu: finished rounds and practice by day.</summary>
     public HistoryPanel History { get; private set; } = null!;
 
     /// <summary>A panel that takes all the input is open: the main menu, the in-game menu or a question, or the players panel.</summary>
-    public bool ModalOpen => MainMenu.IsOpen || Overlay.IsOpen || Players.IsOpen || Online.IsOpen || Alignment.IsOpen;
+    public bool ModalOpen => MainMenu.IsOpen || Overlay.IsOpen || PinResults.IsOpen || Players.IsOpen || Online.IsOpen || Alignment.IsOpen;
 
-    /// <summary>Play Online: hosting, joining and the lobby.</summary>
+    /// <summary>Online Round: hosting, joining and the lobby.</summary>
     public OnlinePanel Online { get; private set; } = null!;
 
     /// <summary>
@@ -532,6 +534,7 @@ public partial class Hud : Control
         // The wind sits under the map, at the same right edge.
         _wind.OffsetRight = _wind.OffsetLeft = -16;
         _wind.OffsetTop = _wind.OffsetBottom = _minimapFrame.OffsetBottom + 8;
+        LayoutPracticeSession();
     }
 
     private const string HitTip = "Hit the shot with this power, shape and spin  [Space]\nD: a random demo shot instead";
@@ -624,6 +627,7 @@ public partial class Hud : Control
     public void SetCourseMode(bool course)
     {
         _courseMode = course;
+        if (!course) { SetPracticeMode(false); SetPinMode(false); }
         _rangeView.Visible = !course;
         _courseView.Visible = course;
         if (!course)

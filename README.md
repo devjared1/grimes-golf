@@ -33,7 +33,10 @@ Built with Godot 4.7 (.NET) and C#. Windows only, because it talks to the monito
   [user guide](docs/user-guide.md#garmin-approach-r10) for pairing it.
 - **Other monitors through their GSPro connector**: it can stand in for GSPro's Open Connect server, so a Rapsodo
   MLM2PRO or any other monitor with a GSPro connector app sends its shots here (off by default, in Settings).
-- **No monitor needed to try it**: a power slider with draw / fade and spin choices hits shots from the screen.
+- **Practice greens**: a big putting green with six holes and a chipping green with four, bunkers and every lie, to
+  work on your short game: put the ball anywhere, aim at any hole, and see how your session is going.
+- **A launch monitor hits the shots**: without one you can browse the courses, aim and read greens, but nothing can be hit
+  from the screen.
 - **Real courses**: Deer Run (Moulton, AL), all 18 holes from OpenStreetMap, on 1 m lidar elevation, with its
   ~9,900 real trees at their measured height and spread.
 - **Own physics engine**: aerodynamic flight, wind, altitude and weather, bounce and roll by surface, slopes,
@@ -126,8 +129,9 @@ kept so existing data stays where it is). Updating or uninstalling doesn't touch
 2. Start Grimes Golf. It opens on the main menu and connects to the monitor by itself (the status card at the
    bottom of the menu shows when it's ready).
 3. Add the players in **Settings** (1-4, with names and left- or right-handed).
-4. Pick **Driving Range** to warm up, or **New Game** to choose a course and game, then **Start Round**.
-5. Hit the ball. With no monitor, set the power and press **HIT SHOT** (`Space`).
+4. Pick **Practice**, then **Range**, **Putting Green** or **Chipping Green**, to warm up, or **New Round** to choose a
+   course and game, then **Start Round**.
+5. Hit the ball. Until a monitor is connected the Ready light says "No launch monitor" and nothing can be hit.
 
 The [user guide](docs/user-guide.md) covers the course screen, game types, house rules, the controls for gamepad,
 numpad and clicker, and the physics tuner.
@@ -138,7 +142,7 @@ Friends at different houses play one round through a small relay server. The hos
 are sent each outcome with the whole match after it and animate that, so scores can't drift apart.
 
 **Status:** the relay, the networking and the game integration are built and tested in code, but not yet played
-between two houses. Until then **Play Online only appears in debug builds**, and the release build stays fully
+between two houses. Until then **Online Round only appears in debug builds**, and the release build stays fully
 offline. The design and progress are in the [online play plan](docs/online-play-plan.md).
 
 To try it now, deploy a relay ([guide](docs/deploying-the-relay.md)) or run one locally, then run two copies of the

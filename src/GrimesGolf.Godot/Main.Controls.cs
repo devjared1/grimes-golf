@@ -9,7 +9,8 @@ namespace GrimesGolf.Game;
 /// <list type="table">
 /// <item><term>Hit / next hole</term><description>Space, numpad 5 or Enter, gamepad A, clicker "next" (Page Down)</description></item>
 /// <item><term>Aim ¼° (course and range)</term><description>← →, numpad 4 6, D-pad left/right</description></item>
-/// <item><term>Range: next / previous target flag</term><description>F / Shift+F, gamepad Y</description></item>
+/// <item><term>Range: next / previous target flag; practice greens: the hole to the right / left</term><description>F / Shift+F, gamepad Y</description></item>
+/// <item><term>Practice greens: next / previous spot for the ball (once holed, the next ball), ball back on its spot</term><description>N / Shift+N, R</description></item>
 /// <item><term>Aim 2°</term><description>Shift + ← →, numpad 7 9, gamepad LB/RB</description></item>
 /// <item><term>Landing view on / off</term><description>Z, numpad 1, gamepad left stick click</description></item>
 /// <item><term>Power 1% / 5% (with a launch monitor: the aim 1 / 5 yd further or shorter)</term><description>↑ ↓, Shift + ↑ ↓</description></item>
@@ -144,7 +145,7 @@ public partial class Main
         }
         if (GetViewport().GuiGetFocusOwner() is LineEdit line)
         {
-            // New Game's player list: Esc / B still goes back a page from a name box.
+            // New Round's player list: Esc / B still goes back a page from a name box.
             if (CommandFor(e) is Command.Back && _hud.MainMenu.OnSubPage)
             {
                 line.ReleaseFocus();
@@ -172,6 +173,7 @@ public partial class Main
         else if (_hud.DrawerOpen) _hud.ToggleDrawer();
         else if (_hud.Players.IsOpen) _hud.Players.Close();
         else if (_hud.Overlay.IsOpen) _hud.Overlay.Close();
+        else if (_hud.PinResults.IsOpen) _hud.PinResults.Close();
         else if (_hud.MainMenu.OnSubPage) _hud.MainMenu.Back();
         else if (_hud.Online.IsOpen && !_hud.Online.InLobby) { _hud.Online.Close(); ShowMainMenu(); }
         else return false;
@@ -214,6 +216,12 @@ public partial class Main
             case Command.Tuner: _tuner.Toggle(); return true;
             // Only with the tuner open: a presenter clicker's "slideshow" button sends F5.
             case Command.Replay when _tuner.Visible: Replay(); return true;
+            // On a practice green, the scorecard and flag keys pick the hole to the right or left, and Shift+N goes back a spot.
+            case Command.Scorecard or Command.Flag when _practice != null: StepPracticeHole(1); return true;
+            case Command.FlagBack when _practice != null: StepPracticeHole(-1); return true;
+            case Command.PreviousCapturedShot when _practice != null: StepPracticeSpot(-1); return true;
+            // Closest to the Pin has standings where a round has a scorecard.
+            case Command.Scorecard when _pin != null: ShowPinResults(final: _pin.Game.Complete); return true;
             case Command.Scorecard when course: _hud.ToggleScorecard(); return true;
             // On the range, the scorecard and flag keys pick the target flag instead.
             case Command.Scorecard or Command.Flag when !course: CycleRangeTarget(1); return true;
@@ -231,9 +239,11 @@ public partial class Main
         }
     }
 
-    /// <summary>Everyone back to the tee of this hole.</summary>
+    /// <summary>Everyone back to the tee of this hole (practice: the ball back on the spot it started from; Closest to the Pin: nothing).</summary>
     private void RestartHole()
     {
+        if (_practice != null) { ReplacePracticeBall(); return; }
+        if (_pin != null) return;   // (Closest to the Pin: the menu's Restart Game starts it again)
         if (_match != null && _courseMode && _outcome == null) StartHole(_match.HoleIndex);
     }
 }

@@ -27,7 +27,8 @@ namespace GrimesGolf.Game;
 /// and <c>--screenshot=file.png</c> saves the window to a PNG (after <c>--screenshot-delay=seconds</c>, default 4, or
 /// once the demo shots have finished) and quits; <c>--monitor-drawer</c> opens the launch monitor drawer;
 /// <c>--settings</c> opens the settings; <c>--home-player</c> (<c>=clubs</c> with the club distances open) opens the home
-/// player panel; <c>--menu</c> opens the in-game menu; <c>--new-game</c> opens New Game;
+/// player panel; <c>--menu</c> opens the in-game menu; <c>--new-game</c> opens New Round; <c>--practice</c> opens Practice Options;
+/// <c>--putting-green</c> and <c>--chipping-green</c> start on a practice green (<c>Main.Practice.cs</c>);
 /// <c>--game=Scramble</c>, <c>--holes=Back9</c>, <c>--wind=Breezy</c> and <c>--weather=Wet</c> set up
 /// the round for this run; <c>--green-read</c> turns on the green
 /// heat map and grid; <c>--hit-at=t1,t2,…</c> presses HIT SHOT at those times (seconds after start); <c>--tuner</c>
@@ -105,6 +106,12 @@ public partial class Main : Node3D
         _hud.MulliganPressed += Mulligan;
         _hud.NewRoundPressed += () => ConfirmRestartGame();
         _hud.PlayerChipPressed += NextRangePlayer;
+        _hud.PracticeHolePressed += StepPracticeHole;
+        _hud.PracticeSpotPressed += step => StepPracticeSpot(step);
+        _hud.PracticePlacePressed += TogglePracticePlacing;
+        _hud.PracticeRandomPressed += () => RandomPracticeSpot();
+        _hud.PracticeAfterPressed += CyclePracticeAfter;
+        _hud.PracticeResetStatsPressed += ResetPracticeStats;
         _hud.MenuPressed += OpenGameMenu;
         _hud.Players.Applied += RegroupPlayers;
         _hud.Shot.Describe = DescribePower;
@@ -151,9 +158,18 @@ public partial class Main : Node3D
         if (args.Contains("--course")) { if (LoadCourse(resume: true)) EnterCourse(); }
         else if (!args.Contains("--range") && !devRun) ShowMainMenu();
         if (args.Contains("--new-game")) _hud.MainMenu.OpenCoursePage();
+        if (args.Contains("--practice")) _hud.MainMenu.OpenPracticePage();
+        if (args.Contains("--games")) _hud.MainMenu.OpenGamesPage();
+        if (args.Contains("--pin-setup")) _hud.MainMenu.OpenPinPage();
+        if (args.Contains("--closest-to-pin")) StartClosestToPin(DevPinSetup(args));
+        // --putting-green and --chipping-green go straight to a practice green (--practice-spot=N and --practice-hole=N put the ball on that spot and aim at that hole).
+        if (args.Contains("--putting-green")) StartPractice(PracticeKind.Putting);
+        else if (args.Contains("--chipping-green")) StartPractice(PracticeKind.Chipping);
+        if (_practice != null) PracticeDevSetup(args);
         if (_match != null && _courseMode && args.FirstOrDefault(a => a.StartsWith("--hole=")) is { } h && int.TryParse(h[7..], out int n) && n >= 2 && n <= _match.Holes.Count)
             StartHole(n - 1);
         if (args.Contains("--ball-by-tree")) PutBallByTree();
+        if (args.Contains("--ball-on-green")) PutBallOnGreen();
         UpdateInsets();
         if (!_noBluetooth || _fakeKind != null) SetupMonitor(forceAutoConnect: args.Contains("--autoconnect") || _fakeKind != null);
         SetupOpenConnect();
@@ -313,6 +329,7 @@ public partial class Main : Node3D
         if (_outcome != null && !_player.IsPlaying && _player.IdleSeconds > 1.0) FinishShot();
         if (_rangeResult != null && !_player.IsPlaying) FlushRangeResult();
         CountDownToNextHole(delta);
+        ProcessPractice(delta);
         _player.ShowGhost = _tuner.Visible && _tuner.ShowGhost;
         if (_replanIn >= 0 && (_replanIn -= delta) < 0 && _courseMode && _outcome == null) UpdateAim();
         _course?.ShowBallInGimme(_courseMode ? _player.BallPosition : null);   // green while the ball is inside it
@@ -332,8 +349,9 @@ public partial class Main : Node3D
         bool moving = _outcome != null || _player.IsPlaying;
         if (!moving && OnlineReady()) return;
         if (_camera.Flying) _hud.Shot.SetReady(false, "Flyover");
-        else if (_courseMode && _round is { Holed: true } && !moving) _hud.Shot.SetReady(false, "Hole finished");
+        else if (_courseMode && _round is { Holed: true } && !moving && _practice == null && _pin == null) _hud.Shot.SetReady(false, "Hole finished");   // (a practice ball just goes on to the next)
         else if (moving) _hud.Shot.SetReady(false, "Ball in play");
+        else if (!_monitorLive && !_screenShots && _capture == null) _hud.Shot.SetReady(false, "No launch monitor");
         else if (_monitorLive && !_ballReady)
             // (A GSPro connector on its own says whether it sees a ball, like a ball-sensing monitor.)
             _hud.Shot.SetReady(false, _session is not IBallSensingMonitor && !(_session == null && _connectorLive) ? _monitorNotReady

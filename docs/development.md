@@ -57,16 +57,24 @@ Switches go after `--` (for example `godot --path src/GrimesGolf.Godot -- --rang
 **For everyone:** `--autoconnect` connects even with auto-connect off, `--range` skips the main menu for the range,
 `--course` skips it for the course (the unfinished round, if there is one), `--hole=N` starts on hole N.
 
+**On-screen shots** (HIT SHOT, the power / shape / spin controls, `D` for a demo shot) exist only for development and testing: a
+released build never has them, and a debug build only with `--screen-shots`, or with a switch that hits shots by itself
+(`--demo-shots`, `--hit-at`, `--tune`) or stands in for a monitor (`--fake-monitor`, `--auto-play`). Without one of them,
+no shot can be hit unless a launch monitor (or a GSPro connector) sends it.
+
 **For development.** These runs skip the main menu and start on the range unless `--course` is given. Runs that hit
 shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save or resume anything.
 
 | Switch | What it does |
 |---|---|
+| `--screen-shots` | Turns on the on-screen shot controls and `D` (see above), for driving the game by hand without a monitor |
 | `--demo-shots=N` | Hits N demo shots |
 | `--hit-at=2,8.5` | Presses HIT SHOT at those times (seconds after start) |
 | `--screenshot=file.png` | Saves the window and quits (after `--screenshot-delay=seconds`, default 4, or once the demo shots finish) |
-| `--monitor-drawer`, `--settings`, `--menu`, `--new-game`, `--scorecard` | Opens that screen (the scorecard just before the screenshot) |
+| `--monitor-drawer`, `--settings`, `--menu`, `--new-game`, `--practice`, `--games`, `--pin-setup`, `--scorecard` | Opens that screen (`--new-game` is New Round, `--practice` Practice Options, `--games` the Games page, `--pin-setup` Closest to the Pin's setup; the scorecard just before the screenshot) |
+| `--closest-to-pin` | Starts a Closest to the Pin game on the first course's first par 3. With it: `--pin-players=N` (1-6, default 3), `--pin-shots=N` (default 2) and `--pin-row` (all shots in a row); `--demo-shots=N` then plays N shots |
 | `--history`, `--history=practice` | Opens History on the Rounds (or Practice) tab |
+| `--putting-green`, `--chipping-green` | Starts on that practice green. With them: `--practice-spot=N` and `--practice-hole=N` (from 1) put the ball on that spot and aim at that hole, and `--practice-ball=X,Z` puts it at that point (metres from the middle of the green, X toward the back; `--demo-shots=1` then putts or chips it) |
 | `--home-player`, `--home-player=clubs` | Opens the home player panel (with the club distances open). It's otherwise only asked for on a normal run with no player saved |
 | `--monitor-ui` | Uses the layout and status for a connected monitor (no on-screen shot controls, lie card in the shot panel, leaderboard, "Ready — hit!" at 85% battery), to check it without one |
 | `--ball=-40,-30,-33,ready`, `--stick=1.5`, `--aligned=1.2` | With `--monitor-ui`: shows the ball position panel with this ball (mm; the panel is hidden for now, see `ShowBallZone` in `Hud.Course.cs`), the alignment panel with this reading, or this alignment as already set |
@@ -74,7 +82,8 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 | `--players=Ann,Bob,Cat:L` | Players for this run (`:L` = left-handed) |
 | `--text-size=Large`, `--graphics=Ultra` | Display settings for this run |
 | `--game=Scramble`, `--holes=Back9`, `--wind=Breezy`, `--weather=Wet` | Game setup for this run (game: Stroke, Scramble, BestBall, MatchPlay) |
-| `--green-read` | Turns on the green heat map and grid |
+| `--green-read` | Turns on the green heat map and grid (the grid is on by default; this adds the heat map) |
+| `--ball-on-green` | Puts the ball 6 m short of the pin (needs `--course`), to check the flag, the grid and the putting view |
 | `--landing-view` | Presses Zoom just before the screenshot, to check how the landing ring looks |
 | `--ball-closeup` | Holds the camera right beside the ball, to check how it looks (with `--graphics=Medium`: High and Ultra blur anything this near) |
 | `--tuner`, `--tuner-tab=Lies` | Opens the physics tuner (the screenshot also saves it as `file-tuner.png`), on a tab (`Flight`, `Lies`, or a surface such as `Green`) |
@@ -245,7 +254,7 @@ Developer account: `.github/workflows/ios-release.yml` makes it, by hand only, a
 
 What differs from the Windows build:
 
-- **Bluetooth is CoreBluetooth, for Squares only so far.** `GrimesGolf.Bluetooth` has a `Windows/` folder (WinRT,
+- **Bluetooth is CoreBluetooth, for Squares and the Garmin R10.** `GrimesGolf.Bluetooth` has a `Windows/` folder (WinRT,
   built only for the Windows target) and an `Apple/` folder (the plain .NET target, which the iPad build uses). The
   Apple one calls `Apple/Native/gg_ble.m`, a small Objective-C wrapper of CoreBluetooth that `tools/ios-native.sh`
   builds into a `libggble.a` for each runtime (Godot builds the game's code for the iPad and both simulators).
@@ -253,8 +262,10 @@ What differs from the Windows build:
   library as a `NativeLibrary`; the C# reaches the functions by platform invoke to `__Internal`, made a
   `DirectPInvoke` so NativeAOT links it directly. (Godot's export says "completed with warnings" even when building
   the game's code failed, and the app is then built without the game: the script stops on any build error it logged.) iOS never shows a Bluetooth address, so a Square's "address" is made from the first six bytes of its
-  identifier, which is stable. The Garmin R10 isn't supported on the iPad (`R10Session` is portable: it needs an
-  `IR10Link` over the same wrapper). The game's project file targets plain .NET for any platform but Windows. Keep
+  identifier, which is stable. The Garmin R10 has its own link over the same wrapper
+  (`Apple/AppleR10Link.cs`, an `IR10Link` for the portable `R10Session`): it asks the wrapper to find every service and
+  characteristic (`gg_ble_connect_all`), then subscribes and writes by characteristic. It has never been run against
+  a real R10, and the Objective-C side has only been built by the macOS check in `ios.yml`. The game's project file targets plain .NET for any platform but Windows. Keep
   its `TargetFramework` condition as `!= 'windows'`: the Godot editor tidies the file when it opens the project, and
   deletes one written as `== 'windows'` or `== 'ios'`.
 - **Compiled ahead of time.** Godot builds C# for iOS with NativeAOT, which trims code that looks unused and can't
@@ -299,11 +310,19 @@ defines `GG_BLUETOOTH`, and `GG_IOS` for the iPad) and not at all elsewhere (see
 The Godot code is split by topic: `Main.cs` (set-up, the "shot finished" event, saving shots), `Main.Monitor.cs`
 (Bluetooth, choosing the monitor, auto-connect and reconnecting), `Main.Shots.cs` (shots and the range), `Main.Course.cs` (rounds and
 turns), `Main.Menus.cs` (main menu and in-game menu), `Main.Controls.cs` (keyboard, numpad, gamepad and clicker),
-`Main.Settings.cs`, `Main.DevTools.cs`; and `Hud.cs` (top bar, banner, toasts) with `Hud.Drawer.cs`, `Hud.Range.cs`,
-`Hud.Course.cs`, `MainMenu.cs`, `MenuOverlay.cs`, `ShotControls.cs`, `MapOverlay.cs`, `OnlinePanel.cs`,
+`Main.Settings.cs`, `Main.DevTools.cs`, `Main.Practice.cs` (the putting and chipping greens), `Main.ClosestToPin.cs` (Closest to the Pin); and `Hud.cs` (top bar, banner, toasts) with `Hud.Drawer.cs`, `Hud.Range.cs`,
+`Hud.Course.cs`, `Hud.Practice.cs`, `Hud.ClosestToPin.cs`, `PinResultsPanel.cs`, `MainMenu.cs` (with `MainMenu.Setup.cs` for New Round and `MainMenu.Games.cs` for Games), `MenuOverlay.cs`, `ShotControls.cs`, `MapOverlay.cs`, `OnlinePanel.cs`,
 `SettingsPanel.cs`, `HomePlayerPanel.cs`, `GuestListEditor.cs`, `PlayersPanel.cs`, and `Main.CourseStore.cs` with
 `CourseStorePanel.cs` (Get More Courses and the update check).
-Multiplayer turn order lives in `GrimesGolf.Core/Course/Match.cs`.
+Multiplayer turn order lives in `GrimesGolf.Core/Course/Match.cs`. The practice greens are made in
+`GrimesGolf.Core/Course/PracticeGreens.cs`: each is an ordinary `Course` (one `Hole` per cup, all sharing the green,
+over a synthetic `Terrain`) with a spot list and the session's `PracticeStats`, so they're unit-tested without the game
+(`tests/GrimesGolf.Tests/PracticeGreenTests.cs`) and played by the same code as a round.
+Closest to the Pin's rules are in `GrimesGolf.Core/Course/ClosestToPin.cs` (`ClosestToPinGame`: the shot order, standings and tiebreaks;
+`TeeBoxes`: a hole's tee boxes from the tee areas mapped round it, and the hole as played from one; `ClosestToPinSetup`, which
+is kept in `settings.json`), tested in `tests/GrimesGolf.Tests/ClosestToPinTests.cs`. In the game each player has a one-hole
+`Match` of their own that goes back to the tee for every shot, with strict house rules (no gimmes), and the round that was
+loaded waits on the same shelf practice uses.
 
 Online play is `Main.Online.cs` (the game side) and `OnlinePanel.cs` (the lobby); the networking is in
 `src/GrimesGolf.Online` and the server in `src/GrimesGolf.Relay`.
@@ -389,5 +408,5 @@ godot --path src/GrimesGolf.Godot -- --relay=ws://127.0.0.1:5080/ws --data=user:
 godot --path src/GrimesGolf.Godot -- --relay=ws://127.0.0.1:5080/ws --data=user://friend --no-bluetooth --fake-monitor --auto-play
 ```
 
-In the first, pick Play Online and Host a Lobby; in the second, Join with the code it shows. Plain `ws://` is only
+In the first, pick Online Round and Host a Lobby; in the second, Join with the code it shows. Plain `ws://` is only
 accepted for a relay on this machine or the local network, or in a debug build; real relays use `wss://`.

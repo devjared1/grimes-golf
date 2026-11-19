@@ -10,6 +10,8 @@ needs, see the [README](../README.md).
 - [Hitting shots](#hitting-shots)
 - [Camera](#camera)
 - [Driving range](#driving-range)
+- [Practice greens](#practice-greens)
+- [Games](#games) ([Closest to the Pin](#closest-to-the-pin))
 - [Playing a course](#playing-a-course)
 - [Game setup](#game-setup)
 - [Wind](#wind)
@@ -133,11 +135,16 @@ a connector to hand, `tools\send-openconnect-shot.ps1` sends a test shot the sam
 
 ## Main menu and in-game menu
 
-**Main menu** (where the app opens, under the Grimes Golf Simulator logo): **New Game** (a list of courses with
+**Main menu** (where the app opens, under the Grimes Golf Simulator logo): a list of buttons down the left, each with an icon, for **Resume Round**
+(shown when a round is unfinished, with its course, game, hole and players), **New Round** (a list of courses with
 their holes, par, length and a short description, and the **Player List** on the right, where changes apply straight
-away: **Add** picks a saved guest or adds a new player, with **Game Setup**, below, under it; then **Start Round**), **Resume Game** (shown when a round is unfinished, with its course, game, hole and players), **Driving
-Range**, **History** (below), **Settings** and **Quit**, plus the
-launch monitor's status (with a button for the monitor drawer) and the version. New Game and Resume Game show a
+away: **Add** picks a saved guest or adds a new player, with **Game Setup**, below, under it; then **Start Round**),
+**Practice**, **Games** (below), **Online Round** (while online play is still in testing, only in debug builds), **History** (below) and
+**Settings**. **Practice** opens **Practice Options**: **Range** (the driving range), the **Putting Green** and the
+**Chipping Green** (see [Practice greens](#practice-greens); **Back**, bottom left, or Esc returns). **Quit** is at the
+bottom left of the main menu. At the bottom right, the launch monitor's status, with a button for the monitor drawer
+("Connection…", which reads "Connected" once a monitor is, with the card's border turned green); the version is under
+the logo. New Round and Resume Round show a
 **loading screen** (the logo, the course's logo and what's being loaded) while the course map, elevation and 3D
 world are built.
 
@@ -156,18 +163,17 @@ for the next player), the launch monitor status (ready state and battery; click 
 
 **In-game menu**: on a course, Scorecard, Settings, Previous Hole, Next Hole, Restart Hole, Add / Remove Players
 (players can join on the current hole, where they start from the tee and earlier holes don't count for them, or
-leave), Restart Game and End Game (keep the round for Resume Game, or discard it); on the range, Settings, Clear
+leave), Restart Game and End Game (keep the round for Resume Round, or discard it); on the range, Settings, Clear
 Session and Main Menu. Both have the camera mode, the launch monitor drawer and the physics tuner.
 
 ## Hitting shots
 
-**Hitting from the screen** (no monitor needed): a **power** slider (1-100% of the club's full carry; for the
-putter, of the roll shown beside it), **shape** (Draw / Straight / Fade: starts right and curves back left for a
-right-hander, or the opposite) and **spin** (Low / Medium / High: lower flight with more roll, or higher with more
-stopping), then **HIT SHOT** (`Space`). On a course the power is set for each new shot (the distance it plays, from
-that lie; putts get the pace from the green read) and can be changed (`↑ / ↓`, Shift = 5%). Shape and spin go
-back to Straight and Medium after every shot. These controls go away while a monitor is connected, and come back
-if it drops.
+**Shots are hit by a launch monitor only.** There is no way to hit one from the screen: with no monitor connected
+the Ready light says "No launch monitor", and `Space` just says to connect one. You can still look round, aim
+(`← / →`, the map), pick clubs, read greens, and move on to the next hole or ball. (The on-screen power, shape and spin
+controls, HIT SHOT and the `D` demo shot are kept for development and testing runs of a debug build; see
+[Development](development.md#command-line-switches). Replaying a recorded capture on the range still has its own
+HIT SHOT.) On a course the distance the shot plays, and `↑ / ↓` (Shift = 5 yd), set where the aim line ends.
 
 **Results wait for the ball**: the shot's numbers (range) and the result card, the next shot's distance, lie and
 club (course) only appear once the ball has stopped.
@@ -189,9 +195,85 @@ and the minimap shows where the shot is aimed and how far the power set carries 
 spin, spin axis, descent, offline, roll and hang time. The right column has the session history and a per-club
 summary (average carry and total, offline spread).
 
+## Practice greens
+
+**Practice** on the main menu has two made-up greens to work on your short game. They are played like a round, with the
+same course screen, lie card, green read, heat map and grid, but there's no scoring and no tee: you put the ball where
+you want it, aim at whichever hole you like, and hit as many balls as you like. A practice never touches the round you
+have unfinished (Resume Round still finds it), and the shots are saved with the other shots in History under the green's
+name. Greens play at the green speed, fairway speed and firmness in Game Setup, in calm weather.
+
+**Putting Green**: a big green (about 120 ft by 75 ft) with six holes, each with a short flagstick, over contours that
+break putts (a mound and a hollow in the middle and a gentle fall to the front right, up to about 4% at its steepest).
+There are eleven spots to put the ball on, from Front left to Back right, and a ball that isn't holed is putted on from
+where it stopped, as it would be on the course.
+
+**Chipping Green**: a kidney-shaped green on a low plateau, with four holes and standard flagsticks, a bunker at the
+front left and one at the back right, a short fairway running up to the front and rough all round. Ten spots to chip,
+pitch or blast from: the front and back fringe, a short fairway lie and a 30-yd one, rough on each side, deep rough, and
+both bunkers. The green slopes back to front, so shots from the front play uphill and from behind, downhill.
+
+The panel under the hole badge picks what to aim at and where the ball is:
+
+- **Hole**: **‹ ›** aim at the hole to the left or right of the one you're aiming at (`F` / `Shift+F`, gamepad Y), seen
+  from the ball. You can also click a hole's number on the overview map. The ball stays where it is, and the aim
+  and putt read follow the new hole. `←` / `→` still nudge the aim a little either side of it.
+- **Ball**: **‹ ›** put the ball on the previous or next spot (`Shift+N` / `N`); **Random** picks another one;
+  **Place on map** then a click (or drag) on the overview map puts it anywhere that's allowed (on the putting green, the
+  green or its fringe; on the chipping green, anywhere there's ground). `R` puts the ball back on the spot it started from.
+- **Retry putt / Retry shot** (under the hole badge, `U`, gamepad X): puts the ball back where it was before the last shot
+  and takes the shot out of the session's numbers, as many times as you like. The shot itself stays in your saved shots.
+- **After a hole-out**: what happens to a ball once it's holed (the badge and result line say how, e.g. "Holed! One putt
+  from 12 ft"; a miss says how far past or short and to which side): the **next spot** (the default), a **random spot**,
+  the **same spot**, or **wait for me** (`Space` or `N`). Unless it waits, the next ball goes down after 3 seconds, and
+  with a launch monitor it goes down when you hit, so you can keep hitting without touching anything.
+
+**This session** (top right, under the overview map) counts the balls holed this visit: on the putting green, the 1-putts
+(and the share of balls they were), 3-putts, putts per hole and the longest 1-putt; on the chipping green, up and downs
+(holed in two strokes or fewer), chip-ins, the average distance the first stroke left the ball from the hole, and strokes
+per ball. **Reset** clears them; leaving the green does too.
+
+## Games
+
+**Games** on the main menu lists the party games. **Closest to the Pin** is playable; **Long Drive** and **Putt Putt** are
+listed as coming soon. **Back** or Esc returns to the menu (from a game's setup, to the list of games).
+
+### Closest to the Pin
+
+Up to six players hit at the same par 3 and the closest shot to the pin wins. Pick **Closest to the Pin** and set it up
+(what you pick is remembered for next time):
+
+- **Course**, **Par 3** and **Tee box**: any par 3 on any course on the PC, including downloaded ones. A course has no
+  named tees, so the tee boxes are the ones drawn on its map for that hole, listed longest first with their yardage
+  (**Back**, **Middle**, **Front**, or **Tee 2**, **Tee 3**... when a hole has many).
+- **Players (up to 6)**: the same list as New Round's (Add picks a saved player or adds a new one, **Left-handed**), but
+  its own: changing it doesn't change the players of your next round.
+- **Shots each**: from 1 to 10.
+- **Shot order**: **Take turns** (everyone hits once, then round again) or **All in a row** (a player hits all their shots,
+  then the next player). A single player always plays all in a row.
+- **Environment** and **Course**: wind, altitude, weather, fairway speed, green firmness and green speed, as in
+  [Game setup](#game-setup). The wind is the same for every player and every shot.
+
+**Start Game** loads the course and flies over the hole; then the first player is up. The ball is always on the tee. It's
+played like a round, with the same course screen, lie card and aim, but there's no scoring by strokes and nothing is taken
+back: every shot counts, and you can't mulligan. The hole badge shows the player's shot number ("2 of 3") and their closest
+shot so far, and the leaderboard (always on screen) lists everyone best first with their closest shot and how many shots
+they've had. With a launch monitor, the monitor switches to each player's hand and club as they come up.
+
+After each shot the result line says how far the ball finished from the pin ("12 ft 3 in", or yards from 20 yd out), and
+who leads. The next player goes on the tee after 5 seconds, or at once on **Space** / **N** / the NEXT PLAYER button, or as
+soon as the next shot is hit. A ball in the water or out of bounds has no distance and can't win (a player whose shots all
+miss comes last); a ball holed is distance 0 and wins. A tie on the closest shot goes to the player with the next-closest
+shot, then the next, and so on; players who can't be told apart tie for the lead.
+
+After the last shot the standings come up with everyone's shots and the winner, with **Play Again** (same players, hole and
+tee) and **Main Menu**. **S** (gamepad Y) or **Menu > Standings** shows them during the game. **Menu > Restart Game** starts
+again; **End Game** goes back to the main menu. Like practice, the game never touches the round you have unfinished
+(Resume Round still finds it), and its shots are saved with the other shots in History under the course's name.
+
 ## Playing a course
 
-Pick a course with **New Game**:
+Pick a course with **New Round**:
 
 - **Deer Run (Moulton, AL)**, all 18 holes imported from OpenStreetMap: real routing, hole lengths and pars,
   dog-legs, tee, green and bunker shapes, with the course property line as out of bounds. Fairways are mapped for
@@ -199,7 +281,7 @@ Pick a course with **New Game**:
   they stand and as tall and wide as they are, measured from lidar.
 
 **Get More Courses** on that screen lists the courses you can download, with their holes, par, length and download
-size. Press **Download** and the course joins the New Game list; **Update** appears when a newer version of one is
+size. Press **Download** and the course joins the New Round list; **Update** appears when a newer version of one is
 published, and **Remove** deletes a downloaded course. It needs the internet only while you're using it. A course
 you've downloaded plays offline like any other. To play a course online, everyone needs the same version of it.
 
@@ -213,9 +295,9 @@ spin and spin axis) as soon as it's struck, then its result (carry, total, offli
 distance left) once the ball stops. Bottom left,
 the lie card: the lie, the side and up / down slope angles, and the shot penalty (how much shorter the club
 carries from there than from a clean, level lie); on the green, the green read with the flag, heat map and grid
-buttons instead. Bottom right, the shot panel: distance to the pin with the rise or fall to it ("153 yds", "up 2'",
-and what it plays), the club (its tooltip gives the carry from here), the aim, power, shape, spin and HIT SHOT.
-With a monitor connected the swing does that work: the shot panel holds the distance, the club and the lie card,
+buttons instead (the grid starts on; press **G** or the Grid button to hide it). Bottom right, the shot panel: distance to the pin with the rise or fall to it ("153 yds", "up 2'",
+and what it plays), the club (its tooltip gives the carry from here) and the aim.
+The swing does the rest, and with a monitor connected: the shot panel holds the distance, the club and the lie card,
 and with more than one player a small leaderboard takes the bottom left. The aim line then runs out to the club's
 carry from this lie (your club distances, or the typical ones), whatever the distance to the pin; `↑ / ↓` move it a
 yard further or shorter (Shift = 5 yd). Aim with `← / →` or by clicking the map.
@@ -227,7 +309,7 @@ everyone has finished a hole the next one starts by itself after 5 seconds (coun
 
 ## Game setup
 
-**Game Setup** (on New Game, under the Player List; it scrolls if large text leaves it too little room; every choice is a row of buttons, so a gamepad picks each with one press,
+**Game Setup** (on New Round, under the Player List; it scrolls if large text leaves it too little room; every choice is a row of buttons, so a gamepad picks each with one press,
 and the last setup is remembered):
 - **Game type**: **Stroke Play**; **Scramble** (everyone in a team hits from the same spot, the best shot is picked
   for them: holed first, then fewest strokes, then nearest the pin from the better lie, and the whole team plays
@@ -246,7 +328,7 @@ and the last setup is remembered):
   approach shots check or release) and green speed (stimp 8-13).
 
 The conditions are applied on top of the physics tuning while a round is played (the tuner still shows and saves
-its own values; the range plays them as tuned), and are saved with the round, so Resume Game carries on with the
+its own values; the range plays them as tuned), and are saved with the round, so Resume Round carries on with the
 same game, holes and weather. The in-game menu shows them under its title.
 
 ## Wind
@@ -308,7 +390,7 @@ circle, 2 inside a second circle twice as wide, drawn too, and 2 or 3 beyond it;
 default is 2 mulligans, a 6 ft gimme circle and double-par pick-up, with both putting aids off. Player and rule
 changes apply from the next round ("Save and start a new round" starts one now).
 
-**The round is saved after every shot.** If the app is closed or crashes, **Resume Game** on the main menu
+**The round is saved after every shot.** If the app is closed or crashes, **Resume Round** on the main menu
 carries on with it, with the same players. **Restart Game** in the menu (or **New round** on the scorecard)
 starts again.
 
@@ -323,8 +405,8 @@ distances. Edit all of this from **Settings**.
 
 **Saved guests** (Settings): friends you play with often, kept after the app closes (name and hand only). Add one
 with **+ New guest**, or **Save** on their row in the players list; press **Save** at the bottom of Settings to keep
-the change (**Save** on a row of New Game's Player List keeps them at once). The app still starts with just the home
-player: put a guest in the round with **Add** on New Game's Player List, or **+ Saved player** in Settings or under
+the change (**Save** on a row of New Round's Player List keeps them at once). The app still starts with just the home
+player: put a guest in the round with **Add** on New Round's Player List, or **+ Saved player** in Settings or under
 Add / Remove Players during a round. A player you don't save lasts until the app closes.
 
 **Settings** (main menu, the in-game menu, numpad `*` or gamepad Back): the home player, players (1-4, name and left-handed),
@@ -343,22 +425,23 @@ compact layout when large text leaves less room.
 
 | Action | Keyboard | Numpad | Gamepad | Clicker |
 |---|---|---|---|---|
-| HIT SHOT; after the hole, next hole | **Space** | 5 / Enter | A | Next (Page Down) |
+| After the hole, next hole; Closest to the Pin: next player (a development run's HIT SHOT) | **Space** | 5 / Enter | A | Next (Page Down) |
 | Power 1% / 5% (with a monitor: aim 1 / 5 yd further or shorter) | **↑ / ↓**, Shift + ↑ / ↓ | | | |
 | Aim ¼° (course and range) | **← / →** | 4 / 6 | D-pad ← / → | |
-| Range: next / previous target flag | **F** / **Shift + F** | | Y | |
+| Range: next / previous target flag. Practice greens: the hole to the right / left | **F** / **Shift + F** | | Y | |
+| Practice greens: next / previous spot for the ball (after a hole-out, the next ball); ball back on its spot | **N** / **Shift + N**; **R** | + | | |
 | Skip the hole flyover | **Space**, **Esc** | 5 / Enter | A, B | Next (Page Down) |
 | Aim 2° | **Shift + ← / →** | 7 / 9 | LB / RB | |
 | Landing view on / off (before a shot) | **Z** | 1 | Left stick click | |
 | Club longer / shorter | | 8 / 2 | D-pad ↑ / ↓ | Shift + Page Up / Down |
-| Mulligan (house rules) | **U** | 0 | X | |
-| Scorecard (course) | **S** | . | Y | Back (Page Up) |
+| Mulligan (house rules); practice greens: retry the shot | **U** | 0 | X | |
+| Scorecard (course); Closest to the Pin: the standings | **S** | . | Y | Back (Page Up) |
 | Next hole | **N** | + | | |
 | Menu | **M**, **Esc** | | Start | |
 | Camera: follow the ball / stay behind it | **C** | − | Right stick click | |
 | Settings | | * | Back / Select | |
 | Close / cancel | **Esc** | / | B | |
-| Random demo shot (after holing out, next hole) | **D** | | | |
+| After holing out, next hole (development runs: a random demo shot) | **D** | | | |
 | Launch monitor drawer | **L** | | | |
 | Physics tuner window | **T** | | | |
 | Replay the last shot with the current physics (tuner open) | **F5** | | | |
@@ -408,24 +491,23 @@ Online play is in development and only appears in debug builds for now (see the
 
 1. Everyone connects their launch monitor (a Square Golf Omni or a Garmin R10) first: the round can't start until
    every PC's monitor is live.
-2. The **host** picks **Play Online**, enters the relay's address (it's remembered) and picks **Host a Lobby**. The
+2. The **host** picks **Online Round**, enters the relay's address (it's remembered) and picks **Host a Lobby**. The
    lobby shows a 5-character code to give to the others.
-3. Each **guest** picks **Play Online**, enters the same relay address and the code, and picks **Join**. Their
+3. Each **guest** picks **Online Round**, enters the same relay address and the code, and picks **Join**. Their
    players (from their own Settings) appear in the host's lobby.
 4. The host picks the course and can move players up the list: the seat order is the teeing order, and with teams
-   players 1 and 2 play 3 and 4. The game, holes and conditions are the ones last chosen under New Game, and the
+   players 1 and 2 play 3 and 4. The game, holes and conditions are the ones last chosen under New Round, and the
    house rules come from the host's Settings.
 5. The host picks **Start the Round** once everyone is connected with a live monitor.
 
 During the round only the PC whose player is up can hit; a ball hit on any other monitor doesn't count, and a
-message says whose turn it is. Everyone sees every shot, the aim of the player up, and the same scorecard. HIT SHOT,
-demo shots, the physics tuner, replays and jumping between holes are off.
+message says whose turn it is. Everyone sees every shot, the aim of the player up, and the same scorecard. Demo shots, the physics tuner, replays and jumping between holes are off.
 
 - **A guest drops out:** if their turn comes, there's a 60-second countdown (the host can skip sooner), then their
   players are skipped and pick up each hole (double par, or the strokes already taken if more) until they're back.
   A launch monitor that disconnects gets 120 seconds.
 - **The host drops out:** the guests wait, with a banner; after 2 minutes they're offered the main menu, with their
   scorecard kept.
-- **Pausing:** the host can pause the round from the menu and carry it on later from Play Online (within 12 hours);
+- **Pausing:** the host can pause the round from the menu and carry it on later from Online Round (within 12 hours);
   guests get a **Rejoin** button.
 - Each PC keeps its own players' shots, and every PC files the scorecard when the round ends.

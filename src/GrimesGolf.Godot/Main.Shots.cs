@@ -137,8 +137,15 @@ public partial class Main
 
     private bool Putter => _hud.ClubCode == "PT";
 
+    /// <summary>
+    /// Whether a shot can be hit from the screen (HIT SHOT, the power slider, the D demo shot) rather than only by a launch
+    /// monitor. Never in a released build; in a debug build only for development and testing runs (see <see cref="SetupDevTools"/>).
+    /// </summary>
+    private bool _screenShots;
+
     private void Demo()
     {
+        if (!_screenShots) return;   // (nothing is hit without a launch monitor)
         if (!_courseMode)
         {
             ShowShot(Putter ? Caddie.DemoShot(_hud.Club, 6, Lie.Green, _rng) : RangeShot.Demo(_hud.Club, _rng));
@@ -173,13 +180,14 @@ public partial class Main
         if (_courseMode)
         {
             if (_round == null) return;
-            if (_round.Holed) { if (_outcome == null) NextHole(); return; }
+            if (_round.Holed || _pin is { Pending: true }) { if (_outcome == null) NextHole(); return; }
             if (_outcome != null || _player.IsPlaying) return;   // wait for the ball to stop
         }
         // With a monitor a real ball is hit, as it always is online (development runs' fake monitor stands in with the swing on screen,
         // and a fake R10 or Square "hits" the shot set up).
         if (HitWithFakeMonitor()) return;
         if (_monitorLive || (_online != null && _courseMode && !_fakeMonitor)) { _hud.Toast("Hit on your launch monitor", UiTheme.Ink); return; }
+        if (!_screenShots) { _hud.Toast("Connect a launch monitor to hit shots", UiTheme.Warn); return; }
         var swing = _hud.Shot.Swing;
         var lie = _courseMode && _round != null ? _round.Lie : Lie.Green;
         var shot = Putter ? Caddie.SwingPutt(swing, _puttScale, lie) : Caddie.SwingShot(_hud.Club, swing, _hud.LeftHanded, KnownYards);

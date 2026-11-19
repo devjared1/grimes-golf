@@ -4,18 +4,21 @@ using GrimesGolf.Core.Course;
 
 namespace GrimesGolf.Game;
 
-/// <summary>A course in the New Game list.</summary>
+/// <summary>A course in the New Round list.</summary>
 public sealed record CourseCard(string Name, string Description);
 
 /// <summary>
-/// The screen the app opens on: New Game (pick a course, the players and the Game Setup, <c>MainMenu.Setup.cs</c>, and
-/// start a round), Resume Game (when a round is unfinished), Driving Range, History, Settings and Quit, with the launch monitor's
-/// status and the version. The range is visible behind it. Works with a mouse, keyboard or gamepad (arrows / D-pad move,
-/// Enter / A picks, Esc / B goes back from New Game).
+/// The screen the app opens on: a list of buttons down the left, for Resume Round (when a round is unfinished), New Round (pick a course,
+/// the players and the Game Setup, <c>MainMenu.Setup.cs</c>, and start a round), Practice (the Practice Options page:
+/// the Range, the Putting Green and the Chipping Green), Online Round, History and Settings; Quit at the bottom left and
+/// the launch monitor's status at the bottom right, with the version under the logo. The range is visible behind it.
+/// Works with a mouse, keyboard or gamepad (arrows / D-pad move, Enter / A picks, Esc / B goes back from a page).
 /// </summary>
 public partial class MainMenu : Control
 {
     public event Action? ResumePressed, RangePressed, HistoryPressed, SettingsPressed, QuitPressed, MonitorPressed, OnlinePressed;
+    /// <summary>A practice green was picked on Practice Options.</summary>
+    public event Action<PracticeKind>? PracticePressed;
     /// <summary>Start a new round on this course, set up like this.</summary>
     public event Action<int, GameSetup>? StartCourse;
     /// <summary>The course list wants this course's stats (answer with <see cref="SetCourseStats"/>).</summary>
@@ -26,16 +29,32 @@ public partial class MainMenu : Control
     /// <summary>Save was pressed on a row of the player list.</summary>
     public event Action<Golfer>? GuestSaved;
 
-    private VBoxContainer _column = null!, _home = null!, _courses = null!, _courseList = null!;
+    // The pages: the home page (the cards) and Practice Options share one layout (_homePage); New Round has its own (_columnMargin
+    // with the course list, and _newGameRight). The logo block and the monitor card are moved to whichever page is showing.
+    private VBoxContainer _column = null!, _courses = null!, _courseList = null!, _header = null!;
+    private MarginContainer _columnMargin = null!, _homePage = null!;
+    private VBoxContainer _homeTop = null!, _homeBody = null!, _practiceBody = null!;
+    private HBoxContainer _homeBottom = null!;
+    private Control _cardStash = null!;
+    private TextureRect _shade = null!;
+    private GlyphButton _quit = null!, _back = null!;
     private ScrollContainer _courseScroll = null!;
-    private Button _update = null!;
+    private Button _update = null!, _start = null!;
     private string? _updatePage;
-    private Button _newGame = null!, _resume = null!, _start = null!, _online = null!;
+    private MenuCard _newGame = null!, _resume = null!, _online = null!, _practice = null!, _range = null!;
+    private readonly List<MenuCard> _homeCards = new();
 
-    /// <summary>Shows Play Online (only in development builds until it has been tried between two houses).</summary>
-    public void SetOnlineAvailable(bool available) => _online.Visible = available;
-    private Label _resumeNote = null!, _monitorText = null!, _courseName = null!, _courseDescription = null!, _courseStats = null!;
-    private PanelContainer _monitorCard = null!;
+    /// <summary>Shows Online Round (only in development builds until it has been tried between two houses).</summary>
+    public void SetOnlineAvailable(bool available)
+    {
+        _online.Visible = available;
+        ArrangeCards(_homeBody, _homeCards);
+    }
+    private Label _monitorText = null!, _courseName = null!, _courseDescription = null!, _courseStats = null!;
+    private PanelContainer _monitorCard = null!, _monitorDot = null!;
+    private Button _monitorDetails = null!;
+    private bool _monitorConnected;
+    private Color _monitorAccent = UiTheme.Muted;
     private VBoxContainer _newGameRight = null!;
     private PlayerListEditor _playerList = null!;
     private readonly List<Button> _courseButtons = new();
@@ -51,9 +70,12 @@ public partial class MainMenu : Control
         MouseFilter = MouseFilterEnum.Stop;
 
         // Dark on the left, fading out over the range on the right.
-        var shade = new TextureRect { Texture = Fade(), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, MouseFilter = MouseFilterEnum.Ignore };
-        shade.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        AddChild(shade);
+        _shade = new TextureRect { Texture = Fade(), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.Scale, MouseFilter = MouseFilterEnum.Ignore };
+        _shade.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        AddChild(_shade);
+        // Buttons that aren't shown (no round to resume, no online play) wait here.
+        _cardStash = new Control { Visible = false };
+        AddChild(_cardStash);
 
         var margin = new MarginContainer();
         margin.SetAnchorsAndOffsetsPreset(LayoutPreset.LeftWide);
@@ -62,6 +84,7 @@ public partial class MainMenu : Control
         margin.AddThemeConstantOverride("margin_top", 36);
         margin.AddThemeConstantOverride("margin_bottom", 40);
         AddChild(margin);
+        _columnMargin = margin;
         var column = new VBoxContainer();
         column.AddThemeConstantOverride("separation", 10);
         margin.AddChild(column);
@@ -69,67 +92,122 @@ public partial class MainMenu : Control
         column.MinimumSizeChanged += FitCourseList;
         Resized += FitCourseList;
 
+        // The logo, the version and the update button: top left of whichever page is showing.
+        _header = new VBoxContainer();
+        _header.AddThemeConstantOverride("separation", 10);
+        column.AddChild(_header);
         if (Brand.Logo is { } logo)
         {
             var logoRect = Brand.LogoRect(logo, new Vector2(440, 110), TextureRect.StretchModeEnum.KeepAspect);
             logoRect.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
             logoRect.TooltipText = Hud.Version;
-            column.AddChild(logoRect);
+            _header.AddChild(logoRect);
         }
-        else column.AddChild(UiTheme.Text($"{Brand.Name.ToUpperInvariant()} SIMULATOR", 44, UiTheme.Accent, bold: true));
+        else _header.AddChild(UiTheme.Text($"{Brand.Name.ToUpperInvariant()} SIMULATOR", 44, UiTheme.Accent, bold: true));
         var version = UiTheme.Text(Hud.Version, 12, UiTheme.Muted);
-        column.AddChild(version);
+        _header.AddChild(version);
         _update = new Button { ThemeTypeVariation = "FlatButton", Visible = false, SizeFlagsHorizontal = SizeFlags.ShrinkBegin, TooltipText = "Open the download page" };
         _update.Pressed += () => { if (_updatePage != null) OS.ShellOpen(_updatePage); };
-        column.AddChild(_update);
-        column.AddChild(new Control { CustomMinimumSize = new Vector2(0, 10) });
-
-        _home = new VBoxContainer();
-        _home.AddThemeConstantOverride("separation", 10);
-        column.AddChild(_home);
-        _home.AddChild(UiTheme.Text("Main Menu", 38, UiTheme.Ink, bold: true));
-        _home.AddChild(new ColorRect { Color = UiTheme.Accent, CustomMinimumSize = new Vector2(120, 3), SizeFlagsHorizontal = SizeFlags.ShrinkBegin });
-        _home.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
-        _newGame = BigButton("New Game", "Pick a course and start a round", primary: true);
-        _newGame.Pressed += ShowCourses;
-        _home.AddChild(_newGame);
-        _resume = BigButton("Resume Game", "Carry on with the unfinished round");
-        _resume.Pressed += () => ResumePressed?.Invoke();
-        _home.AddChild(_resume);
-        _resumeNote = UiTheme.Text("", 14, UiTheme.Muted);
-        _resumeNote.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _home.AddChild(_resumeNote);
-        var range = BigButton("Driving Range", "Hit balls on the range");
-        range.Pressed += () => RangePressed?.Invoke();
-        _home.AddChild(range);
-        _online = BigButton("Play Online", "Play a round with friends at their own simulators");
-        _online.Pressed += () => OnlinePressed?.Invoke();
-        _online.Visible = false;
-        _home.AddChild(_online);
-        // History and Settings share a row, so the menu still fits above the monitor card at the largest text size.
-        var pair = new HBoxContainer();
-        pair.AddThemeConstantOverride("separation", 10);
-        var history = BigButton("History", "Finished rounds and practice, with averages per club");
-        history.Pressed += () => HistoryPressed?.Invoke();
-        var settings = BigButton("Settings", "Players, house rules, launch monitor, text size");
-        settings.Pressed += () => SettingsPressed?.Invoke();
-        foreach (var b in new[] { history, settings })
-        {
-            b.CustomMinimumSize = new Vector2(0, b.CustomMinimumSize.Y);
-            b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-            pair.AddChild(b);
-        }
-        _home.AddChild(pair);
-        var quit = BigButton("Quit", $"Close {Brand.Name}");
-        quit.Pressed += () => QuitPressed?.Invoke();
-        _home.AddChild(quit);
+        _header.AddChild(_update);
+        _header.AddChild(new Control { CustomMinimumSize = new Vector2(0, 10) });
 
         BuildCoursePage(column);
+        BuildPinPage(column);
 
         column.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
-        _monitorCard = new PanelContainer();
+        _monitorCard = BuildMonitorCard();
+        column.AddChild(_monitorCard);
+        SetMonitorStatus("Not connected", UiTheme.Muted);
+        BuildHomePage();
+        BuildNewGameRight();
+        BuildPinRight();
+    }
+
+    /// <summary>
+    /// The home page (a button for each part of the app) and Practice Options, in one layout: the logo at the top left, the
+    /// buttons in a list under it, Quit (Back on Practice Options) at the bottom left and the launch monitor at the bottom right.
+    /// </summary>
+    private void BuildHomePage()
+    {
+        _homePage = new MarginContainer { Visible = false };
+        _homePage.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        // The same margins as the New Round page, so the logo stays put from one page to the next.
+        _homePage.AddThemeConstantOverride("margin_left", 64);
+        _homePage.AddThemeConstantOverride("margin_right", 56);
+        _homePage.AddThemeConstantOverride("margin_top", 36);
+        _homePage.AddThemeConstantOverride("margin_bottom", 40);
+        AddChild(_homePage);
+        var page = new VBoxContainer();
+        _homePage.AddChild(page);
+        _homeTop = new VBoxContainer();
+        page.AddChild(_homeTop);
+
+        // ---- the home page: a list of buttons down the left
+        _homeBody = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
+        _homeBody.AddThemeConstantOverride("separation", ButtonGap);
+        page.AddChild(_homeBody);
+        _resume = Card("Resume Round", Glyph.Resume, "Carry on with the unfinished round", () => ResumePressed?.Invoke());
+        _newGame = Card("New Round", Glyph.NewRound, "Pick a course and start a round", ShowCourses);
+        _practice = Card("Practice", Glyph.Practice, "Warm up: the range, and the putting and chipping greens", ShowPractice);
+        _games = Card("Games", Glyph.Games, "Party games: closest to the pin, and more to come", ShowGames);
+        _online = Card("Online Round", Glyph.Online, "Play a round with friends at their own simulators", () => OnlinePressed?.Invoke());
+        _online.Visible = false;
+        var history = Card("History", Glyph.History, "Finished rounds and practice, with averages per club", () => HistoryPressed?.Invoke());
+        var settings = Card("Settings", Glyph.Settings, "Players, house rules, launch monitor, text size", () => SettingsPressed?.Invoke());
+        _homeCards.AddRange(new[] { _resume, _newGame, _practice, _games, _online, history, settings });
+        foreach (var card in _homeCards) _cardStash.AddChild(card);
+
+        // ---- Practice Options
+        _practiceBody = new VBoxContainer { Visible = false, SizeFlagsHorizontal = SizeFlags.ShrinkBegin };
+        _practiceBody.AddThemeConstantOverride("separation", ButtonGap);
+        page.AddChild(_practiceBody);
+        _practiceBody.AddChild(UiTheme.Text("Practice Options", 26, UiTheme.Ink, bold: true));
+        _range = Card("Range", Glyph.Range, "Hit balls on the driving range", () => RangePressed?.Invoke());
+        var putting = Card("Putting Green", Glyph.Putting, "A big practice green with six holes: put the ball anywhere on it and aim at any hole", () => PracticePressed?.Invoke(PracticeKind.Putting));
+        var chipping = Card("Chipping Green", Glyph.Chipping, "Chips, pitches and bunker shots from spots around a green with four holes", () => PracticePressed?.Invoke(PracticeKind.Chipping));
+        foreach (var card in new[] { _range, putting, chipping }) _practiceBody.AddChild(card);
+
+        // ---- Games
+        BuildGamesBody(page);
+
+        // ---- the bottom of the page: Quit (or Back) on the left, the launch monitor on the right
+        page.AddChild(new Control { SizeFlagsVertical = SizeFlags.ExpandFill });
+        _homeBottom = new HBoxContainer();
+        page.AddChild(_homeBottom);
+        _quit = new GlyphButton("Quit", Glyph.Quit, $"Close {Brand.Name}") { SizeFlagsVertical = SizeFlags.ShrinkEnd };
+        _quit.Pressed += () => QuitPressed?.Invoke();
+        _homeBottom.AddChild(_quit);
+        _back = new GlyphButton("Back", Glyph.Back, "Back to the menu  [Esc, gamepad B]") { Visible = false, SizeFlagsVertical = SizeFlags.ShrinkEnd };
+        _back.Pressed += ShowHome;
+        _homeBottom.AddChild(_back);
+        _homeBottom.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
+        ArrangeCards(_homeBody, _homeCards);
+    }
+
+    private const int ButtonGap = 12;
+
+    private static MenuCard Card(string label, Glyph glyph, string tooltip, Action? pressed)
+    {
+        var card = new MenuCard(label, glyph, tooltip);
+        if (pressed != null) card.Pressed += pressed;
+        return card;
+    }
+
+    /// <summary>Puts the buttons that are shown (<see cref="CanvasItem.Visible"/>) in the list in order; the others wait in the stash.</summary>
+    private void ArrangeCards(VBoxContainer list, IReadOnlyList<MenuCard> cards)
+    {
+        foreach (var card in cards) card.GetParent()?.RemoveChild(card);
+        foreach (var card in cards) (card.Visible ? list : _cardStash).AddChild(card);
+    }
+
+    /// <summary>The launch monitor's card: its status, and a button for the monitor drawer ("Connected" once it is).</summary>
+    private PanelContainer BuildMonitorCard()
+    {
+        var card = new PanelContainer { CustomMinimumSize = new Vector2(380, 0), SizeFlagsVertical = SizeFlags.ShrinkEnd };
         var mv = new HBoxContainer();
         mv.AddThemeConstantOverride("separation", 12);
+        _monitorDot = new PanelContainer { CustomMinimumSize = new Vector2(12, 12), SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        mv.AddChild(_monitorDot);
         var mt = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
         mt.AddThemeConstantOverride("separation", 2);
         _monitorCaption = UiTheme.Caption("Launch monitor");
@@ -137,16 +215,29 @@ public partial class MainMenu : Control
         _monitorText = UiTheme.Text("Not connected", 18, UiTheme.Ink, bold: true);
         mt.AddChild(_monitorText);
         mv.AddChild(mt);
-        var details = new Button { Text = "Connection…", ThemeTypeVariation = "FlatButton", SizeFlagsVertical = SizeFlags.ShrinkCenter, TooltipText = "Devices, connect / disconnect, battery, log  [L]" };
-        details.Pressed += () => MonitorPressed?.Invoke();
-        mv.AddChild(details);
-        _monitorCard.AddChild(mv);
-        column.AddChild(_monitorCard);
-        SetMonitorStatus("Not connected", UiTheme.Muted);
-        BuildNewGameRight();
+        _monitorDetails = new Button { Text = "Connection…", ThemeTypeVariation = "FlatButton", SizeFlagsVertical = SizeFlags.ShrinkCenter, TooltipText = "Devices, connect / disconnect, battery, log  [L]" };
+        _monitorDetails.Pressed += () => MonitorPressed?.Invoke();
+        mv.AddChild(_monitorDetails);
+        card.AddChild(mv);
+        return card;
     }
 
-    /// <summary>New Game's right side, over the range: the player list and Game Setup under it (a share of the width, so large text leaves them room).</summary>
+    /// <summary>Takes the logo block and the monitor card to the page that is showing (they are one set of controls, so their state is shared).</summary>
+    private void MoveChrome(bool toHomePage)
+    {
+        if (toHomePage)
+        {
+            if (_header.GetParent() != _homeTop) _header.Reparent(_homeTop, false);
+            if (_monitorCard.GetParent() != _homeBottom) _monitorCard.Reparent(_homeBottom, false);
+        }
+        else
+        {
+            if (_header.GetParent() != _column) { _header.Reparent(_column, false); _column.MoveChild(_header, 0); }
+            if (_monitorCard.GetParent() != _column) _monitorCard.Reparent(_column, false);
+        }
+    }
+
+    /// <summary>New Round's right side, over the range: the player list and Game Setup under it (a share of the width, so large text leaves them room).</summary>
     private void BuildNewGameRight()
     {
         _newGameRight = new VBoxContainer { Visible = false };
@@ -181,7 +272,7 @@ public partial class MainMenu : Control
         _courses = new VBoxContainer { Visible = false };
         _courses.AddThemeConstantOverride("separation", 10);
         column.AddChild(_courses);
-        _courses.AddChild(UiTheme.Text("New Game", 26, UiTheme.Ink, bold: true));
+        _courses.AddChild(UiTheme.Text("New Round", 26, UiTheme.Ink, bold: true));
         _courses.AddChild(UiTheme.Caption("Course"));
         // Scrolls once there are more courses than fit above the card.
         _courseScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, FollowFocus = true };
@@ -221,15 +312,6 @@ public partial class MainMenu : Control
         _courses.AddChild(buttons);
     }
 
-    private static Button BigButton(string text, string tooltip, bool primary = false)
-    {
-        var b = new Button { Text = text, TooltipText = tooltip, CustomMinimumSize = new Vector2(380, 54), Alignment = HorizontalAlignment.Left,
-                             ThemeTypeVariation = primary ? "PrimaryButton" : "" };
-        b.AddThemeFontSizeOverride("font_size", 21);
-        b.AddThemeFontOverride("font", UiTheme.Bold);
-        return b;
-    }
-
     /// <summary>A horizontal fade from nearly opaque on the left to clear on the right.</summary>
     private static Texture2D Fade()
     {
@@ -241,13 +323,13 @@ public partial class MainMenu : Control
     }
 
     public bool IsOpen => Visible;
-    /// <summary>On New Game (Esc / B goes back from there, see <see cref="Back"/>).</summary>
-    public bool OnSubPage => Visible && _courses.Visible;
+    /// <summary>On New Round, Practice Options, Games or a game's setup (Esc / B goes back from there, see <see cref="Back"/>).</summary>
+    public bool OnSubPage => Visible && (_courses.Visible || _practiceBody.Visible || _gamesBody.Visible || _pinLeft.Visible);
 
     /// <summary>
     /// Shows the menu. <paramref name="resume"/> describes the unfinished round (null = none, Resume is hidden);
     /// <paramref name="golfers"/> is who a new round would start with, <paramref name="saved"/> who can be picked for
-    /// it, <paramref name="home"/> the home player's name, and <paramref name="setup"/> the game setup New Game starts from.
+    /// it, <paramref name="home"/> the home player's name, and <paramref name="setup"/> the game setup New Round starts from.
     /// </summary>
     public void Open(string? resume, IReadOnlyList<CourseCard> courses, int selected, IReadOnlyList<Golfer> golfers, IReadOnlyList<Golfer> saved, string? home, GameSetup setup)
     {
@@ -263,8 +345,8 @@ public partial class MainMenu : Control
         _setup = setup;
         _selected = Math.Clamp(selected, 0, Math.Max(0, courses.Count - 1));
         _resume.Visible = resume != null;
-        _resumeNote.Text = resume ?? "";
-        _resumeNote.Visible = resume != null;
+        _resume.SetNote(resume);
+        _resume.TooltipText = resume == null ? "Carry on with the unfinished round" : $"Carry on with the unfinished round: {resume}";
         Visible = true;
         ShowHome();
     }
@@ -281,6 +363,8 @@ public partial class MainMenu : Control
         _playerList.NotSavable = home;
         _playerList.SetSavedPlayers(saved);
         _playerList.Load(golfers);
+        _pinPlayerList.NotSavable = home;
+        _pinPlayerList.SetSavedPlayers(saved);
         SetGolfers(golfers);
     }
 
@@ -292,7 +376,11 @@ public partial class MainMenu : Control
     }
 
     /// <summary>Who can be picked for the player list.</summary>
-    public void SetSavedPlayers(IReadOnlyList<Golfer> saved) => _playerList.SetSavedPlayers(saved);
+    public void SetSavedPlayers(IReadOnlyList<Golfer> saved)
+    {
+        _playerList.SetSavedPlayers(saved);
+        _pinPlayerList.SetSavedPlayers(saved);
+    }
 
     /// <summary>A newer version of the app can be downloaded: a button for it under the version number.</summary>
     public void ShowUpdate(Releases.Update update)
@@ -302,23 +390,63 @@ public partial class MainMenu : Control
         _updatePage = update.Page;
     }
 
-    /// <summary>Straight to New Game (back from Get More Courses, or to check how it looks).</summary>
+    /// <summary>Straight to Practice Options (to check how it looks).</summary>
+    public void OpenPracticePage()
+    {
+        if (Visible) ShowPractice();
+    }
+
+    /// <summary>Straight to New Round (back from Get More Courses, or to check how it looks).</summary>
     public void OpenCoursePage()
     {
         if (Visible) ShowCourses();
     }
 
+    /// <summary>The home page: the cards. (Also where Back goes from the other pages.)</summary>
     public void ShowHome()
+    {
+        ShowCardPage(home: true);
+        ArrangeCards(_homeBody, _homeCards);
+        (_resume.Visible ? _resume : _newGame).GrabFocus();
+    }
+
+    /// <summary>Practice Options: the range, the putting green and the chipping green.</summary>
+    private void ShowPractice()
+    {
+        ShowCardPage(home: false);
+        _range.GrabFocus();
+    }
+
+    /// <summary>
+    /// Shows the home page, Practice Options or Games (they share the page: the title and the cards change, and Quit becomes
+    /// Back). <paramref name="sub"/> is the page other than home (Practice Options if none is given).
+    /// </summary>
+    private void ShowCardPage(bool home, Control? sub = null)
     {
         _courses.Visible = false;
         _newGameRight.Visible = false;
-        _home.Visible = true;
-        (_resume.Visible ? _resume : _newGame).GrabFocus();
+        _pinLeft.Visible = false;
+        _pinRight.Visible = false;
+        _columnMargin.Visible = false;
+        _shade.Visible = true;
+        _homePage.Visible = true;
+        var page = home ? null : sub ?? _practiceBody;
+        _homeBody.Visible = home;
+        _practiceBody.Visible = page == _practiceBody;
+        _gamesBody.Visible = page == _gamesBody;
+        _quit.Visible = home;
+        _back.Visible = !home;
+        MoveChrome(toHomePage: true);
     }
 
     private void ShowCourses()
     {
-        _home.Visible = false;
+        _homePage.Visible = false;
+        _shade.Visible = true;
+        _columnMargin.Visible = true;
+        MoveChrome(toHomePage: false);
+        _pinLeft.Visible = false;
+        _pinRight.Visible = false;
         _courses.Visible = true;
         _newGameRight.Visible = true;
         foreach (var sync in _syncRows) sync();
@@ -400,13 +528,28 @@ public partial class MainMenu : Control
     /// <summary>Which monitor is connected ("Garmin Approach R10"), over its status (null: none).</summary>
     public void SetMonitorName(string? name) => _monitorCaption.Text = name == null ? "Launch monitor" : $"Launch monitor  ·  {name}";
 
-    /// <summary>Monitor status as in the top bar ("Ready — hit!", "Not connected", ...) with its colour.</summary>
+    /// <summary>Monitor status as in the top bar ("Ready — hit!", "Not connected", ...) with its colour (the dot beside it).</summary>
     public void SetMonitorStatus(string text, Color accent)
     {
         _monitorText.Text = text;
-        var box = UiTheme.Box(UiTheme.Card, 12, 1, 16);
-        box.BorderWidthLeft = 6;
-        box.BorderColor = accent;
+        _monitorAccent = accent;
+        StyleMonitorCard();
+    }
+
+    /// <summary>A launch monitor is connected: the button says so and the card gets a green border.</summary>
+    public void SetMonitorConnected(bool connected)
+    {
+        _monitorConnected = connected;
+        _monitorDetails.Text = connected ? "Connected" : "Connection…";
+        StyleMonitorCard();
+    }
+
+    private void StyleMonitorCard()
+    {
+        var box = UiTheme.Box(UiTheme.Card, 12, 2, 16);
+        box.BorderColor = _monitorConnected ? UiTheme.Accent : new Color(1, 1, 1, 0.14f);
         _monitorCard.AddThemeStyleboxOverride("panel", box);
+        var dot = UiTheme.Box(_monitorAccent, 6, 0, 0);
+        _monitorDot.AddThemeStyleboxOverride("panel", dot);
     }
 }

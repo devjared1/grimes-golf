@@ -142,7 +142,7 @@ public partial class Hud
         if (_holeDone) Shot.Hit.Text = NextHoleText;
     }
 
-    private string NextHoleText => _countdown is { } s ? $"NEXT HOLE ({s})" : "NEXT HOLE";
+    private string NextHoleText => _pinMode && _pinDone ? "RESULTS" : _countdown is { } s ? $"NEXT {_nextWord} ({s})" : $"NEXT {_nextWord}";
 
     /// <summary>A shot is under way: no HIT SHOT until it has finished (the shot details stay as they were until then).</summary>
     public void LockHit() => Shot.Hit.Disabled = true;
@@ -170,6 +170,18 @@ public partial class Hud
     private HBoxContainer _statusRow = null!;
     private Button _courseStatus = null!;
     private bool _holeDone, _monitorLive;
+    /// <summary>
+    /// The on-screen shot controls (power, shape, spin, HIT SHOT) can be used when no launch monitor is connected: only in
+    /// development runs, and while a recorded capture is being replayed. Otherwise there's no way to hit a shot but a monitor.
+    /// </summary>
+    private bool _screenControls;
+
+    public void SetScreenControls(bool on)
+    {
+        if (_screenControls == on) return;
+        _screenControls = on;
+        UpdateShotLayout();
+    }
     private string _standingsText = "";
 
     /// <summary>A launch monitor is connected and talking: real swings replace the on-screen shot controls.</summary>
@@ -177,6 +189,7 @@ public partial class Hud
     {
         if (_monitorLive == live) return;
         _monitorLive = live;
+        MainMenu?.SetMonitorConnected(live);
         UpdateShotLayout();
     }
 
@@ -198,14 +211,15 @@ public partial class Hud
     /// </summary>
     private void UpdateShotLayout()
     {
-        Shot.Visible = !_monitorLive && !_holeDone;
-        Shot.Hit.Visible = !_monitorLive || _holeDone;
-        _courseShotSlot.Visible = !_monitorLive || _holeDone;
+        bool onScreen = !_monitorLive && _screenControls;
+        Shot.Visible = onScreen && !_holeDone;
+        Shot.Hit.Visible = onScreen || _holeDone;
+        _courseShotSlot.Visible = onScreen || _holeDone;
         _clubBlock.Visible = !_holeDone;
         _courseAimRow.Visible = !_monitorLive;
         foreach (var b in _aimButtons) b.Visible = !_monitorLive;
         foreach (var b in _alignButtons) b.Visible = _monitorLive && _canAlign;
-        _rangeShotSlot.Visible = _rangeView.Visible && !_monitorLive;
+        _rangeShotSlot.Visible = _rangeView.Visible && onScreen;
         PlaceBallZone();
 
         _planTop.Vertical = _monitorLive;
@@ -213,7 +227,7 @@ public partial class Hud
         var width = _monitorLive ? SizeFlags.Fill : SizeFlags.ShrinkEnd;
         _liePanel.SizeFlagsHorizontal = width;
         _shotPanel.SizeFlagsHorizontal = width;
-        _leaderboard.Visible = _monitorLive && _leaderboardRowCount > 1;
+        _leaderboard.Visible = (_monitorLive || _pinMode) && _leaderboardRowCount > 1 && !_practiceMode;
         SetNote(_standings, _monitorLive ? "" : _standingsText);
     }
 
@@ -278,7 +292,7 @@ public partial class Hud
     {
         _leaderboardCaption.Text = caption;
         _leaderboardRowCount = rows.Count;
-        _leaderboard.Visible = _monitorLive && rows.Count > 1;
+        _leaderboard.Visible = (_monitorLive || _pinMode) && rows.Count > 1 && !_practiceMode;
         foreach (var c in _leaderboardRows.GetChildren()) { _leaderboardRows.RemoveChild(c); c.QueueFree(); }
         foreach (var r in rows)
         {
@@ -372,7 +386,7 @@ public partial class Hud
         _holeDone = p.HoleDone;
         UpdateShotLayout();
         Shot.Hit.Text = p.HoleDone ? NextHoleText : "HIT SHOT";
-        Shot.Hit.TooltipText = p.HoleDone ? "Go to the next hole  [Space, N]" : HitTip;
+        Shot.Hit.TooltipText = p.HoleDone ? (_practiceMode ? "Put down the next ball  [Space, N]" : "Go to the next hole  [Space, N]") : HitTip;
         Shot.Hit.Disabled = !p.CanHit && !p.HoleDone;
     }
 

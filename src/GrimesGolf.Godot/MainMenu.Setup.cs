@@ -4,7 +4,7 @@ using GrimesGolf.Core.Course;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// New Game's Game Setup, under the player list: the game (stroke play, scramble, best ball, match play), which holes,
+/// New Round's Game Setup, under the player list: the game (stroke play, scramble, best ball, match play), which holes,
 /// the weather (wind, altitude, temperature and rain) and the course (fairway speed, green firmness and speed). Each
 /// choice is a row of buttons (one press with a gamepad), with a line saying what the game and holes mean for the
 /// players picked. Opens with the last setup used.
@@ -88,9 +88,9 @@ public partial class MainMenu
         return l;
     }
 
-    /// <summary>A caption and a row of buttons, one per value, exactly one of them down (the setup's).</summary>
+    /// <summary>A caption and a row of buttons, one per value, exactly one of them down. <paramref name="changed"/> runs after a pick (New Round's notes by default).</summary>
     private List<(T Value, Button Button)> Row<T>(VBoxContainer into, string caption, IEnumerable<T> values, Func<T, string> name,
-        Func<T> current, Action<T> pick, Func<T, string>? tip = null) where T : notnull
+        Func<T> current, Action<T> pick, Func<T, string>? tip = null, Action? changed = null) where T : notnull
     {
         var h = new HBoxContainer();
         h.AddThemeConstantOverride("separation", 6);
@@ -112,7 +112,7 @@ public partial class MainMenu
                                  CustomMinimumSize = new Vector2(66, 34), TooltipText = tip?.Invoke(value) ?? "" };
             b.AddThemeFontSizeOverride("font_size", 16);
             var v = value;
-            b.Toggled += on => { if (on && !EqualityComparer<T>.Default.Equals(current(), v)) { pick(v); RefreshSetupNotes(); } };
+            b.Toggled += on => { if (on && !EqualityComparer<T>.Default.Equals(current(), v)) { pick(v); (changed ?? RefreshSetupNotes)(); } };
             flow.AddChild(b);
             buttons.Add((value, b));
         }
@@ -124,8 +124,12 @@ public partial class MainMenu
         return buttons;
     }
 
-    /// <summary>Esc / B: from New Game back to the menu.</summary>
-    public void Back() => ShowHome();
+    /// <summary>Esc / B: from a game's setup back to the games, from any other page back to the menu.</summary>
+    public void Back()
+    {
+        if (_pinLeft.Visible) ShowGames();
+        else ShowHome();
+    }
 
     /// <summary>What the chosen game and holes mean here: the teams, or why the game can't be played; how long the round is.</summary>
     private void RefreshSetupNotes()
@@ -167,5 +171,6 @@ public partial class MainMenu
         _holes[index] = holes;
         _altitudeFeet[index] = altitudeFeet;
         if (index == _selected && OnSubPage) RefreshSetupNotes();
+        if (index == _pinCourse && _pinLeft.Visible) RefreshPinHoles();
     }
 }

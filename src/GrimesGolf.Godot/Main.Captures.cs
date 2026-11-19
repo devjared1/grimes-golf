@@ -68,6 +68,7 @@ public partial class Main
     {
         if (ReadCapture(folder) is not { Shots.Count: > 0 } c) { _hud.Toast("Couldn't read that capture", UiTheme.Danger); return; }
         _capture = c;
+        _hud.SetScreenControls(true);   // (HIT SHOT flies the next captured shot)
         _captureIndex = -1;
         Log($"Replaying capture {folder}: {c.Shots.Count} shots, GSPro numbers for {c.GsPro.Count}.");
         _hud.SetRangeNote($"Capture loaded: {c.Shots.Count} shots  ·  N or HIT SHOT for the first");
@@ -78,6 +79,7 @@ public partial class Main
     {
         if (_capture == null) return;
         _capture = null;
+        _hud.SetScreenControls(_screenShots);
         _captureIndex = -1;
         _captureLast = null;
         _capturePending = null;

@@ -112,10 +112,14 @@ public sealed class Terrain
         Sculpt(greens, bunkers ?? Array.Empty<Shape>(), water ?? Array.Empty<Shape>());
     }
 
-    /// <summary>Shapes the built features into the ground: greens first, then bunkers (kept off the greens), then ponds.</summary>
-    public void Sculpt(IReadOnlyList<Shape> greens, IReadOnlyList<Shape> bunkers, IReadOnlyList<Shape> water)
+    /// <summary>
+    /// Shapes the built features into the ground: greens first, then bunkers (kept off the greens), then ponds.
+    /// <paramref name="shapeGreens"/> false leaves the greens as they are (a made-up green's contours are already as
+    /// designed), though bunkers still keep clear of them.
+    /// </summary>
+    public void Sculpt(IReadOnlyList<Shape> greens, IReadOnlyList<Shape> bunkers, IReadOnlyList<Shape> water, bool shapeGreens = true)
     {
-        foreach (var g in greens) ShapeGreen(g);
+        if (shapeGreens) foreach (var g in greens) ShapeGreen(g);
         foreach (var b in bunkers) ShapeBunker(b, greens);
         foreach (var w in water) ShapePond(w);
     }

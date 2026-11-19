@@ -11,6 +11,8 @@ namespace GrimesGolf.Game;
 public partial class MapOverlay : Control
 {
     private Vector2? _ball, _aim, _pin;
+    private Vector2[] _holes = Array.Empty<Vector2>();
+    private int _currentHole = -1;
     private string _aimText = "", _pinText = "";
     private Color _color = Colors.White;
 
@@ -32,10 +34,22 @@ public partial class MapOverlay : Control
         QueueRedraw();
     }
 
+    /// <summary>
+    /// A practice green's cups, numbered (empty clears them): the ones not being played as dark discs, the one that is as the
+    /// flag drawn by <see cref="Show"/>, with its number beside it.
+    /// </summary>
+    public void SetHoles(IReadOnlyList<Vector2> at, int current)
+    {
+        _holes = at.ToArray();
+        _currentHole = current;
+        QueueRedraw();
+    }
+
     public override void _Draw()
     {
-        if (_ball is not { } ball) return;
         var font = GetThemeDefaultFont();
+        DrawHoles(font);
+        if (_ball is not { } ball) return;
         Rect2? flagArea = null;
         if (_pin is { } pin)
         {
@@ -76,6 +90,25 @@ public partial class MapOverlay : Control
         DrawArc(ball, 7, 0, Mathf.Tau, 24, new Color(0, 0, 0, 0.6f), 4.5f, true);
         DrawArc(ball, 7, 0, Mathf.Tau, 24, _color, 2.5f, true);
         DrawCircle(ball, 2.5f, Colors.White);
+    }
+
+    private void DrawHoles(Font font)
+    {
+        for (int i = 0; i < _holes.Length; i++)
+        {
+            string number = (i + 1).ToString();
+            const int size = 13;
+            var text = font.GetStringSize(number, HorizontalAlignment.Left, -1, size);
+            if (i == _currentHole)
+            {
+                // Beside the flagpole's foot (the flag is drawn over the cup by Show).
+                Tag(font, _holes[i] + new Vector2(-text.X - 12, -10), number, size, new Color(0.95f, 0.2f, 0.2f));
+                continue;
+            }
+            DrawCircle(_holes[i], 9.5f, new Color(0.04f, 0.05f, 0.06f, 0.92f));
+            DrawArc(_holes[i], 9.5f, 0, Mathf.Tau, 24, new Color(1, 1, 1, 0.9f), 1.5f, true);
+            DrawString(font, _holes[i] + new Vector2(-text.X / 2, font.GetAscent(size) - text.Y / 2), number, HorizontalAlignment.Left, -1, size, Colors.White);
+        }
     }
 
     /// <summary>

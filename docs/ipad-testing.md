@@ -4,7 +4,7 @@ How to put the test build on your own iPad from a Windows PC, with a free Apple 
 once it's there. It takes about half an hour the first time and five minutes after that.
 
 This is a first test build, not a finished app: the screens were made for a mouse and keyboard, a Square connects over
-Bluetooth but that hasn't been tried with a real one yet, and the Garmin R10 isn't supported on iPad. Finding out what
+Bluetooth and a Garmin R10 too, but neither has been tried with the real thing yet. Finding out what
 works is the point.
 
 ## Contents
@@ -90,13 +90,13 @@ Work down the list and note what happens; "it crashed here" is as useful as "fin
 | # | Check | What to note |
 |---|---|---|
 | 1 | **It starts** | Does it reach the main menu? How long does that take? Anything odd on the way (black screen, wrong way up)? |
-| 2 | **Main menu** | Do New Game, Driving Range, History and Settings open and close by tapping? |
+| 2 | **Main menu** | Do New Round, Practice (and Practice > Range, Putting Green and Chipping Green), History and Settings open and close by tapping? |
 | 3 | **Driving range** | Tap **HIT SHOT** a few times. Does the ball fly and the numbers fill in? Does changing club, the power slider and the shot shape work by touch? |
-| 4 | **A course hole** | New Game > Deer Run > start. Does the hole load (how long?), does the fly-over play, can you hit, aim with the arrows and by tapping the map, and finish a hole? |
+| 4 | **A course hole** | New Round > Deer Run > start. Does the hole load (how long?), does the fly-over play, can you hit, aim with the arrows and by tapping the map, and finish a hole? |
 | 5 | **Frame rate** | On the first tee, read the frame rate at each **Graphics quality**: Low, Medium, High, Ultra (Settings > Display; wait ten seconds after each change). Then watch it during a ball flight. Does the iPad get hot? |
 | 6 | **Text and layout** | Is anything too small to read or to tap, cut off at the edges, or hidden by the rounded corners or the home bar? Try **Text size** Large and Extra large. A screenshot of anything wrong helps (top button + volume up). |
 | 7 | **Touch** | What can't you do without a keyboard? Everything should have a button or a gesture: the aim ‹ › buttons repeat while held (and go in 2° steps after a second and a half), a tap skips a hole's fly-over, and the physics tuner, flag, camera, restart and previous captured shot are in the menu or on the HUD. The buttons on the HUD's aim row are taller on a touch screen. Is anything still out of reach? Do drop-down lists, sliders and scrolling lists work with a finger? Does typing a player's name bring up the keyboard? |
-| 8 | **Saving** | Play two holes, then close the app completely (swipe it away) and open it again. Does **Resume Game** bring the round back on the right hole with the right scores? Does History list the range shots? |
+| 8 | **Saving** | Play two holes, then close the app completely (swipe it away) and open it again. Does **Resume Round** bring the round back on the right hole with the right scores? Does History list the range shots? |
 | 9 | **Sound** | Club, ball and cup sounds; does the silent switch or volume behave as you'd expect? |
 | 10 | **Coming back to it** | Switch to another app for a minute and come back. Still running? |
 | 11 | **A Square** | See [Connecting a Square](#connecting-a-square) below. |
@@ -109,8 +109,8 @@ If there's time, two extras (the first once you've done check 5):
 
 ## Connecting a Square
 
-Needs a real Square Omni, and the Square phone app closed (a Square talks to one device at a time). The Garmin R10
-isn't supported on iPad yet; **Auto** and **Square** both look for a Square.
+Needs a real Square Omni, and the Square phone app closed (a Square talks to one device at a time). **Auto** and
+**Square** look for a Square; for a Garmin R10, see [Connecting a Garmin R10](#connecting-a-garmin-r10).
 
 1. Switch the Square on, and open Grimes Golf. The first time it scans, iOS asks whether the app may use Bluetooth:
    tap **Allow**. (If you tapped Don't Allow: Settings > Grimes Golf > Bluetooth.)
@@ -123,6 +123,25 @@ isn't supported on iPad yet; **Auto** and **Square** both look for a Square.
 
 Whatever happens, `logs/godot.log` has the story, including the `Connecting to the Square...`, `Connected`, `Device:`
 and `Shot raw:` lines. A Square that never shows up, or connects and then goes quiet, is a finding: send the log.
+
+## Connecting a Garmin R10
+
+Needs a Garmin Approach R10, charged, with the Garmin Golf app closed on every phone and tablet (an R10 talks to one
+device at a time, and only advertises while nothing is connected to it). Set **Settings > Monitor** to **Auto** or
+**Garmin R10**.
+
+1. Switch the R10 on. If it was never paired with this iPad, hold its button until the light is solid blue (pairing
+   mode). Open Grimes Golf; the first time it scans, iOS asks whether the app may use Bluetooth: tap **Allow**.
+2. Open the monitor list (the Bluetooth button on the HUD, or Settings > Monitor): does "Approach R10" show up? Tap it
+   (or let auto-connect do it).
+3. **iOS may now show a "Bluetooth Pairing Request" for the R10. Tap Pair.** The app waits up to 90 seconds for that.
+   If there is no prompt and it never connects, note that: it's the first thing a real R10 will tell us.
+4. It should reach "Armed - hit away" with the model, serial, firmware and battery on the drawer. Hit some shots and
+   compare the numbers with the Garmin Golf app's. Switch the R10 off and on again: does it reconnect?
+
+The log has the story: the `R10 GATT:` lines list every service and characteristic the R10 offered, and
+`monitor-logs/r10-*.log` has the raw traffic (send both back, see below). The questions the first test should answer are
+the [first hardware test](garmin-r10-protocol.md#first-hardware-test)'s, from the iPad.
 
 ## Sending back the logs
 

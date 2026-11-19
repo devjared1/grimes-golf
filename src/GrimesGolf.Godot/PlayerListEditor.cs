@@ -4,8 +4,8 @@ using GrimesGolf.Core.Course;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// Editing the players (1-4): a row each with their colour, name, handedness and Remove, "+ Add player" and a pick from
-/// the saved players. Used by the settings screen, New Game's player list and Add / Remove Players during a round. Each
+/// Editing the players (1-4, or <see cref="MaxPlayers">as many as the list is set to take</see>): a row each with their colour, name, handedness and Remove, "+ Add player" and a pick from
+/// the saved players. Used by the settings screen, New Round's player list and Add / Remove Players during a round. Each
 /// row remembers which of the players it was loaded from (<see cref="Origins"/>), so a round can carry their scores over.
 /// </summary>
 public partial class PlayerListEditor : VBoxContainer
@@ -24,6 +24,9 @@ public partial class PlayerListEditor : VBoxContainer
 
     /// <summary>The pick list's "New player" (saved players' ids are their place on the list).</summary>
     private const int NewPlayerId = 1000;
+
+    /// <summary>The most players the list takes (set before it's added).</summary>
+    public int MaxPlayers { get; init; } = Match.MaxPlayers;
 
     private VBoxContainer _rows = null!;
     private Button _add = null!;
@@ -49,7 +52,7 @@ public partial class PlayerListEditor : VBoxContainer
         _pick.AboutToPopup += FillPickList;
         _pick.GetPopup().IdPressed += id =>
         {
-            if (_players.Count >= Match.MaxPlayers) return;
+            if (_players.Count >= MaxPlayers) return;
             if (id == NewPlayerId) { AddBlankPlayer(); return; }
             if (id < 0 || id >= _offered.Count) return;
             AddRow(_offered[(int)id], null);
@@ -179,8 +182,8 @@ public partial class PlayerListEditor : VBoxContainer
 
     private void UpdateButtons()
     {
-        _add.Disabled = _players.Count >= Match.MaxPlayers;
-        _pick.Disabled = _players.Count >= Match.MaxPlayers;
+        _add.Disabled = _players.Count >= MaxPlayers;
+        _pick.Disabled = _players.Count >= MaxPlayers;
         // One Add button when it's the only one: the list if there's anyone to pick, otherwise straight to a new row.
         _pick.Visible = AddButtonHost == null ? _saved.Count > 0 : Offered().Count > 0;
         _add.Visible = AddButtonHost == null || !_pick.Visible;

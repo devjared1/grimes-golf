@@ -20,6 +20,11 @@ public partial class Main
     private void SetupDevTools(string[] args)
     {
         string? Arg(string name) => args.FirstOrDefault(a => a.StartsWith(name + "="))?[(name.Length + 1)..];
+        // On-screen shots (HIT SHOT, the power slider, D for a demo shot) are for development and testing only: a debug build, and
+        // --screen-shots, or a switch that hits shots by itself (--demo-shots, --hit-at, --tune) or stands in for a monitor (--fake-monitor, --auto-play).
+        _screenShots = OS.IsDebugBuild() && args.Any(a => a is "--screen-shots" or "--fake-monitor" or "--auto-play"
+            || a.StartsWith("--demo-shots") || a.StartsWith("--hit-at") || a.StartsWith("--tune=") || a.StartsWith("--fake-monitor="));
+        _hud.SetScreenControls(_screenShots);
         _screenshotPath = Arg("--screenshot");
         if (double.TryParse(Arg("--screenshot-delay"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var d)) _screenshotAt = d;
         if (int.TryParse(Arg("--demo-shots"), out var n)) _demoShotsLeft = n;
@@ -122,6 +127,19 @@ public partial class Main
         _player.PlaceBall(RestingBall(round));
         PrepareNextShot(snapCamera: true);
         Log($"--ball-by-tree: ball at {ball.X:0.0},{ball.Z:0.0}, past a {tree.Height:0} m tree.");
+    }
+
+    /// <summary>--ball-on-green: the ball 6 m short of the pin, on the green (to check the flag, the grid and the putting view).</summary>
+    private void PutBallOnGreen()
+    {
+        if (_match?.Current is not { } round) return;
+        var hole = round.Hole;
+        var line = hole.Pin - hole.Tee;
+        var ball = hole.Pin - line * (6 / line.Length);
+        var s = round.Save();
+        round.Restore(s with { Ball = ball, Strokes = Math.Max(s.Strokes, 1) });
+        _player.PlaceBall(RestingBall(round));
+        PrepareNextShot(snapCamera: true);
     }
 
     private static double Number(string s) => double.Parse(s, System.Globalization.CultureInfo.InvariantCulture);

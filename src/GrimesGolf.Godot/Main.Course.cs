@@ -26,8 +26,8 @@ public partial class Main
     private CourseWorld? _course;
     private double _aimHeading;
     private bool _flagWhenPutting;
-    /// <summary>Green-reading aids on the green being played (kept from hole to hole).</summary>
-    private bool _heatMap, _grid;
+    /// <summary>Green-reading aids on the green being played (kept from hole to hole). The grid starts on; the heat map doesn't.</summary>
+    private bool _heatMap, _grid = true;
     /// <summary>The last course shot, applied to the HUD/ball once its animation finishes (so the result isn't spoiled).</summary>
     private ShotOutcome? _outcome;
     private DateTime _roundStarted = DateTime.Now;
@@ -39,6 +39,8 @@ public partial class Main
     /// <summary>The driving range: the course (if one was being played) is put away; its round stays to resume.</summary>
     private void EnterRange()
     {
+        LeavePractice();
+        LeaveClosestToPin();
         bool wasCourse = _courseMode;
         _camera.SkipFlyover();
         EndLandingView();
@@ -77,16 +79,24 @@ public partial class Main
         _courseMode = true;
         ApplyConditions();
         _hud.SetCourseMode(true);
+        _hud.SetPracticeMode(_practice != null);
+        _hud.SetPinMode(_pin != null);
         _hud.SetWhere(_courseDef.Name);
         _hud.SetCourseLogo(Brand.CourseLogo(_courseDef.Name));
         UpdateInsets();
         _rangeWorld.Visible = false;
         StartHole(_match.HoleIndex, fresh: false);
-        Log("Course: ←/→ aim (Shift = 2°) or click the map, ↑/↓ power, Z look at the landing spot, Space hit, D random demo shot, S scorecard, U mulligan, " +
-            "F flag in/out when putting, H green heat map, G green grid, M or Esc menu. Gamepad and numpad work too.");
+        if (_practice != null)
+            Log("Practice: ←/→ aim (Shift = 2°), F / Shift+F the hole to the right / left, N / Shift+N the next / last spot for the ball, U retry, R ball back on its spot, " +
+                "Z look at the landing spot, Space hit, H green heat map, G green grid, M or Esc menu. Gamepad and numpad work too.");
+        else if (_pin != null)
+            Log("Closest to the Pin: ←/→ aim (Shift = 2°) or click the map, ↑/↓ power, Z look at the landing spot, Space hit (or on to the next player), S standings, M or Esc menu. Gamepad and numpad work too.");
+        else
+            Log("Course: ←/→ aim (Shift = 2°) or click the map, ↑/↓ power, Z look at the landing spot, Space hit, D random demo shot, S scorecard, U mulligan, " +
+                "F flag in/out when putting, H green heat map, G green grid, M or Esc menu. Gamepad and numpad work too.");
     }
 
-    private string CourseName => CourseLibrary.All[_courseIndex].Name;
+    private string CourseName => _practice?.Green.Name ?? CourseLibrary.All[_courseIndex].Name;
 
     /// <summary>The course's height above sea level (m), from its elevation data (sea level without).</summary>
     private static double CourseAltitudeMetres(Course c) => c.Terrain?.Datum ?? 0;
@@ -152,11 +162,11 @@ public partial class Main
 
     /// <summary>
     /// Abandons the round in progress and starts again from the first tee, with the players and rules in the
-    /// settings (away from the course: the round is dropped, and New Game starts the next one).
+    /// settings (away from the course: the round is dropped, and New Round starts the next one).
     /// </summary>
     private void NewRound()
     {
-        if (_outcome != null || _online != null) return;
+        if (_outcome != null || _online != null || _pin != null) return;
         if (!_courseMode || _courseDef == null)
         {
             _match = null;
@@ -168,7 +178,7 @@ public partial class Main
         StartHole(0, fresh: false);
     }
 
-    /// <summary>New Game: a new round on course <paramref name="index"/> with the players in the settings, set up as <paramref name="setup"/>.</summary>
+    /// <summary>New Round: a new round on course <paramref name="index"/> with the players in the settings, set up as <paramref name="setup"/>.</summary>
     private async void StartNewGame(int index, GameSetup setup)
     {
         if (_loading || index >= CourseLibrary.All.Count) return;
@@ -256,6 +266,8 @@ public partial class Main
         var course = _courseDef!;
         if (fresh) match.StartHole(index);
         ApplyHoleWind();
+        // (A practice green has no tee: the ball goes back down where the attempt began.)
+        if (fresh && _practice != null) match.Current.Place(_practice.Start);
         var round = match.Current;
         _outcome = null;
         _autoNextIn = -1;
@@ -282,13 +294,13 @@ public partial class Main
         _player.CupAt = BallAt(round.Hole.Pin);
         _player.LieAt = v => round.Hole.LieAt(new P2(-v.Z, v.X));
         _player.Clear(RestingBall(round));
-        FrameMinimap(round.Hole);
+        if (_practice != null) FramePracticeMinimap(); else FrameMinimap(round.Hole);
         _hud.HideResult();
         _hud.ShowScorecard(false);
         PrepareNextShot(snapCamera: true);
-        Log($"{HoleTitle(round.Hole)}");
+        Log(_practice != null ? $"{_practice.Green.Name}: aiming at hole {round.Hole.Number} of {course.Holes.Count}" : HoleTitle(round.Hole));
         // Nobody has hit yet: fly down the hole first (not in development runs that hit shots by themselves).
-        if (_settings.HoleFlyover && match.Rounds.All(r => r.Strokes == 0 && !r.Holed) && _demoShotsLeft == 0 && _hitPresses == null)
+        if (_practice == null && _settings.HoleFlyover && match.Rounds.All(r => r.Strokes == 0 && !r.Holed) && _demoShotsLeft == 0 && _hitPresses == null)
             StartFlyover(round.Hole);
     }
 
@@ -316,6 +328,8 @@ public partial class Main
     private void CountDownToNextHole(double delta)
     {
         if (_autoNextIn < 0) return;
+        if (_practice != null) { CountDownPractice(delta); return; }
+        if (_pin != null) { CountDownPin(delta); return; }
         if (!_courseMode || _match is not { HoleComplete: true, RoundComplete: false } || _outcome != null)
         {
             _autoNextIn = -1;
@@ -333,6 +347,10 @@ public partial class Main
     {
         var match = _match;
         if (match == null || _outcome != null || !_courseMode) return;
+        // Practice: once the ball is holed, the next ball goes where the player has chosen; before that, N moves it to the next spot.
+        if (_practice != null) { if (match.Current.Holed) NextPracticeBall(); else StepPracticeSpot(1); return; }
+        // Closest to the Pin: on to the next player once the shot has been counted.
+        if (_pin != null) { AdvancePin(); return; }
         if (_online is { IsHost: false }) { _hud.Toast("The host's PC moves everyone to the next hole", UiTheme.Ink); return; }
         if (match.RoundComplete) { if (_online != null) return; NewMatchState(); StartHole(0, fresh: false); return; }
         StartHole((match.HoleIndex + 1) % match.Holes.Count);
@@ -357,6 +375,9 @@ public partial class Main
         var match = _match;
         if (match == null) return null;
         if (_outcome != null) FinishShot();       // a new shot arrived before the last one finished animating
+        PracticeBeforeShot();
+        if (!PinBeforeShot()) { Log("The game is over."); return null; }
+        match = _match!;
         if (online != null) match.TakeTurn(online.Player);
         var round = match.Current;
         if (round.Holed && online?.Result == null) { Log("Hole finished. Press Space (NEXT HOLE) for the next hole."); return null; }
@@ -405,10 +426,32 @@ public partial class Main
         });
         SaveRound();   // where it finished, in case the app doesn't make it to the end of the animation
         // No replays online (or after a scramble's pick, which moved the whole team: replaying one player's shot would put them out of step).
-        if (online != null || match.LastPick != null) { ForgetLastShot(); return o; }
+        if (online != null || match.LastPick != null || _pin != null) { ForgetLastShot(); return o; }
         Remember(new LastShot(s, club, match, player, before, heading),
                  $"{(match.Players.Count > 1 && golfer.Name.Length > 0 ? golfer.Name[..1] : "")}{round.Hole.Number}.{strokesBefore + 1}{(replay ? "R" : "")}", o.Flight);
         return o;
+    }
+
+    /// <summary>The bar along the bottom left (Carry, Total, Roll, Apex, Offline; matched by caption, "-" when missing). What's left to the pin is on the shot panel.</summary>
+    private static List<Stat> ShotResultStats(FlightResult f)
+    {
+        var stats = new List<Stat>();
+        if (f.LandingIndex == 0)
+        {
+            // A putt (or a shot along the ground): all roll.
+            var rolled = Distance("Total", f.TotalYards * Units.YardsToMetres, short_: true);
+            stats.Add(rolled);
+            stats.Add(rolled with { Caption = "Roll" });
+        }
+        else
+        {
+            stats.Add(new Stat("Carry", $"{f.CarryYards:0}", "yd"));
+            stats.Add(new Stat("Total", $"{f.TotalYards:0}", "yd"));
+            stats.Add(new Stat("Roll", $"{Math.Max(0, f.TotalYards - f.CarryYards):0}", "yd"));
+            stats.Add(new Stat("Apex", $"{f.ApexYards * 3:0}", "ft"));
+            stats.Add(new Stat("Offline", RangeShot.Side(f.LateralYards, "0"), "yd"));
+        }
+        return stats;
     }
 
     /// <summary>
@@ -418,6 +461,8 @@ public partial class Main
     private void FinishShot()
     {
         var o = _outcome!;
+        if (_practice != null) { FinishPracticeShot(o); return; }
+        if (_pin != null) { FinishPinShot(o); return; }
         _outcome = null;
         var match = _match!;
         var round = match.Current;
@@ -449,25 +494,7 @@ public partial class Main
         }
         else if (match.CanMulligan && o.Penalty > 0) note = $"Mulligan? Press U ({round.MulligansLeft} left).";
 
-        var stats = new List<Stat>();
-        var f = o.Flight;
-        // The bar along the bottom left (Carry, Total, Roll, Apex, Offline; matched by caption, "-" when missing).
-        // What's left to the pin is on the shot panel.
-        if (f.LandingIndex == 0)
-        {
-            // A putt (or a shot along the ground): all roll.
-            var rolled = Distance("Total", f.TotalYards * Units.YardsToMetres, short_: true);
-            stats.Add(rolled);
-            stats.Add(rolled with { Caption = "Roll" });
-        }
-        else
-        {
-            stats.Add(new Stat("Carry", $"{f.CarryYards:0}", "yd"));
-            stats.Add(new Stat("Total", $"{f.TotalYards:0}", "yd"));
-            stats.Add(new Stat("Roll", $"{Math.Max(0, f.TotalYards - f.CarryYards):0}", "yd"));
-            stats.Add(new Stat("Apex", $"{f.ApexYards * 3:0}", "ft"));
-            stats.Add(new Stat("Offline", RangeShot.Side(f.LateralYards, "0"), "yd"));
-        }
+        var stats = ShotResultStats(o.Flight);
 
         // Next player up (the same one if they're still farthest away).
         int hitter = match.Turn;
@@ -499,6 +526,9 @@ public partial class Main
     /// </summary>
     private void Mulligan()
     {
+        // Practice: a retry, as many as wanted.
+        if (_practice != null) { PracticeRetry(); return; }
+        if (_pin != null) { _hud.Toast("Every shot counts in Closest to the Pin", UiTheme.Ink); return; }
         // Online the host's PC decides (only the PC whose player hit it can ask).
         if (_online != null) { if (_courseMode && _outcome == null) _online.RequestMulligan(); return; }
         TryMulligan();
@@ -534,7 +564,7 @@ public partial class Main
     private void SaveRound()
     {
         // Online rounds never touch the offline save: the host keeps online-round.json (see Main.Online.cs).
-        if (_data == null || _match == null || _online != null) return;
+        if (_data == null || _match == null || _online != null || _practice != null || _pin != null) return;   // (practice and Closest to the Pin are never a round)
         _data.SaveRound(SavedRound.From(_match, CourseName, _roundStarted, _game));
     }
 
@@ -583,6 +613,8 @@ public partial class Main
         SuggestPower();
         UpdateAim(snapCamera);
         ShowOtherBalls();
+        if (_practice != null) { UpdatePracticeHud(); return; }
+        if (_pin != null) { UpdatePinHud(); return; }
 
         var hole = round.Hole;
         bool several = match.Players.Count > 1;
@@ -722,6 +754,7 @@ public partial class Main
         var round = _round;
         if (round == null || !_courseMode || _outcome != null) return;   // the plan for the next shot waits until this one has finished
         var pin = round.Hole.Pin;
+        bool pinWait = _pin is { Pending: true };   // Closest to the Pin: the shot is counted, the next player isn't on the tee yet
         bool green = round.Lie == Lie.Green, putting = Putter;
         double toPinM = round.DistanceToPin, rise = round.GroundAt(pin) - round.GroundAt(round.Ball);
         string toPinText = round.PickedUp ? "Picked up" : round.Holed ? "Holed" : PinDistance(toPinM, green);
@@ -778,7 +811,7 @@ public partial class Main
         _hud.SetShotPlan(new ShotPlan(toPinText, elevation, playsLike,
             round.Lie, HoleRound.LieName(round.Lie), LieColor(round.Lie), level ? 0 : stance.UphillDegrees, level ? 0 : stance.BallAboveFeetDegrees,
             penalty, lieNote, green && !round.Holed, read, readNote, clubNote, aim, _flagWhenPutting,
-            CanHit: !round.Holed && _outcome == null, HoleDone: round.Holed && _outcome == null));
+            CanHit: !round.Holed && !pinWait && _outcome == null, HoleDone: (round.Holed || pinWait) && _outcome == null));
     }
 
     private static Color LieColor(Lie lie) => lie switch
@@ -876,6 +909,7 @@ public partial class Main
             AimRange(HoleRound.Heading(new P2(0, 0), target) * 180 / Math.PI);
             return;
         }
+        if (_practice != null) { PracticeMapClick(target); return; }
         var round = _round;
         if (round == null || round.Holed || _outcome != null) return;
         if (round.Ball.DistanceTo(target) < 0.5) return;
@@ -904,7 +938,8 @@ public partial class Main
         if (round.Holed) EndLandingView(); else AimLandingView(BallAt(aimPoint), dir);
         // Pull the flag once on the green (unless it's wanted in); it goes back in when the hole is finished.
         bool onGreen = round.Lie == Lie.Green && !round.Holed;
-        _course.SetFlagIn(!onGreen || _flagWhenPutting, Scenery.ToGodot(round.Hole.Pin) - Scenery.ToGodot(round.Ball));
+        // (On a practice green the flag stays in: that's what there is to aim at.)
+        _course.SetFlagIn(_practice != null || _pin != null || !onGreen || _flagWhenPutting, Scenery.ToGodot(round.Hole.Pin) - Scenery.ToGodot(round.Ball));
         var wind = _match!.Wind;
         // Putts roll in still air: no wind shown on the green.
         if (wind.IsCalm || round.Holed || putting) _hud.SetWind(0, 0, 0, "");
