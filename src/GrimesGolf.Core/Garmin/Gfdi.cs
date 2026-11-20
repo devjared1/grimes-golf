@@ -1,5 +1,5 @@
 // The R10's link layers, as worked out by the community: see docs/garmin-r10-protocol.md. The handshake bytes and
-// the acknowledgement layout follow gsp-r10-adapter (Copyright (c) 2022 mholow, MIT licence; see NOTICE).
+// the acknowledgment layout follow gsp-r10-adapter (Copyright (c) 2022 mholow, MIT license; see NOTICE).
 using System.Buffers.Binary;
 
 namespace GrimesGolf.Core.Garmin;
@@ -73,7 +73,7 @@ public static class MultiLink
 /// <param name="TransactionId">Set when the frame used the compressed header.</param>
 public sealed record GfdiFrame(ushort Type, byte[] Payload, byte? TransactionId = null)
 {
-    /// <summary>For an acknowledgement (5000): the type it acknowledges and its status.</summary>
+    /// <summary>For an acknowledgment (5000): the type it acknowledges and its status.</summary>
     public (ushort Type, byte Status)? Acknowledges =>
         Type == Gfdi.Ack && Payload.Length >= 3 ? (BinaryPrimitives.ReadUInt16LittleEndian(Payload), Payload[2]) : null;
 }
@@ -116,7 +116,7 @@ public static class Gfdi
             : new GfdiFrame(BinaryPrimitives.ReadUInt16LittleEndian(f[2..]), payload);
     }
 
-    /// <summary>An acknowledgement: [type acknowledged u16][status][payload].</summary>
+    /// <summary>An acknowledgment: [type acknowledged u16][status][payload].</summary>
     public static byte[] BuildAck(ushort acknowledged, byte status, ReadOnlySpan<byte> payload = default)
     {
         var p = new byte[3 + payload.Length];

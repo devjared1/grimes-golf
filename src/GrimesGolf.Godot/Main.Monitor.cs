@@ -254,7 +254,7 @@ public partial class Main
                 if (sn.BallReady && !_ballReady && _settings.ReadySound) _sounds.Play(SoundEffect.Ready, -6);
                 _ballReady = sn.BallReady;
                 _ballSeen = sn.BallDetected;
-                if (sn.BallReady) _hud.SetReady("Ready — hit!", ReadyColour);
+                if (sn.BallReady) _hud.SetReady("Ready — hit!", ReadyColor);
                 else if (sn.BallDetected) _hud.SetReady("Ball detected", new Color(0.80f, 0.60f, 0.10f));
                 else _hud.SetReady("Place a ball", UiTheme.Muted);
             });
@@ -266,7 +266,7 @@ public partial class Main
             _ballReady = r.Ready;
             _ballSeen = false;
             _monitorNotReady = r.Text;
-            _hud.SetReady(r.Text, r.Ready ? ReadyColour : r.Problem ? UiTheme.Warn : UiTheme.Muted);
+            _hud.SetReady(r.Text, r.Ready ? ReadyColor : r.Problem ? UiTheme.Warn : UiTheme.Muted);
             if (r.Problem) _hud.Toast(r.Text, UiTheme.Warn);
         });
         s.Shot += ms => Post(() =>
@@ -283,7 +283,7 @@ public partial class Main
         _ = Task.Run(() => s.RunAsync(code, lh));
     }
 
-    private static readonly Color ReadyColour = new(0.18f, 0.54f, 0.32f);
+    private static readonly Color ReadyColor = new(0.18f, 0.54f, 0.32f);
 
     /// <summary>The session for a monitor of this kind: over Bluetooth, or a development run's stand-in.</summary>
     private ILaunchMonitorSession NewSession(DeviceEntry d)
@@ -375,6 +375,7 @@ public partial class Main
     private void OnClubChanged()
     {
         SuggestPower();
+        AimAtPinIfInReach();
         if (_courseMode) UpdateAim(); else UpdateRangeAim();
         // Online, a club shown for a player at another PC isn't sent to this monitor (it's set when the turn comes here).
         if (_online != null && _courseMode && !_online.IsLocalTurn) return;

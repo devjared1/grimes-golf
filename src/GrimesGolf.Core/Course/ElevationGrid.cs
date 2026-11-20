@@ -5,17 +5,17 @@ namespace GrimesGolf.Core.Course;
 /// <summary>
 /// Ground heights on a latitude/longitude grid, read from the app's .dem format (made by
 /// <c>tools/fetch-elevation.ps1</c> from USGS 3DEP data): gzipped, "SQDEM1", width, height, west/south/east/north
-/// edges (degrees), base elevation (m), then per row (north to south) centimetre heights above the base,
+/// edges (degrees), base elevation (wu), then per row (north to south) the heights above the base in hundredths of a world unit,
 /// delta-encoded along the row as int16.
 /// </summary>
 public sealed class ElevationGrid
 {
-    private readonly ushort[] _cm;
+    private readonly ushort[] _hundredths;
 
-    private ElevationGrid(int width, int height, double west, double south, double east, double north, float baseMetres, ushort[] cm)
+    private ElevationGrid(int width, int height, double west, double south, double east, double north, float baseUnits, ushort[] hundredths)
     {
-        Width = width; Height = height; West = west; South = south; East = east; North = north; BaseMetres = baseMetres;
-        _cm = cm;
+        Width = width; Height = height; West = west; South = south; East = east; North = north; BaseUnits = baseUnits;
+        _hundredths = hundredths;
     }
 
     public int Width { get; }
@@ -24,8 +24,8 @@ public sealed class ElevationGrid
     public double South { get; }
     public double East { get; }
     public double North { get; }
-    /// <summary>Lowest height in the grid (m above sea level).</summary>
-    public float BaseMetres { get; }
+    /// <summary>Lowest height in the grid (wu above sea level).</summary>
+    public float BaseUnits { get; }
 
     public static ElevationGrid Load(Stream stream)
     {
@@ -34,10 +34,10 @@ public sealed class ElevationGrid
         if (System.Text.Encoding.ASCII.GetString(r.ReadBytes(6)) != "SQDEM1") throw new InvalidDataException("Not a .dem elevation file.");
         int width = r.ReadInt32(), height = r.ReadInt32();
         double west = r.ReadDouble(), south = r.ReadDouble(), east = r.ReadDouble(), north = r.ReadDouble();
-        float baseMetres = r.ReadSingle();
+        float baseUnits = r.ReadSingle();
         if (width <= 1 || height <= 1 || (long)width * height > 64_000_000) throw new InvalidDataException("Bad .dem size.");
 
-        var cm = new ushort[width * height];
+        var hundredths = new ushort[width * height];
         var row = new byte[width * 2];
         for (int y = 0; y < height; y++)
         {
@@ -46,15 +46,15 @@ public sealed class ElevationGrid
             for (int x = 0; x < width; x++)
             {
                 v += (short)(row[2 * x] | row[2 * x + 1] << 8);
-                cm[y * width + x] = (ushort)v;
+                hundredths[y * width + x] = (ushort)v;
             }
         }
-        return new ElevationGrid(width, height, west, south, east, north, baseMetres, cm);
+        return new ElevationGrid(width, height, west, south, east, north, baseUnits, hundredths);
     }
 
     public bool Covers(double lat, double lon) => lat >= South && lat <= North && lon >= West && lon <= East;
 
-    /// <summary>Height (m above sea level) at a point, interpolated between cell centres; clamped at the edges.</summary>
+    /// <summary>Height (wu above sea level) at a point, interpolated between cell centers; clamped at the edges.</summary>
     public double At(double lat, double lon)
     {
         double fx = (lon - West) / (East - West) * Width - 0.5;
@@ -63,15 +63,15 @@ public sealed class ElevationGrid
         fy = Math.Clamp(fy, 0, Height - 1.000001);
         int x = (int)fx, y = (int)fy;
         double tx = fx - x, ty = fy - y;
-        double Cm(int cx, int cy) => _cm[cy * Width + cx];
-        double top = Cm(x, y) * (1 - tx) + Cm(x + 1, y) * tx;
-        double bottom = Cm(x, y + 1) * (1 - tx) + Cm(x + 1, y + 1) * tx;
-        return BaseMetres + (top * (1 - ty) + bottom * ty) / 100;
+        double Hundredths(int cx, int cy) => _hundredths[cy * Width + cx];
+        double top = Hundredths(x, y) * (1 - tx) + Hundredths(x + 1, y) * tx;
+        double bottom = Hundredths(x, y + 1) * (1 - tx) + Hundredths(x + 1, y + 1) * tx;
+        return BaseUnits + (top * (1 - ty) + bottom * ty) / 100;
     }
 }
 
 /// <summary>
-/// The ground of a mapped course in its own frame (metres, X north, Z east around the course origin): a regular grid
+/// The ground of a mapped course in its own frame (world units, X north, Z east around the course origin): a regular grid
 /// of heights relative to <see cref="Datum"/> (the height at the course origin), resampled from an
 /// <see cref="ElevationGrid"/> and smoothed (lightly everywhere, more on greens, where lidar noise would otherwise
 /// read as bumps), with bunkers dug in and ponds given a level surface over a carved bed. Physics and the rendered
@@ -97,17 +97,17 @@ public sealed class Terrain
 
     /// <summary>
     /// Samples <paramref name="grid"/> over <paramref name="area"/> (course coordinates; the projection is the
-    /// importer's: lat = lat0 + X / metresPerDegreeLat, lon = lon0 + Z / metresPerDegreeLon).
+    /// importer's: lat = lat0 + X / unitsPerDegreeLat, lon = lon0 + Z / unitsPerDegreeLon).
     /// </summary>
-    public Terrain(ElevationGrid grid, double lat0, double lon0, double metresPerDegreeLat, double metresPerDegreeLon,
+    public Terrain(ElevationGrid grid, double lat0, double lon0, double unitsPerDegreeLat, double unitsPerDegreeLon,
                    Bounds area, IReadOnlyList<Shape> greens, IReadOnlyList<Shape>? bunkers = null, IReadOnlyList<Shape>? water = null,
                    double cell = 2.0)
-        : this(area, cell, p => grid.At(lat0 + p.X / metresPerDegreeLat, lon0 + p.Z / metresPerDegreeLon))
+        : this(area, cell, p => grid.At(lat0 + p.X / unitsPerDegreeLat, lon0 + p.Z / unitsPerDegreeLon))
     {
         Datum = grid.At(lat0, lon0);
         for (int k = 0; k < _h.Length; k++) _h[k] -= (float)Datum;
 
-        // Light smoothing everywhere (~2 m) takes out lidar noise.
+        // Light smoothing everywhere (~2 yd) takes out lidar noise.
         Blur(_h, 1, 2);
         Sculpt(greens, bunkers ?? Array.Empty<Shape>(), water ?? Array.Empty<Shape>());
     }
@@ -125,7 +125,7 @@ public sealed class Terrain
     }
 
     /// <summary>
-    /// The level surface of a pond (m, same datum as the heights), or null for water that follows the ground
+    /// The level surface of a pond (wu, same datum as the heights), or null for water that follows the ground
     /// (creeks, ditches, and water too big or too sloped to sit level).
     /// </summary>
     public double? WaterLevel(Shape water) => _waterLevels.TryGetValue(water, out var level) ? level : null;
@@ -148,7 +148,7 @@ public sealed class Terrain
 
     /// <summary>
     /// Digs a bunker in: a sand floor below the surrounding ground (deeper for bigger bunkers), reached down a face a
-    /// couple of metres wide, with a low grass lip around it that stands up more on the side facing a green.
+    /// couple of world units wide, with a low grass lip around it that stands up more on the side facing a green.
     /// Neither the lip nor the dig touches a green or its fringe.
     /// </summary>
     private void ShapeBunker(Shape bunker, IReadOnlyList<Shape> greens)
@@ -175,7 +175,7 @@ public sealed class Terrain
 
     /// <summary>
     /// Gives a pond a level surface just below its lowest bank and carves its bed below that, so the water lies flat
-    /// instead of draping over the slope. Water that would need carving more than a few metres (a long river on a
+    /// instead of draping over the slope. Water that would need carving more than a few world units (a long river on a
     /// hill, say) is left following the ground.
     /// </summary>
     private void ShapePond(Shape water)
@@ -183,7 +183,7 @@ public sealed class Terrain
         if (water is not (Polygon or Ellipse)) return;
         const double maxCarve = 3, bed = 1.2, shelf = 5, freeboard = 0.1;
         IReadOnlyList<P2> outline = water is Polygon poly ? poly.Points : ((Ellipse)water).Outline(48);
-        // Lowest bank: sampled every metre or so along the outline.
+        // Lowest bank: sampled every world unit or so along the outline.
         double level = double.MaxValue;
         for (int i = 0; i < outline.Count; i++)
         {
@@ -210,7 +210,7 @@ public sealed class Terrain
 
     /// <summary>
     /// Greens are built surfaces: fit the green's overall tilt (capped at <see cref="MaxGreenTilt"/>), keep a little of
-    /// its contour, and blend that into the surrounding ground over a few metres. Without this, lidar noise and the
+    /// its contour, and blend that into the surrounding ground over a few world units. Without this, lidar noise and the
     /// banks around raised greens read as bumps and steep slopes.
     /// </summary>
     private void ShapeGreen(Shape green)
@@ -270,7 +270,7 @@ public sealed class Terrain
     /// <summary>Height at grid point (i, j), clamped to the grid.</summary>
     public float HeightAt(int i, int j) => _h[Math.Clamp(i, 0, CountX - 1) * CountZ + Math.Clamp(j, 0, CountZ - 1)];
 
-    /// <summary>Ground height (m) at a point, interpolated between grid points; flat beyond the edges.</summary>
+    /// <summary>Ground height (wu) at a point, interpolated between grid points; flat beyond the edges.</summary>
     public double HeightAt(P2 p)
     {
         double fx = Math.Clamp((p.X - Origin.X) / Cell, 0, CountX - 1.000001);
@@ -283,7 +283,7 @@ public sealed class Terrain
         return a * (1 - tx) + b * tx;
     }
 
-    /// <summary>Slope at a point: rise per metre toward +X and +Z.</summary>
+    /// <summary>Slope at a point: rise per world unit toward +X and +Z.</summary>
     public P2 Gradient(P2 p, double step = 0.5) => new(
         (HeightAt(p + new P2(step, 0)) - HeightAt(p - new P2(step, 0))) / (2 * step),
         (HeightAt(p + new P2(0, step)) - HeightAt(p - new P2(0, step))) / (2 * step));

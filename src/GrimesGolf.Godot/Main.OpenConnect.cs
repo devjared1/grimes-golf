@@ -136,7 +136,7 @@ public partial class Main
     private void SendPlayerToConnector()
     {
         if (_openConnect == null || !_connectorLive) return;
-        double yards = _courseMode && _round != null ? _round.DistanceToPin * Units.MetresToYards
+        double yards = _courseMode && _round != null ? _round.DistanceToPin * Units.WorldToYards
                      : _rangeTarget >= 0 ? RangeWorld.TargetYards[_rangeTarget]
                      : Putter ? 10 : 150;
         _openConnect.SendPlayer(_hud.LeftHanded, _hud.ClubCode, yards);

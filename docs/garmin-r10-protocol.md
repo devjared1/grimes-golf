@@ -9,9 +9,9 @@ real hardware. Points that only a real device can settle are under [Open questio
 
 ## Sources
 
-| Source | Licence | Used for |
+| Source | License | Used for |
 |---|---|---|
-| [mholow/gsp-r10-adapter](https://github.com/mholow/gsp-r10-adapter) (C#) | MIT | The reference: its direct-Bluetooth mode's UUIDs, handshake bytes, acknowledgement layout, request order and `LaunchMonitor.proto`. Ported, with its notice in [NOTICE](../NOTICE). |
+| [mholow/gsp-r10-adapter](https://github.com/mholow/gsp-r10-adapter) (C#) | MIT | The reference: its direct-Bluetooth mode's UUIDs, handshake bytes, acknowledgment layout, request order and `LaunchMonitor.proto`. Ported, with its notice in [NOTICE](../NOTICE). |
 | [divotmaker/10over](https://github.com/divotmaker/10over) (the `tenover` crate, Rust) | Apache-2.0 / MIT | Cross-check: `docs/WIRE.md` and `docs/SEQUENCE.md` (MultiLink, GFDI, CRC, compressed headers, signs), and the golden protobuf bytes in `src/wire_golden.rs` used as test fixtures. |
 | [jasonlandreth/GarminR10-BLE-Connector](https://github.com/jasonlandreth/GarminR10-BLE-Connector) (C#) | Apache-2.0 | Cross-check only: its protocol code and schema derive from gsp-r10-adapter, so it doesn't count as independent. |
 | [kjhholt-alt/r10-bridge](https://github.com/kjhholt-alt/r10-bridge) (Python) | MIT | Read only. Its `docs/PROTOCOL.md` describes a 4-byte length and CRC-32, which contradicts both working implementations; its own tests say it has no captures yet. Not relied on. |
@@ -83,7 +83,7 @@ it, but the parser reads both forms.
 
 | Type | Name | Direction | The app |
 |---|---|---|---|
-| 5000 | Acknowledgement: `type u16, status u8, …` | both | Sends one for every message received; logs a non-zero status |
+| 5000 | Acknowledgment: `type u16, status u8, …` | both | Sends one for every message received; logs a non-zero status |
 | 5024 | Device information | R10 → host | ACKs with `[00]`, logs protocol, product and software version (not the unit id) |
 | 5050 | Configuration (capability bitmap) | both | ACKs with `[00]` |
 | 5011 / 5012 | FIT definition / data | R10 → host | ACKs with `[00]` |
@@ -109,7 +109,7 @@ The sequence the app follows (gsp-r10-adapter's):
 
 While connected the app asks for the status every 30 s (two unanswered and it drops the link and reconnects, as it
 does for a Square), and sends wake-up again whenever the R10 drops to Standby (at most every 10 s). It de-duplicates
-shots by shot id, because the R10 sends a shot again if it doesn't get the acknowledgement in time.
+shots by shot id, because the R10 sends a shot again if it doesn't get the acknowledgment in time.
 
 tenover does a fuller GFDI handshake: it answers 5024 with host information (protocol 150, so compressed headers
 follow), and after ACKing the R10's 5050 sends its own 5050 with capability bit 30 (SwingSensor) set, subscribing
@@ -133,13 +133,13 @@ decodes these by hand (no protobuf library): requests are a few bytes each, e.g.
 
 | Field | R10 unit and sign | In `LaunchMonitorInput` | Measured? |
 |---|---|---|---|
-| `ball_speed` (3.3) | m/s | `BallSpeedMph` (× 2.2369) | Measured (radar) |
+| `ball_speed` (3.3) | wu/s (the SI speed on the wire) | `BallSpeedMph` (× 2.2369) | Measured (radar) |
 | `launch_angle` (3.1) | degrees, up | `LaunchAngleDegrees` | Measured |
 | `launch_direction` (3.2) | degrees, + = right | `LaunchDirectionDegrees` | Measured |
 | `total_spin` (3.5) | rpm | `TotalSpinRpm` | Depends on `spin_calculation_type` (3.6): 3 = measured (marked ball); 0 ratio, 1 ball flight, 2 other = **estimated** by the R10 |
 | `spin_axis` (3.4) | degrees, **+ = tilted left** (ball curves left) | `SpinAxisDegrees`, **negated** (+ = curves right); null when there's no spin | As spin |
 | backspin / sidespin | not sent | null (the adapter derives them) | — |
-| `club_head_speed` (4.1) | m/s | `ClubSpeedMph` | Measured |
+| `club_head_speed` (4.1) | wu/s (as above) | `ClubSpeedMph` | Measured |
 | `club_angle_face` (4.2) | degrees, + = right (open) | `FaceAngleDegrees` | Measured when tracked |
 | `club_angle_path` (4.3) | degrees, + = right (in to out) | `ClubPathDegrees` | Measured when tracked |
 | `attack_angle` (4.4) | degrees, + = up | `AttackAngleDegrees` | Measured when tracked |
@@ -176,7 +176,7 @@ Only a real R10 can settle these. The [checklist for the first test](#first-hard
    or does it need tenover's host information and SwingSensor capability?
 4. **Face and path for left-handed golfers.** Assumed to stay + = right (the radar's frame, not the golfer's).
 5. **Tee distance.** Garmin says accuracy improves with the exact monitor-to-tee distance set. That's
-   `ShotConfigRequest.tee_range`, but gsp-r10-adapter sends metres (from feet) and tenover documents yards, and the
+   `ShotConfigRequest.tee_range`, but gsp-r10-adapter sends a metric length (converted from feet) and tenover documents yards, and the
    other fields' units (temperature, humidity as a fraction) disagree too. The app doesn't send it until a capture
    of the Garmin Golf app settles the units.
 6. **Measurement service** (`3401`/`3403`): what its notifications carry. They're logged raw for working out.
@@ -210,7 +210,7 @@ The hex is the whole frame (length, type, payload, CRC), so `Gfdi.ParseFrame(Con
 back and `Gfdi.ParseProtobuf` gives the protobuf for `R10Proto.Decode`. Add real shots to
 `tests/GrimesGolf.Tests/GarminR10Tests.cs` alongside the tenover fixtures, with the Garmin Golf app's numbers as the
 expected values. Frames that carry the device's identity (5024 device information, FIT and file transfers,
-authentication, and their acknowledgements) are left out of the capture.
+authentication, and their acknowledgments) are left out of the capture.
 
 ## Fallback: E6 Connect
 

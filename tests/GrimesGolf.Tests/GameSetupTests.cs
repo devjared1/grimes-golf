@@ -37,8 +37,8 @@ public class GameSetupTests
         return o;
     }
 
-    private static RangeShot Putt(Match m, double metresShort) =>
-        new(Math.Sqrt(2 * 0.55 * (m.Current.DistanceToPin - metresShort)) * Units.MsToMph, 1, 0, 0, 0, null, null);
+    private static RangeShot Putt(Match m, double unitsShort) =>
+        new(Math.Sqrt(2 * 0.55 * (m.Current.DistanceToPin - unitsShort)) * Units.WorldSpeedToMph, 1, 0, 0, 0, null, null);
 
     [Fact]
     public void HoleSetsPickTheHoles()
@@ -171,7 +171,7 @@ public class GameSetupTests
         Assert.True(wet["ground.wetness"] > 0.5);
         Assert.True(wet["ground.fairway.rolling"] < t["ground.fairway.rolling"]);
         Assert.True(wet["ground.green.firmness"] > t["ground.green.firmness"]);
-        Assert.Equal(200 / Units.FeetToMetres, wet["air.altitude"], 0);   // the course's own height
+        Assert.Equal(200 / Units.FeetToWorld, wet["air.altitude"], 0);   // the course's own height
         Assert.Equal(t["air.temperature"], GameSetup.Default.ApplyTo(t, 0)["air.temperature"]);   // mild: as tuned
         Assert.Equal(5000, new GameSetup(Altitude: AltitudeSetting.Feet5000).ApplyTo(t, 200)["air.altitude"], 0);
         Assert.Equal(95, new GameSetup(Weather: Weather.Hot).ApplyTo(t, 0)["air.temperature"]);

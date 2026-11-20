@@ -193,7 +193,7 @@ public partial class Hud
         }
     }
 
-    /// <summary>The Mulligan button as Retry (always there in practice; greyed out when there's nothing to take back).</summary>
+    /// <summary>The Mulligan button as Retry (always there in practice; grayed out when there's nothing to take back).</summary>
     public void SetRetry(string text, bool canUse)
     {
         _mulligan.Visible = true;

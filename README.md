@@ -1,13 +1,13 @@
 # Grimes Golf
 
 A golf simulator for the garage: hit real balls into a net with a **Square Golf Omni** or **Garmin Approach R10**
-launch monitor and play real courses in 3D, or practise on a driving range. It has its own ball-flight physics, hot-seat play for up to
+launch monitor and play real courses in 3D, or practice on a driving range. It has its own ball-flight physics, hot-seat play for up to
 four players, team games, and (in development) online rounds with friends at their own simulators.
 
 Built with Godot 4.7 (.NET) and C#. Windows only, because it talks to the monitor over Windows Bluetooth LE.
 
 > This is an independent project, not made or endorsed by Invant / Square Golf or by Garmin. Neither publishes an
-> SDK; the monitor protocols come from community reverse-engineering work (see [Credits](#credits-and-data-licences)).
+> SDK; the monitor protocols come from community reverse-engineering work (see [Credits](#credits-and-data-licenses)).
 
 ## Contents
 
@@ -21,8 +21,8 @@ Built with Godot 4.7 (.NET) and C#. Windows only, because it talks to the monito
 - [Documentation](#documentation)
 - [Known limitations](#known-limitations)
 - [Roadmap](#roadmap)
-- [Credits and data licences](#credits-and-data-licences)
-- [Licence](#licence)
+- [Credits and data licenses](#credits-and-data-licenses)
+- [License](#license)
 
 ## Features
 
@@ -37,7 +37,7 @@ Built with Godot 4.7 (.NET) and C#. Windows only, because it talks to the monito
   work on your short game: put the ball anywhere, aim at any hole, and see how your session is going.
 - **A launch monitor hits the shots**: without one you can browse the courses, aim and read greens, but nothing can be hit
   from the screen.
-- **Real courses**: Deer Run (Moulton, AL), all 18 holes from OpenStreetMap, on 1 m lidar elevation, with its
+- **Real courses**: Deer Run (Moulton, AL), all 18 holes from OpenStreetMap, on lidar elevation (about 3 ft resolution), with its
   ~9,900 real trees at their measured height and spread.
 - **Own physics engine**: aerodynamic flight, wind, altitude and weather, bounce and roll by surface, slopes,
   sloping and rough lies, putts that break and lip out. Every value can be adjusted in a physics tuner.
@@ -223,10 +223,10 @@ Command-line switches for development, the code layout of the game, and how to r
 See [ROADMAP.md](ROADMAP.md). Next up: proving it on real hardware (0.8), the 1.0 release checklist, party games
 (1.1) and online play (1.2).
 
-## Credits and data licences
+## Credits and data licenses
 
 - Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors, under the
-  [Open Database Licence](https://opendatacommons.org/licenses/odbl/). The app shows this credit under the scorecard.
+  [Open Database License](https://opendatacommons.org/licenses/odbl/). The app shows this credit under the scorecard.
 - Elevation and tree data: [USGS 3D Elevation Program](https://www.usgs.gov/3d-elevation-program) lidar, public
   domain.
 - Sky and ground textures: Poly Haven and ambientCG, CC0 (see
@@ -239,8 +239,8 @@ See [ROADMAP.md](ROADMAP.md). Next up: proving it on real hardware (0.8), the 1.
   `Duwaynef/MLM2PRO-BT-APP` connectors send and expect. Not affiliated with GSPro.
 - Built with [Godot Engine](https://godotengine.org) (MIT).
 
-## Licence
+## License
 
-The code is released under the [MIT Licence](LICENSE). The map, elevation and texture data listed above keep their
-own licences: in particular, the OpenStreetMap data is under the ODbL, which asks for the credit and for changes to
+The code is released under the [MIT License](LICENSE). The map, elevation and texture data listed above keep their
+own licenses: in particular, the OpenStreetMap data is under the ODbL, which asks for the credit and for changes to
 the data itself to be shared alike.

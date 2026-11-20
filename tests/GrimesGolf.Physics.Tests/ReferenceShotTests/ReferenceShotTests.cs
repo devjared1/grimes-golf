@@ -31,7 +31,7 @@ public class ReferenceShotTests
 
     /// <summary>
     /// Regression baseline: carry, apex, landing angle and total for fixed shots with the default models. If a change
-    /// moves these, the test fails; update the numbers only when the change in behaviour is intended (and say why).
+    /// moves these, the test fails; update the numbers only when the change in behavior is intended (and say why).
     /// </summary>
     [Theory]
     [MemberData(nameof(Baseline))]

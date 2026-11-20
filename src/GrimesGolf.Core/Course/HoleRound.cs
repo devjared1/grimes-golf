@@ -47,9 +47,9 @@ public sealed record ShotOutcome(
 public sealed class HoleRound
 {
     /// <summary>
-    /// The ball meets the cup if its centre passes within <see cref="CaptureRadius"/> of the pin (cup radius plus
-    /// ball radius). Dead centre it drops at up to <see cref="CaptureSpeed"/> m/s; nearer the edge it has to be
-    /// slower, otherwise it lips out (rides the rim and turns away) or, if it's fast and well centred, skips over.
+    /// The ball meets the cup if its center passes within <see cref="CaptureRadius"/> of the pin (cup radius plus
+    /// ball radius). Dead center it drops at up to <see cref="CaptureSpeed"/> wu/s; nearer the edge it has to be
+    /// slower, otherwise it lips out (rides the rim and turns away) or, if it's fast and well centered, skips over.
     /// </summary>
     public const double CaptureRadius = 0.075, CaptureSpeed = 1.6;
     /// <summary>Regulation cup: 4.25 in across, at least 4 in deep.</summary>
@@ -229,7 +229,7 @@ public sealed class HoleRound
 
     /// <summary>
     /// Distance the shot to <paramref name="target"/> plays: its length plus the rise (uphill plays longer, downhill
-    /// shorter; a metre of height is roughly a metre of carry), then longer into the wind and shorter with it.
+    /// shorter; a world unit of height is roughly a world unit of carry), then longer into the wind and shorter with it.
     /// </summary>
     public double PlaysLike(P2 target)
     {
@@ -240,7 +240,7 @@ public sealed class HoleRound
     public static double Heading(P2 from, P2 to) => Math.Atan2(to.Z - from.Z, to.X - from.X);
 
     /// <summary>
-    /// Approximate deceleration (m/s²) of a ball rolling on flat ground of this lie: the engine surface's rolling
+    /// Approximate deceleration (wu/s²) of a ball rolling on flat ground of this lie: the engine surface's rolling
     /// resistance (green ≈ stimp 10). Air drag adds a little on top. Used to pace putts.
     /// </summary>
     public static double RollDecel(Lie lie) => CourseGround.SurfaceFor(lie).RollingResistance * PhysicsConstants.Gravity;
@@ -287,7 +287,7 @@ public sealed class HoleRound
             if (putt)
             {
                 double dir = headingRad + shot.DirectionDeg * Math.PI / 180;
-                end = RollFrom(path, start, new P2(Math.Cos(dir), Math.Sin(dir)) * (shot.BallMph / Units.MsToMph), 0, cup: true);
+                end = RollFrom(path, start, new P2(Math.Cos(dir), Math.Sin(dir)) * (shot.BallMph / Units.WorldSpeedToMph), 0, cup: true);
             }
             else
             {
@@ -356,7 +356,7 @@ public sealed class HoleRound
                 message = putts == 1 ? $"Tapped in. {ScoreName(Strokes, Hole.Par)}" : $"On the green: {putts} putts. {ScoreName(Strokes, Hole.Par)}";
             }
         }
-        else if (restLie == Lie.Green && rest.DistanceTo(Hole.Pin) <= Rules.GimmeMetres && Strokes + 1 <= (max ?? int.MaxValue))
+        else if (restLie == Lie.Green && rest.DistanceTo(Hole.Pin) <= Rules.GimmeUnits && Strokes + 1 <= (max ?? int.MaxValue))
         {
             Strokes++;
             holed = true;
@@ -365,9 +365,9 @@ public sealed class HoleRound
         else if (restLie == Lie.CartPath && CartPathRelief(rest) is { } drop)
         {
             relief = drop;
-            message = $"Cart path: free relief to the {LieName(drop.Lie).ToLowerInvariant()}, {drop.At.DistanceTo(Hole.Pin) * Units.MetresToYards:0} yd to the pin";
+            message = $"Cart path: free relief to the {LieName(drop.Lie).ToLowerInvariant()}, {drop.At.DistanceTo(Hole.Pin) * Units.WorldToYards:0} yd to the pin";
         }
-        else message = $"{LieName(restLie)}, {rest.DistanceTo(Hole.Pin) * Units.MetresToYards:0} yd to the pin";
+        else message = $"{LieName(restLie)}, {rest.DistanceTo(Hole.Pin) * Units.WorldToYards:0} yd to the pin";
 
         if (!holed && Strokes >= max)
         {
@@ -386,8 +386,8 @@ public sealed class HoleRound
         }
 
         if (treeHit != null) message = "Off a tree. " + message;
-        var flight = new FlightResult(path, landing, carryYd, start.DistanceTo(rest) * Units.MetresToYards, apexYd,
-            Offline(start, rest, headingRad) * Units.MetresToYards, hang, descent) { TreeHitIndex = treeHit };
+        var flight = new FlightResult(path, landing, carryYd, start.DistanceTo(rest) * Units.WorldToYards, apexYd,
+            Offline(start, rest, headingRad) * Units.WorldToYards, hang, descent) { TreeHitIndex = treeHit };
         return new ShotOutcome(flight, start, rest, restLie, Ball, holed, penalty, Strokes, message) { LieEffect = lieEffect, PickedUp = pickedUp };
     }
 
@@ -453,8 +453,8 @@ public sealed class HoleRound
         if (stillInAir)
         {
             landing = path.Count - 1;
-            carryYd = new P2(path[0].X, path[0].Z).DistanceTo(at) * Units.MetresToYards;
-            apexYd = Math.Min(apexYd, (path.Max(p => p.Y) - path[0].Y) * Units.MetresToYards);
+            carryYd = new P2(path[0].X, path[0].Z).DistanceTo(at) * Units.WorldToYards;
+            apexYd = Math.Min(apexYd, (path.Max(p => p.Y) - path[0].Y) * Units.WorldToYards);
             hang = t;
             descent = Math.Atan2(-vy, Math.Max(new P2(vx, vz).Length, 1e-6)) * 180 / Math.PI;
         }
@@ -463,7 +463,7 @@ public sealed class HoleRound
 
     /// <summary>How far clear of a cart path the relief point is (the ball and the golfer's stance), m.</summary>
     public const double ReliefClearance = 0.6;
-    /// <summary>Furthest the search for relief looks (m); beyond it the ball is played from the path.</summary>
+    /// <summary>Furthest the search for relief looks (wu); beyond it the ball is played from the path.</summary>
     private const double ReliefSearch = 20;
 
     /// <summary>
@@ -574,7 +574,7 @@ public sealed class HoleRound
     }
 
     /// <summary>
-    /// Rolls the ball from <paramref name="from"/> with horizontal velocity <paramref name="v"/> (m/s) through the
+    /// Rolls the ball from <paramref name="from"/> with horizontal velocity <paramref name="v"/> (wu/s) through the
     /// engine's putting simulation, appending the path (times offset by <paramref name="t"/>) and applying the rules.
     /// </summary>
     private (P2 Stop, Lie Lie, bool Holed) RollFrom(List<FlightPoint> path, P2 from, P2 v, double t, bool cup)
@@ -596,10 +596,10 @@ public sealed class HoleRound
         return Finish(path, rules.Event, CourseGround.ToCourse(r.FinalPosition), cup);
     }
 
-    /// <summary>Fastest ball the putting simulation accepts (m/s); anything struck harder along the ground is capped.</summary>
+    /// <summary>Fastest ball the putting simulation accepts (wu/s); anything struck harder along the ground is capped.</summary>
     private const double MaxRollSpeed = 20;
 
-    /// <summary>Fastest the ball can be going and still drop, for a given miss from the centre of the cup.</summary>
+    /// <summary>Fastest the ball can be going and still drop, for a given miss from the center of the cup.</summary>
     public static double DropSpeed(double offset) =>
         offset >= CaptureRadius ? 0 : CaptureSpeed * Math.Sqrt(1 - (offset / CaptureRadius) * (offset / CaptureRadius));
 
@@ -664,8 +664,8 @@ public sealed class HoleRound
     }
 
     /// <summary>
-    /// Reads the putt from the ball: the aim (heading) and starting speed (m/s) that roll it into the cup at a
-    /// comfortable pace (about 40 cm past if it missed), allowing for the slope, worked out with trial putts through
+    /// Reads the putt from the ball: the aim (heading) and starting speed (wu/s) that roll it into the cup at a
+    /// comfortable pace (about 16 in past if it missed), allowing for the slope, worked out with trial putts through
     /// the engine. On flat ground the aim is straight at the pin. The result is cached for the ball's position.
     /// </summary>
     public (double Heading, double Speed) ReadPutt()
@@ -696,13 +696,13 @@ public sealed class HoleRound
                 return (trace.Miss, trace.ToHole, trace.Rolled);
             }
 
-            // Aim: bisect the sideways miss to zero within +-half of centre (aiming further right moves the miss right).
+            // Aim: bisect the sideways miss to zero within +-half of center (aiming further right moves the miss right).
             // False if it can't be done there (e.g. the putt rolls back).
-            bool Aim(double centre, double half, int steps, out double aimed)
+            bool Aim(double center, double half, int steps, out double aimed)
             {
-                double lo = centre - half, hi = centre + half;
+                double lo = center - half, hi = center + half;
                 double missLo = Trial(lo, speed).Miss, missHi = Trial(hi, speed).Miss;
-                aimed = centre;
+                aimed = center;
                 if (Math.Sign(missLo) == Math.Sign(missHi)) return false;
                 for (int k = 0; k < steps; k++)
                 {
@@ -723,7 +723,7 @@ public sealed class HoleRound
                     if (!found) break;   // keep the last
                     heading = h;
                 }
-                // Pace: scale so it would roll ~40 cm past the hole.
+                // Pace: scale so it would roll ~16 in past the hole.
                 var (_, toHole, total) = Trial(heading, speed);
                 if (total < 0.01) break;
                 double want = toHole + 0.4;

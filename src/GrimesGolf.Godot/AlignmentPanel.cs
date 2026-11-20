@@ -15,7 +15,7 @@ public partial class AlignmentPanel : Control
     private const double NoReadingAfter = 6;
 
     public event Action<double>? Confirmed;
-    public event Action? Cancelled;
+    public event Action? Canceled;
 
     private Label _angle = null!, _message = null!;
     private Control _gauge = null!;
@@ -112,7 +112,7 @@ public partial class AlignmentPanel : Control
     {
         if (!Visible) return;
         Close();
-        Cancelled?.Invoke();
+        Canceled?.Invoke();
     }
 
     /// <summary>A new reading from the monitor.</summary>

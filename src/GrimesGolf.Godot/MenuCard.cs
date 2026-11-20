@@ -20,7 +20,7 @@ public static class Glyphs
         {
             case Glyph.Resume:
             {
-                // A circular arrow round a play button, over a rise of ground with a flag.
+                // A circular arrow around a play button, over a rise of ground with a flag.
                 var cc = P(-0.12f, -0.2f);
                 float r = s * 0.74f;
                 Arc(ci, cc, r, 125, 335, line, width);
@@ -362,7 +362,7 @@ public partial class MenuCard : Button
         float h = ci.Size.Y;
         var rect = new Rect2(Vector2.Zero, ci.Size);
 
-        // The face: a dark gradient (a little green at the top left, as the mock-ups) in the app's own greys.
+        // The face: a dark gradient (a little green at the top left, as the mock-ups) in the app's own grays.
         var top = UiTheme.Control.Lerp(UiTheme.Accent, 0.07f);
         var bottom = UiTheme.Bar.Lerp(UiTheme.Accent, 0.025f);
         if (lit) { top = top.Lightened(0.14f); bottom = bottom.Lightened(0.10f); }

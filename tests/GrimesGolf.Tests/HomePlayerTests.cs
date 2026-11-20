@@ -176,7 +176,7 @@ public class HomePlayerSettingsTests : IDisposable
 
 public class ClubDistanceTests
 {
-    private static double Yards(double metres) => metres * Units.MetresToYards;
+    private static double Yards(double units) => units * Units.WorldToYards;
     private static ClubPreset Club(string code) => ClubPresets.Find(code)!;
     private static int Typical(string code) => (int)Math.Round(Yards(Caddie.Carry(code)));
 
@@ -258,7 +258,7 @@ public class ClubDistanceTests
     public void PowerIsAShareOfThePlayersCarry()
     {
         var known = new Dictionary<string, int> { ["I7"] = 140 };
-        Assert.Equal(0.5, Caddie.PowerFor("I7", 70 * Units.YardsToMetres, null, known), 6);
+        Assert.Equal(0.5, Caddie.PowerFor("I7", 70 * Units.YardsToWorld, null, known), 6);
     }
 
     [Theory]

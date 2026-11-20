@@ -34,7 +34,7 @@ public sealed class AppleSquareLink : ISquareDeviceLink
         CoreBluetooth.Event += OnEvent;
         _log("Connecting to the Square...");
         CoreBluetooth.Connect(_address, SquareUuids.Service, SquareUuids.Cmd, SquareUuids.Evt, ConnectSeconds);
-        using var cancelled = ct.Register(() => _connected.TrySetCanceled(ct));
+        using var canceled = ct.Register(() => _connected.TrySetCanceled(ct));
         await _connected.Task;
     }
 

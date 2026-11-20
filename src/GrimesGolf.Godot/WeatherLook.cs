@@ -5,7 +5,7 @@ namespace GrimesGolf.Game;
 
 /// <summary>
 /// How a round's weather looks (the physics side is <see cref="GameSetup.ApplyTo"/>): mild is the sky as it is; hot
-/// warms the light and thickens the haze; cold cools and greys it a little; wet is overcast (a dimmer, greyer sky,
+/// warms the light and thickens the haze; cold cools and grays it a little; wet is overcast (a dimmer, grayer sky,
 /// soft light, mist in the distance) with rain falling around the camera. Changes the scene's sky, sun and haze, and
 /// puts them back for mild weather.
 /// </summary>

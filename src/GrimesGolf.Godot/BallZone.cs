@@ -10,13 +10,13 @@ namespace GrimesGolf.Game;
 /// </summary>
 public partial class BallZone : PanelContainer
 {
-    /// <summary>The spread of positions the monitor called ready (mm), from the first session on hardware 1.5.</summary>
-    private const double ZoneXMin = -75, ZoneXMax = 25, ZoneYMin = -75, ZoneYMax = -15;
-    /// <summary>The area shown (mm): the zone and what's around it.</summary>
-    private const double ViewXMin = -120, ViewXMax = 70, ViewYMin = -145, ViewYMax = 25;
-    private const double BallRadiusMm = 21.3;
-    /// <summary>A ball on a tee reads about 50 mm higher than on the mat, which reads near −33 mm.</summary>
-    private const double TeedAbove = -5;
+    /// <summary>The spread of positions the monitor called ready (inches), from the first session on hardware 1.5.</summary>
+    private const double ZoneXMin = -3, ZoneXMax = 1, ZoneYMin = -3, ZoneYMax = -0.6;
+    /// <summary>The area shown (inches): the zone and what's around it.</summary>
+    private const double ViewXMin = -4.7, ViewXMax = 2.8, ViewYMin = -5.7, ViewYMax = 1;
+    private const double BallRadiusInches = 0.84;
+    /// <summary>A ball on a tee reads about 2 in higher than on the mat, which reads near −1.3 in.</summary>
+    private const double TeedAbove = -0.2;
 
     private Control _plot = null!;
     private Label _status = null!;
@@ -72,7 +72,7 @@ public partial class BallZone : PanelContainer
         _plot.DrawRect(new Rect2(a, b - a), new Color(UiTheme.Accent, 0.6f), false, 1.5f);
         if (_ball is not { } ball) return;
 
-        float radius = (float)(BallRadiusMm / (ViewYMax - ViewYMin)) * s.X;
+        float radius = (float)(BallRadiusInches / (ViewYMax - ViewYMin)) * s.X;
         var at = ToPlot(ball.X, ball.Y);
         at = new Vector2(Mathf.Clamp(at.X, radius, s.X - radius), Mathf.Clamp(at.Y, radius, s.Y - radius));
         _plot.DrawCircle(at, radius, _ready ? UiTheme.Accent : UiTheme.Warn);

@@ -117,7 +117,7 @@ public class OpenConnectProtocolTests
     [Fact]
     public void WarnsAboutOtherUnits()
     {
-        var m = OpenConnectProtocol.Parse(SpecShot.Replace("\"Yards\"", "\"Meters\""))!;
+        var m = OpenConnectProtocol.Parse(SpecShot.Replace("\"Yards\"", "\"Furlongs\""))!;
         Assert.Single(OpenConnectProtocol.ToShot(m).Shot!.Warnings);
     }
 

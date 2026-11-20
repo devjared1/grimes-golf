@@ -151,7 +151,7 @@ public partial class HistoryPanel : Control
 
         var rules = r.Rules;
         _detail.AddChild(Note($"House rules: {rules.Mulligans} mulligan{(rules.Mulligans == 1 ? "" : "s")} each" +
-                              (rules.GimmeMetres > 0 ? $", gimmes inside {rules.GimmeFeet:0.#} ft" : "") +
+                              (rules.GimmeUnits > 0 ? $", gimmes inside {rules.GimmeFeet:0.#} ft" : "") +
                               (rules.PickUpAtDoublePar ? ", pick up at double par" : "")));
     }
 

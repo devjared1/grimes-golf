@@ -50,7 +50,7 @@ public sealed class JsonObjectFramer
 /// </summary>
 /// <remarks>
 /// Open Connect conventions: speeds in mph, HLA and spin axis positive = right. The ball data is turned back into the
-/// monitor's terms (<see cref="BallMetricsEvent"/>: m/s, spin axis negative = right) so it flies exactly like a shot
+/// monitor's terms (<see cref="BallMetricsEvent"/>: wu/s, spin axis negative = right) so it flies exactly like a shot
 /// read off the monitor.
 /// </remarks>
 public sealed class OpenConnectShotTracker
@@ -108,7 +108,7 @@ public sealed class OpenConnectShotTracker
         _lastShotNumber = number;
 
         var b = new BallMetricsEvent(
-            BallSpeedMs: mph / Units.MsToMph,
+            BallSpeedWps: mph / Units.WorldSpeedToMph,
             LaunchDeg: Num(ball, "VLA") ?? 0,
             DirectionDeg: Num(ball, "HLA") ?? 0,
             TotalSpinRpm: (int)Math.Round(Num(ball, "TotalSpin") ?? 0),
@@ -127,7 +127,7 @@ public sealed class OpenConnectShotTracker
     {
         double? Val(string key) => Num(cd, key) is { } v && v != 0 ? v : null;
         var c = new ClubMetricsEvent(0xFF, Val("Path"), Val("FaceToTarget"), Val("AngleOfAttack"), Val("Loft"),
-            null, null, Val("Speed") / Units.MsToMph, null);
+            null, null, Val("Speed") / Units.WorldSpeedToMph, null);
         return c.HasAnyData ? c : null;
     }
 

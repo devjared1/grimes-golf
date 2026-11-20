@@ -1,4 +1,4 @@
-# Writes the licences built into this Godot engine to the file named after "--": see tools/make-notices.ps1.
+# Writes the licenses built into this Godot engine to the file named after "--": see tools/make-notices.ps1.
 extends SceneTree
 
 func _init():
@@ -10,11 +10,11 @@ func _init():
 			out.store_string("  Files: " + ", ".join(entry["files"]) + "\n")
 			for line in entry["copyright"]:
 				out.store_string("  (c) " + line + "\n")
-			out.store_string("  Licence: " + entry["license"] + "\n")
+			out.store_string("  License: " + entry["license"] + "\n")
 		out.store_string("\n")
-	out.store_string("LICENCE TEXTS\n\n")
-	var licences := Engine.get_license_info()
-	for name in licences:
-		out.store_string("----- " + name + " -----\n\n" + licences[name] + "\n\n")
+	out.store_string("LICENSE TEXTS\n\n")
+	var licenses := Engine.get_license_info()
+	for name in licenses:
+		out.store_string("----- " + name + " -----\n\n" + licenses[name] + "\n\n")
 	out.close()
 	quit()

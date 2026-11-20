@@ -66,7 +66,7 @@ public class AerodynamicForceTests
         var a = AerodynamicForces.Evaluate(Ball, Air, v, Vector3D.Zero);
         Assert.Equal(-1, Vector3D.Dot(a.DragAcceleration.Normalized(), v.Normalized()), 9);
         Assert.Equal(Vector3D.Zero, a.LiftAcceleration);
-        double expected = 0.5 * Air.Density * a.Coefficients.Drag * Ball.CrossSectionAreaSquareMetres * v.LengthSquared / Ball.MassKg;
+        double expected = 0.5 * Air.Density * a.Coefficients.Drag * Ball.CrossSectionAreaSquareUnits * v.LengthSquared / Ball.MassKg;
         Assert.Equal(expected, a.DragAcceleration.Length, 9);
     }
 
@@ -79,7 +79,7 @@ public class AerodynamicForceTests
         Assert.True(a.LiftAcceleration.Z > 0);
         Assert.Equal(0, Vector3D.Dot(a.LiftAcceleration, v), 9);
         Assert.Equal(0, Vector3D.Dot(a.LiftAcceleration, w), 9);
-        Assert.Equal(Ball.RadiusMetres * 300 / 60, a.SpinParameter, 12);
+        Assert.Equal(Ball.RadiusUnits * 300 / 60, a.SpinParameter, 12);
     }
 
     [Fact]
@@ -123,14 +123,14 @@ public class AtmosphereTests
     {
         double p = AtmosphericModel.StationPressure(101325, 1609);   // Denver
         Assert.InRange(p, 83000, 84000);
-        var high = AtmosphericModel.Evaluate(new AtmosphericConditions { AltitudeMetres = 1609 });
+        var high = AtmosphericModel.Evaluate(new AtmosphericConditions { AltitudeUnits = 1609 });
         Assert.InRange(high.Density / PhysicsConstants.StandardAirDensity, 0.81, 0.84);
     }
 
     [Fact]
     public void StationPressureOverridesAltitude()
     {
-        var a = AtmosphericModel.Evaluate(new AtmosphericConditions { AltitudeMetres = 3000, StationPressurePa = 101325 });
+        var a = AtmosphericModel.Evaluate(new AtmosphericConditions { AltitudeUnits = 3000, StationPressurePa = 101325 });
         Assert.Equal(PhysicsConstants.StandardAirDensity, a.Density, 3);
     }
 
@@ -142,9 +142,9 @@ public class AtmosphereTests
         Assert.True(cold.Density > hot.Density);
         var dry = AtmosphericModel.Evaluate(new AtmosphericConditions { TemperatureCelsius = 30 });
         var humid = AtmosphericModel.Evaluate(new AtmosphericConditions { TemperatureCelsius = 30, RelativeHumidityPercent = 100 });
-        Assert.True(humid.Density < dry.Density, "water vapour is lighter than dry air");
+        Assert.True(humid.Density < dry.Density, "water vapor is lighter than dry air");
         Assert.InRange((dry.Density - humid.Density) / dry.Density, 0.01, 0.02);
-        Assert.InRange(AtmosphericModel.SaturationVapourPressure(30), 4240, 4250);   // Buck: ≈4.245 kPa at 30 °C
+        Assert.InRange(AtmosphericModel.SaturationVaporPressure(30), 4240, 4250);   // Buck: ≈4.245 kPa at 30 °C
     }
 
     [Fact]
@@ -172,7 +172,7 @@ public class WindTests
     [Fact]
     public void PowerLawProfileGrowsWithHeight()
     {
-        var w = new PowerLawWindProfile(5, 0, ReferenceHeightMetres: 10);
+        var w = new PowerLawWindProfile(5, 0, ReferenceHeightUnits: 10);
         Assert.Equal(5, w.SpeedAt(10), 12);
         Assert.True(w.SpeedAt(30) > w.SpeedAt(10));
         Assert.True(w.SpeedAt(2) < w.SpeedAt(10));

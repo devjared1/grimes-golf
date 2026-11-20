@@ -10,7 +10,7 @@ public static class R10Shots
     public const string Device = "Garmin Approach R10";
 
     /// <summary>
-    /// An R10 shot: m/s to mph, and the spin axis flipped from the R10's sign (positive = tilted left, the ball
+    /// An R10 shot: wu/s to mph, and the spin axis flipped from the R10's sign (positive = tilted left, the ball
     /// curving left) to the input's (positive = curving right). Launch direction, club path and face angle are
     /// already positive = right. The R10 reports total spin and axis, not backspin and sidespin, so those stay null.
     /// What it didn't measure stays null too, for the adapter to mark as estimated: club angles all exactly 0 mean
@@ -33,12 +33,12 @@ public static class R10Shots
         var c = m.Club;
         bool tracked = c is { } k && !(k.Face == 0 && k.Path == 0 && k.AttackAngle == 0);
         if (c != null && !tracked) notes.Add("Club angles not tracked (a slow swing reads all zeros)");
-        double? clubMph = c?.HeadSpeed > 0 ? c.HeadSpeed * Units.MsToMph : null;
+        double? clubMph = c?.HeadSpeed > 0 ? c.HeadSpeed * Units.WorldSpeedToMph : null;
 
         var input = new LaunchMonitorInput
         {
             Device = Device,
-            BallSpeedMph = b?.BallSpeed * Units.MsToMph,
+            BallSpeedMph = b?.BallSpeed * Units.WorldSpeedToMph,
             LaunchAngleDegrees = b?.LaunchAngle,
             LaunchDirectionDegrees = b?.LaunchDirection,
             TotalSpinRpm = totalSpin,
@@ -55,7 +55,7 @@ public static class R10Shots
     /// <summary>A shot as the R10 would send it (for the fake R10): the reverse of <see cref="ToMonitorShot"/>.</summary>
     public static R10Metrics FromRangeShot(RangeShot shot, uint shotId) => new(
         shotId, 1,
-        new R10Ball((float)shot.LaunchDeg, (float)shot.DirectionDeg, (float)(shot.BallMph / Units.MsToMph), (float)-shot.SpinAxisDeg,
+        new R10Ball((float)shot.LaunchDeg, (float)shot.DirectionDeg, (float)(shot.BallMph / Units.WorldSpeedToMph), (float)-shot.SpinAxisDeg,
                     (float)shot.SpinRpm, R10SpinSource.Ratio, 1),
-        shot.ClubMph is { } club ? new R10Club((float)(club / Units.MsToMph), 0.5f, 1.5f, -2f) : null);
+        shot.ClubMph is { } club ? new R10Club((float)(club / Units.WorldSpeedToMph), 0.5f, 1.5f, -2f) : null);
 }

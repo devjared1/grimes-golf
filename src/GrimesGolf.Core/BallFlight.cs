@@ -3,7 +3,7 @@ using GrimesGolf.Physics;
 
 namespace GrimesGolf.Core;
 
-/// <summary>A point on the ball path. Metres: X downrange, Y height of the bottom of the ball, Z lateral (positive = right). T in seconds.</summary>
+/// <summary>A point on the ball path. World units: X downrange, Y height of the bottom of the ball, Z lateral (positive = right). T in seconds.</summary>
 public readonly record struct FlightPoint(double T, double X, double Y, double Z);
 
 public sealed record FlightResult(
@@ -43,7 +43,7 @@ public static class BallFlight
     /// <summary>A putt (or any ball struck along the ground) on a flat green. No air time, so <see cref="FlightResult.LandingIndex"/> is 0.</summary>
     public static FlightResult Putt(double ballSpeedMph, double hlaDeg)
     {
-        double v = ballSpeedMph * UnitConversion.MphToMetresPerSecond;
+        double v = ballSpeedMph * UnitConversion.MphToWorldSpeed;
         if (v <= 0) return new FlightResult(new[] { new FlightPoint(0, 0, 0, 0), new FlightPoint(0, 0, 0, 0) }, 0, 0, 0, 0, 0, 0, 0);
         var r = Engine.SimulatePutt(new PuttingRequest
         {
@@ -52,6 +52,6 @@ public static class BallFlight
         });
         var pts = r.Trajectory.Select(p => CourseGround.ToFlightPoint(p)).ToList();
         if (pts.Count == 1) pts.Add(pts[0]);
-        return new FlightResult(pts, 0, 0, r.Displacement * Units.MetresToYards, 0, r.Break * Units.MetresToYards, 0, 0);
+        return new FlightResult(pts, 0, 0, r.Displacement * Units.WorldToYards, 0, r.Break * Units.WorldToYards, 0, 0);
     }
 }

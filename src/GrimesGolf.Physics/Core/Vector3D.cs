@@ -1,8 +1,8 @@
 namespace GrimesGolf.Physics;
 
 /// <summary>
-/// A 3D vector in the engine's world frame: X lateral (positive = right of the +Y axis), Y forward, Z up. Metres,
-/// metres per second, radians per second, etc. depending on what it holds.
+/// A 3D vector in the engine's world frame: X lateral (positive = right of the +Y axis), Y forward, Z up. World units,
+/// world units per second, radians per second, etc. depending on what it holds.
 /// </summary>
 public readonly record struct Vector3D(double X, double Y, double Z)
 {

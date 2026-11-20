@@ -36,7 +36,7 @@ public partial class Main
             _hud.SetBattery(85, "");
             _hud.SetReady("Ready — hit!", new Color(0.18f, 0.54f, 0.32f));
         }
-        // --ball=-40,-30,-33,ready: the ball position panel with this ball (mm), and --stick=1.5: the alignment panel with this reading.
+        // --ball=-1.6,-1.2,-1.3,ready: the ball position panel with this ball (inches), and --stick=1.5: the alignment panel with this reading.
         if (Arg("--ball") is { } ball && ball.Split(',') is { Length: >= 3 } b)
             _hud.SetBall(new Core.Square.BallPosition(Number(b[0]), Number(b[1]), Number(b[2])), ready: b.Length > 3);
         if (Arg("--stick") is { } stick)
@@ -109,7 +109,7 @@ public partial class Main
     }
 
     /// <summary>
-    /// --ball-by-tree: the ball just past the tree nearest this hole's line (80–260 m out), on the side towards the
+    /// --ball-by-tree: the ball just past the tree nearest this hole's line (90–285 yd out), on the side toward the
     /// pin, so the tree stands between the ball and the camera behind it (to check that it thins out).
     /// </summary>
     private void PutBallByTree()
@@ -118,7 +118,7 @@ public partial class Main
         var hole = round.Hole;
         var line = hole.Pin - hole.Tee;
         double Off(P2 p) => Math.Abs((p - hole.Tee).X * line.Z - (p - hole.Tee).Z * line.X) / line.Length;
-        var tree = trees.Where(t => t.At.DistanceTo(hole.Tee) is > 80 and < 260).OrderBy(t => Off(t.At)).FirstOrDefault();
+        var tree = trees.Where(t => t.At.DistanceTo(hole.Tee) * Units.WorldToYards is > 90 and < 285).OrderBy(t => Off(t.At)).FirstOrDefault();
         if (tree == null) { Log("--ball-by-tree: no tree near this hole."); return; }
         var toPin = hole.Pin - tree.At;
         var ball = tree.At + toPin * ((tree.Crown / 2 + 2) / toPin.Length);
@@ -126,18 +126,18 @@ public partial class Main
         round.Restore(s with { Ball = ball, Strokes = Math.Max(s.Strokes, 1) });
         _player.PlaceBall(RestingBall(round));
         PrepareNextShot(snapCamera: true);
-        Log($"--ball-by-tree: ball at {ball.X:0.0},{ball.Z:0.0}, past a {tree.Height:0} m tree.");
+        Log($"--ball-by-tree: ball at {ball.X:0.0},{ball.Z:0.0}, past a {tree.Height * Units.WorldToFeet:0} ft tree.");
     }
 
-    /// <summary>--ball-on-green: the ball 6 m short of the pin, on the green (to check the flag, the grid and the putting view).</summary>
+    /// <summary>--ball-on-green: the ball 6 yd short of the pin, on the green (to check the flag, the grid and the putting view).</summary>
     private void PutBallOnGreen()
     {
         if (_match?.Current is not { } round) return;
         var hole = round.Hole;
         var line = hole.Pin - hole.Tee;
-        var ball = hole.Pin - line * (6 / line.Length);
+        var ball = hole.Pin - line * (6 * Units.YardsToWorld / line.Length);
         var s = round.Save();
-        round.Restore(s with { Ball = ball, Strokes = Math.Max(s.Strokes, 1) });
+        round.Restore(s with { Ball = ball, Lie = Lie.Green, Strokes = Math.Max(s.Strokes, 1) });
         _player.PlaceBall(RestingBall(round));
         PrepareNextShot(snapCamera: true);
     }

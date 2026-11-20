@@ -22,7 +22,7 @@ public static class UiTheme
     public static readonly Color Warn = new(0.96f, 0.72f, 0.26f);
     public static readonly Color Danger = new(0.92f, 0.38f, 0.36f);
 
-    /// <summary>Each player's colour (name, ball, scorecard row): gold, sky blue, pink, orange.</summary>
+    /// <summary>Each player's color (name, ball, scorecard row): gold, sky blue, pink, orange.</summary>
     private static readonly Color[] Players =
     {
         new(1.0f, 0.82f, 0.25f), new(0.45f, 0.78f, 1.0f), new(1.0f, 0.52f, 0.78f), new(1.0f, 0.6f, 0.25f),
@@ -210,7 +210,7 @@ public static class UiTheme
             for (int x = 0; x < size; x++)
             {
                 var p = new Vector2(x + 0.5f, y + 0.5f);
-                // Signed distance to a rounded square centred in the icon.
+                // Signed distance to a rounded square centered in the icon.
                 var q = new Vector2(Mathf.Abs(p.X - 8), Mathf.Abs(p.Y - 8)) - new Vector2(half - radius, half - radius);
                 float box = new Vector2(Mathf.Max(q.X, 0), Mathf.Max(q.Y, 0)).Length() + Mathf.Min(Mathf.Max(q.X, q.Y), 0) - radius;
                 float inside = Mathf.Clamp(0.5f - box, 0, 1);

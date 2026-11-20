@@ -29,7 +29,7 @@ public partial class GrassField : Node3D
         uniform float spacing;
         uniform int cols;           // cells across the area drawn this frame (instances fill it row by row)
         uniform vec3 eye;
-        uniform float reach_from;   // the ring's tufts lie between these distances from the eye (m)
+        uniform float reach_from;   // the ring's tufts lie between these distances from the eye (wu)
         uniform float reach_to;
         uniform vec4 ball_patch;    // world x, z of the ball's own grass, where it's full, where it ends; w = 0: none
         uniform vec3 rough_a : source_color; uniform vec3 rough_b : source_color;
@@ -101,7 +101,7 @@ public partial class GrassField : Node3D
         }
         """;
 
-    /// <summary>A ring: tufts from <c>From</c> to <c>To</c> metres from the camera, one per <c>Spacing</c>-metre cell.</summary>
+    /// <summary>A ring: tufts from <c>From</c> to <c>To</c> world units from the camera, one per <c>Spacing</c>-world unit cell.</summary>
     private sealed record Ring(float From, float To, float Spacing);
 
     private static Ring[] Rings(GraphicsQuality q) => q switch
@@ -112,7 +112,7 @@ public partial class GrassField : Node3D
         _ => [new(0, 24, 0.15f), new(22, 55, 0.35f)],
     };
 
-    /// <summary>Above this height over the ground (m) the grass is too small to see and isn't drawn.</summary>
+    /// <summary>Above this height over the ground (wu) the grass is too small to see and isn't drawn.</summary>
     private const float MaxEyeHeight = 25;
 
     private readonly Terrain _terrain;
@@ -164,8 +164,8 @@ public partial class GrassField : Node3D
     }
 
     /// <summary>
-    /// World x, z box round the ground the camera faces out to <paramref name="reach"/>: the wedge of its view (a little
-    /// wider) plus a few metres round the camera itself, within the square of that reach. Looking straight down, the square.
+    /// World x, z box around the ground the camera faces out to <paramref name="reach"/>: the wedge of its view (a little
+    /// wider) plus a few world units around the camera itself, within the square of that reach. Looking straight down, the square.
     /// </summary>
     private static (Vector2 Min, Vector2 Max) FacedBox(Camera3D camera, Vector3 eye, float reach)
     {
@@ -213,7 +213,7 @@ public partial class GrassField : Node3D
             m.SetShaderParameter("rough_a", Scenery.Rough); m.SetShaderParameter("rough_b", Scenery.RoughAlt);
             m.SetShaderParameter("deep_a", Scenery.DeepRough); m.SetShaderParameter("deep_b", Scenery.DeepRoughAlt);
 
-            // Enough instances for the whole square round the camera; each frame draws only the box it faces.
+            // Enough instances for the whole square around the camera; each frame draws only the box it faces.
             int side = (int)Mathf.Ceil(2 * ring.To / ring.Spacing) + 1;
             // Every tuft's place comes from the shader; the instance transforms are left at identity.
             var identity = new float[side * side * 12];

@@ -63,7 +63,7 @@ public sealed class CourseGround : ITerrainProvider
 
     /// <summary>A path point in the app's convention: Y is the bottom of the ball (the ground under a resting ball).</summary>
     public static FlightPoint ToFlightPoint(in TrajectoryPoint p, double timeOffset = 0) =>
-        new(p.Time + timeOffset, p.Position.Y, p.Position.Z - BallProperties.Standard.RadiusMetres, p.Position.X);
+        new(p.Time + timeOffset, p.Position.Y, p.Position.Z - BallProperties.Standard.RadiusUnits, p.Position.X);
 
     public double GetElevation(double x, double y) => _terrain?.HeightAt(new P2(y, x)) ?? 0;
 

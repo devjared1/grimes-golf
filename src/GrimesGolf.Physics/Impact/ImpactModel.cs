@@ -12,13 +12,13 @@ public sealed record ImpactResult(
 /// <item>Club velocity V = |V|(sin p cos a, cos p cos a, sin a) from path p and attack a; face normal
 ///   n = (sin f cos L, cos f cos L, sin L) from face angle f and dynamic loft L.</item>
 /// <item>The contact is at the face point given by the impact location; r_h runs from the head CG (behind the face by
-///   the CG depth) to it, r_b = −R n from the ball centre.</item>
+///   the CG depth) to it, r_b = −R n from the ball center.</item>
 /// <item>For an impulse J on the ball (−J on the club) the contact-point relative velocity changes by K·J with
 ///   K J = J/m + (I_b⁻¹(r_b × J)) × r_b + J/M + (I_h⁻¹(r_h × J)) × r_h — linear and angular momentum are conserved.</item>
 /// <item>Normal: u_n' = −e u_n. Tangential: first try u_t' = −e_t u_t (gripping); if that needs more than μ J_n of
 ///   friction, the ball slides: J = J_n (n − μ t̂), with J_n set by the normal condition.</item>
 /// </list>
-/// Gear effect, off-centre speed loss and face-to-path curvature all come out of the rigid-body solution.
+/// Gear effect, off-center speed loss and face-to-path curvature all come out of the rigid-body solution.
 /// </summary>
 public static class ImpactModel
 {
@@ -37,9 +37,9 @@ public static class ImpactModel
         var up = (Vector3D.UnitZ - n * n.Z).Normalized();
         var heelToe = Vector3D.Cross(n, Vector3D.UnitZ).Normalized();   // handedness-independent face horizontal axis
 
-        double m = ball.MassKg, rBall = ball.RadiusMetres, iBall = ball.MomentOfInertia, mClub = club.Mass;
+        double m = ball.MassKg, rBall = ball.RadiusUnits, iBall = ball.MomentOfInertia, mClub = club.Mass;
         var rb = n * -rBall;
-        var rh = n * club.CgDepthMetres + toe * delivery.ImpactToeMetres + up * (delivery.ImpactHeightMetres - club.CgHeightMetres);
+        var rh = n * club.CgDepthUnits + toe * delivery.ImpactToeUnits + up * (delivery.ImpactHeightUnits - club.CgHeightUnits);
 
         // Head inverse inertia in the face frame: vertical axis (up), heel-toe axis, face normal (taken as the vertical MOI).
         Vector3D InvHead(in Vector3D torque) =>
@@ -48,8 +48,8 @@ public static class ImpactModel
         Vector3D K(in Vector3D j) =>
             j / m + Vector3D.Cross(Vector3D.Cross(rb, j) / iBall, rb) + j / mClub + Vector3D.Cross(InvHead(Vector3D.Cross(rh, j)), rh);
 
-        double offCentreCm = Math.Sqrt(delivery.ImpactToeMetres * delivery.ImpactToeMetres + delivery.ImpactHeightMetres * delivery.ImpactHeightMetres) * 100;
-        double e = club.Restitution * Math.Max(0.5, 1 - club.RestitutionLossPerSquareCm * offCentreCm * offCentreCm);
+        double offCenterInches = Math.Sqrt(delivery.ImpactToeUnits * delivery.ImpactToeUnits + delivery.ImpactHeightUnits * delivery.ImpactHeightUnits) * UnitConversion.WorldToInches;
+        double e = club.Restitution * Math.Max(0.5, 1 - club.RestitutionLossPerSquareInch * offCenterInches * offCenterInches);
 
         var u = -vClub;   // ball contact point (at rest) relative to the club contact point
         double un = Vector3D.Dot(u, n);

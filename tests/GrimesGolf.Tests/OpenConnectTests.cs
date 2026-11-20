@@ -52,7 +52,7 @@ public class OpenConnectTests
         Assert.Equal(2, shots.Count);
         var s = shots[0];
         Assert.Equal((1, "I7"), (s.Number, s.ClubCode));
-        Assert.Equal(115.2, s.Ball.BallSpeedMs * GrimesGolf.Core.Course.Units.MsToMph, 6);
+        Assert.Equal(115.2, s.Ball.BallSpeedWps * GrimesGolf.Core.Course.Units.WorldSpeedToMph, 6);
         Assert.Equal(17.5, s.Ball.LaunchDeg);
         Assert.Equal(-1.2, s.Ball.DirectionDeg);
         Assert.Equal(6800, s.Ball.TotalSpinRpm);
@@ -62,7 +62,7 @@ public class OpenConnectTests
 
         Assert.Equal("DR", shots[1].ClubCode);
         Assert.Equal(2.5, shots[1].Club!.PathDeg);
-        Assert.Equal(110, shots[1].Club!.ClubSpeedMs!.Value * GrimesGolf.Core.Course.Units.MsToMph, 6);
+        Assert.Equal(110, shots[1].Club!.ClubSpeedWps!.Value * GrimesGolf.Core.Course.Units.WorldSpeedToMph, 6);
     }
 
     /// <summary>The messages Square's connector really sends (2026-11-09 capture): every one is flagged a heartbeat,
@@ -96,7 +96,7 @@ public class OpenConnectTests
         Assert.NotNull(s.Club);
         Assert.Equal(-3.51, s.Club!.PathDeg);
         Assert.Equal(31.9, s.Club.DynamicLoftDeg);
-        Assert.Null(s.Club.ClubSpeedMs);
+        Assert.Null(s.Club.ClubSpeedWps);
     }
 
     [Fact]

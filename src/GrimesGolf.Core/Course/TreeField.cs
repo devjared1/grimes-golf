@@ -1,6 +1,6 @@
 namespace GrimesGolf.Core.Course;
 
-/// <summary>Where a shot met a tree: on the path's segment from <see cref="Index"/>, at this point and moving at this velocity (m/s).</summary>
+/// <summary>Where a shot met a tree: on the path's segment from <see cref="Index"/>, at this point and moving at this velocity (wu/s).</summary>
 public readonly record struct TreeContact(int Index, FlightPoint At, double VelocityX, double VelocityY, double VelocityZ, bool Trunk, P2 TreeAt);
 
 /// <summary>
@@ -14,17 +14,17 @@ public readonly record struct TreeContact(int Index, FlightPoint At, double Velo
 public sealed class TreeField
 {
     private const double CellSize = 25;
-    /// <summary>Distance a ball flies through a crown, on average, before meeting a branch (m).</summary>
+    /// <summary>Distance a ball flies through a crown, on average, before meeting a branch (wu).</summary>
     private const double OpenCrownReach = 8, DenseCrownReach = 5;
-    /// <summary>How finely a path is checked (m). Crowns are metres across and trunks are checked by closest approach.</summary>
+    /// <summary>How finely a path is checked (wu). Crowns are world units across and trunks are checked by closest approach.</summary>
     private const double Step = 0.5;
-    /// <summary>A tree this close to where the ball was played from is the player's problem, not an obstacle (m): no stance is that exact.</summary>
+    /// <summary>A tree this close to where the ball was played from is the player's problem, not an obstacle (wu): no stance is that exact.</summary>
     private const double ClearOfStart = 1.5;
-    /// <summary>The ball is off the clubface this far before a crown can catch it (m): hanging branches are not modelled.</summary>
+    /// <summary>The ball is off the clubface this far before a crown can catch it (wu): hanging branches are not modeled.</summary>
     private const double CrownClearOfStart = 3;
 
     /// <param name="Base">Height of the foot of the drawn tree (its ground less <see cref="TreeShape.Sunk"/>).</param>
-    /// <param name="Crown">How far the crown reaches at its widest (m), for finding the trees near a point.</param>
+    /// <param name="Crown">How far the crown reaches at its widest (wu), for finding the trees near a point.</param>
     private readonly record struct Tree(CourseTree Source, P2 At, double Base, double Height, double Crown, bool Conifer, double Width,
                                         double CrownBottom, double TrunkRadius, double Reach);
 

@@ -7,7 +7,7 @@ namespace GrimesGolf.Game;
 /// Hitting a shot from the screen (no launch monitor needed): a power slider (1-100%, with what it means in yards or
 /// feet beside it), shot shape (draw, straight, fade), spin (low, medium, high), a Ready / Not ready light and the
 /// HIT SHOT button. On a course the power is set for the shot each time a new one comes up; it can be changed after.
-/// Shape and spin are greyed out for putts.
+/// Shape and spin are grayed out for putts.
 /// </summary>
 public partial class ShotControls : VBoxContainer
 {
@@ -155,7 +155,7 @@ public partial class ShotControls : VBoxContainer
 
     private bool _readyPill;
 
-    /// <summary>The course's smaller pill (bottom centre) rather than the range's top-bar light.</summary>
+    /// <summary>The course's smaller pill (bottom center) rather than the range's top-bar light.</summary>
     public void SetReadyPill(bool pill)
     {
         _readyPill = pill;

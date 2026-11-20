@@ -4,11 +4,11 @@ using GrimesGolf.Core;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// The course view, laid out round the ball in the middle so the hole stays in sight. There's no top bar: the hole
+/// The course view, laid out around the ball in the middle so the hole stays in sight. There's no top bar: the hole
 /// badge top left (Menu and the brand; course logo, hole, par, length, stroke and score; the Ready light, monitor
 /// status, whose turn, the mulligan and the leaderboard under it), the hole overview map top right (built in
 /// <c>Hud.cs</c>) with the wind under it, the ball data down the left over the shot data along the bottom left (both
-/// always shown, "-" until known), the Ready pill bottom centre, and bottom right the lie card (the lie, the slopes and
+/// always shown, "-" until known), the Ready pill bottom center, and bottom right the lie card (the lie, the slopes and
 /// the shot penalty; on the green, the read and green aids) over the shot panel (to the pin with the elevation, club,
 /// aim, power, shape, spin and HIT SHOT). The result line runs across the top, and the scorecard opens over it all.
 /// With a launch monitor connected the swing replaces the on-screen shot controls: the shot panel narrows to to the
@@ -329,7 +329,7 @@ public partial class Hud
     private Label _turn = null!, _standings = null!;
 
     /// <summary>
-    /// Multiplayer: "ANN TO PLAY" in her colour, and everyone's score to par (with this hole so far). Null
+    /// Multiplayer: "ANN TO PLAY" in her color, and everyone's score to par (with this hole so far). Null
     /// <paramref name="player"/> hides the turn line (one player, or the hole is finished).
     /// </summary>
     public void SetTurn(string? player, Color color, string standings)
@@ -341,7 +341,7 @@ public partial class Hud
         SetNote(_standings, _monitorLive ? "" : standings);   // with a monitor, the leaderboard shows this
     }
 
-    /// <summary>The mulligan button: hidden when the house rules give none, greyed out when it can't be used now.</summary>
+    /// <summary>The mulligan button: hidden when the house rules give none, grayed out when it can't be used now.</summary>
     public void SetMulligans(int perRound, int left, bool canUse)
     {
         _mulligan.Visible = perRound > 0;
@@ -414,7 +414,7 @@ public partial class Hud
 
     /// <summary>Ball data, down the left (caption and default unit). Stats are matched to these by caption.</summary>
     private static readonly (string Caption, string Unit)[] LaunchSlots =
-        { ("Ball speed", "mph"), ("Club speed", "mph"), ("Spin", "rpm"), ("Spin axis", ""), ("Direction", ""), ("Launch", "") };
+        { ("Ball speed", "mph"), ("Club speed", "mph"), ("Smash", ""), ("Spin", "rpm"), ("Spin axis", ""), ("Direction", ""), ("Launch", "") };
 
     /// <summary>Shot data, along the bottom left.</summary>
     private static readonly (string Caption, string Unit)[] ResultSlots =
@@ -460,8 +460,8 @@ public partial class Hud
 
     /// <summary>
     /// The shot's numbers: ball data down the left (as soon as the ball is struck) and shot data along the bottom left
-    /// (once the ball has stopped). Both are always shown; a figure not known (yet) shows "-". They stay until
-    /// <see cref="HideResult"/> (the next shot, or a new hole) clears them.
+    /// (once the ball has stopped). Both are always shown; a figure not known (yet) shows "-". They stay until the
+    /// next shot replaces them (not cleared by a new hole, club, or the ball stopping).
     /// </summary>
     public void ShowShotNumbers(IReadOnlyList<Stat> launch, IReadOnlyList<Stat> result)
     {
@@ -469,10 +469,10 @@ public partial class Hud
         FillSlots(_resultSlots, result);
     }
 
+    /// <summary>Hides the line across the top. The shot's numbers stay up until the next shot replaces them.</summary>
     public void HideResult()
     {
         _result.Visible = false;
-        ShowShotNumbers(Array.Empty<Stat>(), Array.Empty<Stat>());
     }
 
     public void ToggleScorecard() => _scorecardPanel.Visible = _courseMode && !_scorecardPanel.Visible;

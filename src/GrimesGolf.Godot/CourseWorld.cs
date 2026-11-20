@@ -70,7 +70,7 @@ public partial class CourseWorld : Node3D
         };
         AddChild(_mapPin);
         ShowHole(h);
-        // A practice green has no tee, out-of-bounds line or yardages: just the green, its cups, and trees round the edge.
+        // A practice green has no tee, out-of-bounds line or yardages: just the green, its cups, and trees around the edge.
         if (!IsPractice) AddStakes();
         AddTrees();
         if (!IsPractice) foreach (var hole in Shared ? _courseDef.Holes : new[] { h }) AddYardageMarkers(hole);
@@ -82,7 +82,7 @@ public partial class CourseWorld : Node3D
         AddChild(_aim);
     }
 
-    /// <summary>Flat ground: deep rough everywhere, with the playing areas as flat shapes layered a few cm apart.</summary>
+    /// <summary>Flat ground: deep rough everywhere, with the playing areas as flat shapes layered about an inch apart.</summary>
     private void BuildFlatGround(Hole h)
     {
         var area = Shared ? _courseDef.Extent : h.Bounds;
@@ -95,7 +95,7 @@ public partial class CourseWorld : Node3D
             CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
         });
 
-        // Layers are a few cm apart so they never z-fight: first cut < fairway < tee < cart path < fringe < green < bunker < water.
+        // Layers are about an inch apart so they never z-fight: first cut < fairway < tee < cart path < fringe < green < bunker < water.
         var firstCut = Scenery.Grass(Scenery.Rough, Scenery.RoughAlt, 0);
         var tees = (Shared ? _courseDef.Holes : new[] { h }).Select(Scenery.TeeCut);
         foreach (var c in Scenery.FirstCut(h).Concat(tees)) Scenery.AddShape(this, c, 0.015f, firstCut);
@@ -164,8 +164,8 @@ public partial class CourseWorld : Node3D
     private double _gimmeRadius, _secondRadius;
 
     /// <summary>
-    /// Circles on the green round the hole being played: the gimme circle (<paramref name="radius"/> m) and, with
-    /// auto-putting, its second circle (<paramref name="second"/> m; 0 = none). 0 for both hides them.
+    /// Circles on the green around the hole being played: the gimme circle (<paramref name="radius"/>, in world units) and, with
+    /// auto-putting, its second circle (<paramref name="second"/>; 0 = none). 0 for both hides them.
     /// </summary>
     public void SetGimmeCircles(double radius, double second)
     {
@@ -174,10 +174,10 @@ public partial class CourseWorld : Node3D
         BuildGimmeCircles();
     }
 
-    /// <summary>The gimme circle's colour while the ball is inside it.</summary>
+    /// <summary>The gimme circle's color while the ball is inside it.</summary>
     private static readonly Color GimmeIn = new(0.25f, 0.95f, 0.45f);
 
-    /// <summary>The gimme circle's own material (tints its white vertex colours), and whether it shows the ball inside.</summary>
+    /// <summary>The gimme circle's own material (tints its white vertex colors), and whether it shows the ball inside.</summary>
     private StandardMaterial3D? _gimmeMaterial;
     private bool _ballInGimme;
 
@@ -216,7 +216,7 @@ public partial class CourseWorld : Node3D
             Transparency = BaseMaterial3D.TransparencyEnum.Alpha, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
             RenderPriority = 1,   // drawn after the heat map, which is transparent too
         };
-        // One surface per circle, each with its own material, so the gimme circle can change colour on its own.
+        // One surface per circle, each with its own material, so the gimme circle can change color on its own.
         var materials = new List<StandardMaterial3D>();
         foreach (var (radius, alpha, gimme) in new[] { (_gimmeRadius, 0.75f, true), (_secondRadius, 0.45f, false) })
         {
@@ -305,22 +305,14 @@ public partial class CourseWorld : Node3D
     private static CourseWorld? _cupOwner;
 
     /// <summary>
-    /// Flag in the hole, or pulled and laid on the green beside it, out of the way of a putt coming along
-    /// <paramref name="puttDirection"/>.
+    /// Flag in the hole, or pulled and out of sight altogether (pole and flag) while putting.
+    /// <paramref name="puttDirection"/> is no longer needed (the pulled flag used to be laid beside the hole).
     /// </summary>
     public void SetFlagIn(bool standing, Vector3 puttDirection)
     {
         var flag = _pins[_hole].Flag;
-        if (standing) { flag.Stand(); return; }
-        var along = new Vector3(puttDirection.X, 0, puttDirection.Z).Normalized();
-        if (along.LengthSquared() < 0.5f) along = Vector3.Forward;
-        var across = along.Cross(Vector3.Up);
-        // Beside and beyond the hole, pointing away from the player, lying on the green.
-        var at = Scenery.ToGodot(_hole.Pin) + across * 0.8f + along * 0.6f;
-        var tip = at + (across + along * 1.5f).Normalized() * 2.5f;
-        at.Y = GreenAt(FromGodot(at));
-        tip.Y = GreenAt(FromGodot(tip));
-        flag.LayDown(at, tip - at);
+        if (standing) flag.Stand();
+        else flag.Pull();
     }
 
     /// <summary>
@@ -421,7 +413,7 @@ public partial class CourseWorld : Node3D
         var stakes = new List<Vector3>();
         foreach (var ring in rings)
         {
-            // Walk the outline, one stake every 15 m.
+            // Walk the outline, one stake every 15 world units.
             double carry = 0;
             for (int i = 0; i < ring.Count; i++)
             {
@@ -452,7 +444,7 @@ public partial class CourseWorld : Node3D
     };
 
     /// <summary>
-    /// Sprinkler-plate yardage markers: a coloured disc with a white rim set into the fairway on the hole line at 100
+    /// Sprinkler-plate yardage markers: a colored disc with a white rim set into the fairway on the hole line at 100
     /// (red), 150 (white) and 200 (blue) yards from the middle of the green. Skipped where that spot isn't fairway.
     /// </summary>
     private void AddYardageMarkers(Hole hole)
@@ -465,7 +457,7 @@ public partial class CourseWorld : Node3D
         foreach (var (yards, color) in Yardages)
         {
             // Walk back from the green along the line to the spot that far from its middle.
-            double want = yards * Units.YardsToMetres;
+            double want = yards * Units.YardsToWorld;
             P2? spot = null;
             for (double s = length; s > 0; s -= 0.5)
             {
@@ -502,11 +494,11 @@ public partial class CourseWorld : Node3D
             var outline = bunker is Polygon p ? p.Points : ((Ellipse)bunker).Outline(32);
             var box = bunker.Box;
             if ((box.Max.X - box.Min.X) * (box.Max.Z - box.Min.Z) < 40) continue;
-            var centre = new P2(outline.Average(q => q.X), outline.Average(q => q.Z));
-            var green = h.Greens.OrderBy(g => g.DistanceTo(centre)).FirstOrDefault();
+            var center = new P2(outline.Average(q => q.X), outline.Average(q => q.Z));
+            var green = h.Greens.OrderBy(g => g.DistanceTo(center)).FirstOrDefault();
             // The edge point farthest from the green (or the first, if there's no green about).
             var edge = green == null ? outline[0] : outline.MaxBy(q => green.DistanceTo(q));
-            var outward = edge - centre;
+            var outward = edge - center;
             outward *= 1 / Math.Max(outward.Length, 1e-6);
             var along = new P2(-outward.Z, outward.X);
             // Handle end on the grass, head end angled in toward the sand.

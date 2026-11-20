@@ -7,17 +7,17 @@ namespace GrimesGolf.Physics;
 /// The green's rolling resistance is calibrated so the engine's own roll model (rolling resistance plus air drag)
 /// reproduces that distance: a ball started at the exit speed on a flat green of that surface rolls the Stimp
 /// distance. Ignoring drag this is μ_r = v₀² / (2 g d). The exit speed is an approximation of the ramp physics
-/// (energy of a rolling ball from 0.26 m drop, less ramp and landing losses), PROVISIONAL.
+/// (energy of a rolling ball from 0.85 ft drop, less ramp and landing losses), PROVISIONAL.
 /// </para>
 /// </summary>
 public static class GreenModel
 {
-    /// <summary>Ball speed (m/s) leaving a Stimpmeter ramp, about 6 ft/s.</summary>
+    /// <summary>Ball speed (wu/s) leaving a Stimpmeter ramp, about 6 ft/s.</summary>
     public const double StimpmeterExitSpeed = 1.83;
 
     /// <summary>Drag-free closed form: rolling resistance giving a Stimp reading of <paramref name="stimpFeet"/>.</summary>
     public static double RollingResistanceForStimp(double stimpFeet, double exitSpeed = StimpmeterExitSpeed) =>
-        exitSpeed * exitSpeed / (2 * PhysicsConstants.Gravity * stimpFeet * UnitConversion.FeetToMetres);
+        exitSpeed * exitSpeed / (2 * PhysicsConstants.Gravity * stimpFeet * UnitConversion.FeetToWorld);
 
     /// <summary>Default green firmness: slightly receptive, so high-spin wedges check and spin back (firmer greens release them).</summary>
     public const double DefaultFirmness = 0.4;
@@ -25,7 +25,7 @@ public static class GreenModel
     /// <summary>
     /// A green surface (Penner 2002 bounce) whose rolling resistance is calibrated to <paramref name="stimpFeet"/>,
     /// optionally with grain. <paramref name="firmness"/> (0 soft … 1 firm) sets how deep landing balls crater, which
-    /// is what decides check and spin-back. The friction (0.5), tangential restitution (0.3), skid (5 m/s) and turf drag
+    /// is what decides check and spin-back. The friction (0.5), tangential restitution (0.3), skid (5 wu/s) and turf drag
     /// (0.3) are PROVISIONAL, chosen so full shots hop forward before the turf grabs them: wedges check or spin back,
     /// mid irons release a few yards, low spinning wedges skip and stop, and chips release.
     /// </summary>
@@ -56,10 +56,10 @@ public static class GreenModel
             Ball = ball, Air = AirProperties.Standard, Wind = Wind.Calm, Terrain = terrain, Options = GroundOptions.Default,
         };
         var v = new Vector3D(0, exitSpeed, 0);
-        var s = new BallState(c.OnSurface(0, 0), v, Vector3D.Cross(Vector3D.UnitZ, v) / ball.RadiusMetres);
+        var s = new BallState(c.OnSurface(0, 0), v, Vector3D.Cross(Vector3D.UnitZ, v) / ball.RadiusUnits);
         double t = 0, dt = GroundOptions.Default.TimeStepSeconds;
         while (t < 120 && RollModel.Step(ref s, ref c, t, dt) != RollStepOutcome.AtRest) t += dt;
-        return s.Position.Y * UnitConversion.MetresToFeet;
+        return s.Position.Y * UnitConversion.WorldToFeet;
     }
 
     /// <summary>Adjusts <paramref name="template"/>'s rolling resistance (bisection) until <see cref="MeasureStimp"/> reads <paramref name="stimpFeet"/>.</summary>

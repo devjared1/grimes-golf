@@ -7,7 +7,7 @@ public enum PracticeKind { Putting, Chipping }
 public sealed record PracticeSpot(string Name, P2 At, Lie Lie);
 
 /// <summary>
-/// A made-up green to practise on, built as an ordinary <see cref="Course"/> so the rest of the game plays it the way
+/// A made-up green to practice on, built as an ordinary <see cref="Course"/> so the rest of the game plays it the way
 /// it plays any course: one <see cref="Hole"/> per cup on the green (they share the green, bunkers and ground, so the whole
 /// green is drawn once, every cup with its flag, and the one being aimed at is the "hole"), over ground with real contours
 /// that the ball's roll follows.
@@ -38,7 +38,7 @@ public sealed class PracticeGreen
     public string CupNoun { get; }
 
     /// <summary>The rules for practice: every ball is holed out (no gimmes), nothing is picked up and no strokes are limited.</summary>
-    public static readonly HouseRules Rules = new(Mulligans: 0, GimmeMetres: 0);
+    public static readonly HouseRules Rules = new(Mulligans: 0, GimmeUnits: 0);
 
     /// <summary>The flagstick's scale: the putting green has short ones.</summary>
     public const float MiniFlag = 0.42f, FullFlag = 1.2f;
@@ -79,8 +79,8 @@ public sealed class PracticeGreen
     {
         var holes = Holes;
         if (holes.Count < 2) return current;
-        var centre = new P2(holes.Average(h => h.Pin.X), holes.Average(h => h.Pin.Z));
-        double reference = HoleRound.Heading(ball, centre);
+        var center = new P2(holes.Average(h => h.Pin.X), holes.Average(h => h.Pin.Z));
+        double reference = HoleRound.Heading(ball, center);
         var order = Enumerable.Range(0, holes.Count)
             .OrderBy(i => Math.Round(Math.IEEERemainder(HoleRound.Heading(ball, holes[i].Pin) - reference, 2 * Math.PI), 3))
             .ThenBy(i => holes[i].Pin.DistanceTo(ball))
@@ -89,7 +89,7 @@ public sealed class PracticeGreen
         return order[((at + step) % order.Count + order.Count) % order.Count];
     }
 
-    /// <summary>The hole whose cup is within <paramref name="within"/> metres of <paramref name="at"/> (nearest first), or null.</summary>
+    /// <summary>The hole whose cup is within <paramref name="within"/> world units of <paramref name="at"/> (nearest first), or null.</summary>
     public int? HoleNear(P2 at, double within)
     {
         int best = -1;
@@ -103,20 +103,20 @@ public sealed class PracticeGreen
     /// <summary>The ground a practice green sits on is a mowed square this size around the origin, then flat out to the horizon.</summary>
     private const double Cell = 0.5;
 
-    /// <summary>A rounded, lumpy outline round <paramref name="centre"/>: an ellipse (radii <paramref name="rx"/> along X, <paramref name="rz"/> along Z) with lobes in it.</summary>
-    private static Polygon Blob(P2 centre, double rx, double rz, (double Amplitude, int Lobes, double Phase)[] lobes, int segments = 72)
+    /// <summary>A rounded, lumpy outline round <paramref name="center"/>: an ellipse (radii <paramref name="rx"/> along X, <paramref name="rz"/> along Z) with lobes in it.</summary>
+    private static Polygon Blob(P2 center, double rx, double rz, (double Amplitude, int Lobes, double Phase)[] lobes, int segments = 72)
     {
         var points = new P2[segments];
         for (int i = 0; i < segments; i++)
         {
             double a = 2 * Math.PI * i / segments, k = 1;
             foreach (var (amplitude, count, phase) in lobes) k += amplitude * Math.Sin(count * a + phase);
-            points[i] = new P2(centre.X + Math.Cos(a) * rx * k, centre.Z + Math.Sin(a) * rz * k);
+            points[i] = new P2(center.X + Math.Cos(a) * rx * k, center.Z + Math.Sin(a) * rz * k);
         }
         return new Polygon(points);
     }
 
-    /// <summary>A smooth mound (positive <paramref name="height"/>) or hollow (negative) at <paramref name="at"/>, <paramref name="sx"/> × <paramref name="sz"/> m across (one standard deviation).</summary>
+    /// <summary>A smooth mound (positive <paramref name="height"/>) or hollow (negative) at <paramref name="at"/>, <paramref name="sx"/> × <paramref name="sz"/> world units across (one standard deviation).</summary>
     private static double Bump(P2 p, P2 at, double sx, double sz, double height)
     {
         double dx = (p.X - at.X) / sx, dz = (p.Z - at.Z) / sz;
@@ -127,7 +127,7 @@ public sealed class PracticeGreen
         new(number, $"Hole {number}", par, tee, pin, pin, fairways, greens, bunkers, Array.Empty<Shape>(), bounds);
 
     /// <summary>
-    /// A big putting green, 35 m by 23 m (about 115 ft by 75 ft), with six cups spread over it and slopes that break
+    /// A big putting green, 115 ft by 75 ft, with six cups spread over it and slopes that break
     /// putts (a mound and a hollow in the middle, a gentle fall to the front right), none steeper than 4%.
     /// </summary>
     public static PracticeGreen Putting()
@@ -149,16 +149,16 @@ public sealed class PracticeGreen
 
         (string, P2)[] spots =
         {
-            ("Front left", new P2(-13, -5)), ("Front centre", new P2(-14.5, 0.5)), ("Front right", new P2(-13, 5.5)),
-            ("Left side", new P2(0.5, -9)), ("Centre", new P2(0, 0)), ("Right side", new P2(1, 9)),
-            ("Back left", new P2(13, -5.5)), ("Back centre", new P2(14.5, 0)), ("Back right", new P2(13, 5.5)),
+            ("Front left", new P2(-13, -5)), ("Front center", new P2(-14.5, 0.5)), ("Front right", new P2(-13, 5.5)),
+            ("Left side", new P2(0.5, -9)), ("Center", new P2(0, 0)), ("Right side", new P2(1, 9)),
+            ("Back left", new P2(13, -5.5)), ("Back center", new P2(14.5, 0)), ("Back right", new P2(13, 5.5)),
             ("Low edge", new P2(-5, -9.5)), ("High edge", new P2(6, 9.5)),
         };
         return new PracticeGreen(PracticeKind.Putting, course.Name, course, spots.Select(s => new PracticeSpot(s.Item1, s.Item2, Lie.Green)).ToList(), "putt");
     }
 
     /// <summary>
-    /// A chipping green on a low plateau that falls away to rough on every side: a kidney-shaped green 25 m by 18 m with four
+    /// A chipping green on a low plateau that falls away to rough on every side: a kidney-shaped green about 27 yd by 20 yd with four
     /// cups, a short fairway running up to it, and a bunker on the front left and one at the back right. The green slopes back
     /// to front, so shots from the front play uphill and from behind, downhill.
     /// </summary>
@@ -174,7 +174,7 @@ public sealed class PracticeGreen
         var area = new Bounds(new P2(-70, -45), new P2(45, 45));
         double Height(P2 p)
         {
-            // The plateau (flat on top, falling away over a few metres), then the green's own slope and lumps, and mounds and hollows round it.
+            // The plateau (flat on top, falling away over a few world units), then the green's own slope and lumps, and mounds and hollows around it.
             double ux = p.X / 23, uz = p.Z / 18;
             double plateau = 0.40 * Math.Exp(-(Math.Pow(ux, 4) + Math.Pow(uz, 4)));
             return plateau + 0.013 * p.X * Math.Exp(-Math.Pow(p.X / 35, 2))
@@ -210,8 +210,8 @@ public sealed class PracticeGreen
 }
 
 /// <summary>One ball played to the hole: where it started, the strokes it took, and how far from the hole the first stroke left it.</summary>
-/// <param name="LeaveMetres">Distance to the hole after the first stroke (0 when it went straight in).</param>
-public sealed record PracticeAttempt(double StartMetres, int Strokes, double LeaveMetres);
+/// <param name="LeaveUnits">Distance to the hole after the first stroke (0 when it went straight in).</param>
+public sealed record PracticeAttempt(double StartUnits, int Strokes, double LeaveUnits);
 
 /// <summary>A practice session's results: every ball holed out, and what they say.</summary>
 public sealed class PracticeStats
@@ -227,14 +227,14 @@ public sealed class PracticeStats
     /// <summary>Holed in two strokes or fewer: an up and down, from off the green, a one- or two-putt from on it.</summary>
     public int TwoOrFewer => _attempts.Count(a => a.Strokes <= 2);
     public double AverageStrokes => Balls == 0 ? 0 : (double)Strokes / Balls;
-    /// <summary>The farthest hole made with the first stroke (m; 0 if there hasn't been one).</summary>
-    public double LongestFirstStrokeMetres => _attempts.Where(a => a.Strokes == 1).Select(a => a.StartMetres).DefaultIfEmpty(0).Max();
+    /// <summary>The farthest hole made with the first stroke (wu; 0 if there hasn't been one).</summary>
+    public double LongestFirstStrokeUnits => _attempts.Where(a => a.Strokes == 1).Select(a => a.StartUnits).DefaultIfEmpty(0).Max();
     /// <summary>How far the first stroke left the ball from the hole, on average, over the balls it didn't hole (null if it holed them all).</summary>
-    public double? AverageLeaveMetres
+    public double? AverageLeaveUnits
     {
         get
         {
-            var leaves = _attempts.Where(a => a.Strokes > 1).Select(a => a.LeaveMetres).ToList();
+            var leaves = _attempts.Where(a => a.Strokes > 1).Select(a => a.LeaveUnits).ToList();
             return leaves.Count == 0 ? null : leaves.Average();
         }
     }
@@ -251,7 +251,7 @@ public sealed class PracticeStats
 
     public void Clear() => _attempts.Clear();
 
-    private static string Feet(double metres) => $"{metres / Units.FeetToMetres:0} ft";
+    private static string Feet(double units) => $"{units / Units.FeetToWorld:0} ft";
     private static string Percent(int part, int whole) => whole == 0 ? "–" : $"{100.0 * part / whole:0}%";
 
     /// <summary>The session as captions and values for a small panel, for this kind of green.</summary>
@@ -263,13 +263,13 @@ public sealed class PracticeStats
             lines.Add(("1-putts", Balls == 0 ? "–" : $"{FirstStrokeHoles}  ·  {Percent(FirstStrokeHoles, Balls)}"));
             lines.Add(("3-putts", ThreeOrMore.ToString()));
             lines.Add(("Putts per hole", Balls == 0 ? "–" : $"{AverageStrokes:0.0#}"));
-            lines.Add(("Longest 1-putt", FirstStrokeHoles == 0 ? "–" : Feet(LongestFirstStrokeMetres)));
+            lines.Add(("Longest 1-putt", FirstStrokeHoles == 0 ? "–" : Feet(LongestFirstStrokeUnits)));
         }
         else
         {
             lines.Add(("Up and downs", Balls == 0 ? "–" : $"{TwoOrFewer}  ·  {Percent(TwoOrFewer, Balls)}"));
             lines.Add(("Chip-ins", FirstStrokeHoles.ToString()));
-            lines.Add(("Average leave", AverageLeaveMetres is { } leave ? Feet(leave) : "–"));
+            lines.Add(("Average leave", AverageLeaveUnits is { } leave ? Feet(leave) : "–"));
             lines.Add(("Strokes per ball", Balls == 0 ? "–" : $"{AverageStrokes:0.0#}"));
         }
         return lines;

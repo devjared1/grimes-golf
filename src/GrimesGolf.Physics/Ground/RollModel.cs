@@ -7,9 +7,9 @@ public sealed record GroundOptions
 {
     /// <summary>Ground-phase time step (s). Friction is stiff, so this is finer than the flight step.</summary>
     public double TimeStepSeconds { get; init; } = 1.0 / 960;
-    /// <summary>Below this speed (m/s) a ball the slope can't move is at rest.</summary>
+    /// <summary>Below this speed (wu/s) a ball the slope can't move is at rest.</summary>
     public double RestSpeed { get; init; } = 0.01;
-    /// <summary>Contact-point slip speed (m/s) below which the ball counts as rolling.</summary>
+    /// <summary>Contact-point slip speed (wu/s) below which the ball counts as rolling.</summary>
     public double SlipTolerance { get; init; } = 0.02;
     /// <summary>Include air drag on the rolling ball (with wind). Matters for fast run-outs.</summary>
     public bool IncludeAirDrag { get; init; } = true;
@@ -19,8 +19,8 @@ public sealed record GroundOptions
     public IEnumerable<string> Validate()
     {
         if (!(TimeStepSeconds is > 0 and <= 0.01)) yield return $"Ground time step {TimeStepSeconds} s is outside (0, 0.01].";
-        if (!(RestSpeed is > 0 and < 0.5)) yield return $"Rest speed {RestSpeed} m/s is outside (0, 0.5).";
-        if (!(SlipTolerance is > 0 and < 0.5)) yield return $"Slip tolerance {SlipTolerance} m/s is outside (0, 0.5).";
+        if (!(RestSpeed is > 0 and < 0.5)) yield return $"Rest speed {RestSpeed} wu/s is outside (0, 0.5).";
+        if (!(SlipTolerance is > 0 and < 0.5)) yield return $"Slip tolerance {SlipTolerance} wu/s is outside (0, 0.5).";
     }
 }
 
@@ -43,11 +43,11 @@ internal struct GroundContext
         return _effective!;
     }
 
-    /// <summary>Ball centre position resting on the ground at (x, y): one radius out along the normal.</summary>
+    /// <summary>Ball center position resting on the ground at (x, y): one radius out along the normal.</summary>
     public Vector3D OnSurface(double x, double y)
     {
         var n = Terrain.GetSurfaceNormal(x, y);
-        return new Vector3D(x, y, Terrain.GetElevation(x, y) + Ball.RadiusMetres / n.Z);
+        return new Vector3D(x, y, Terrain.GetElevation(x, y) + Ball.RadiusUnits / n.Z);
     }
 }
 
@@ -56,9 +56,9 @@ public enum RollStepOutcome { Sliding, Rolling, AtRest }
 /// <summary>
 /// The ball in contact with the ground, moving along it.
 /// <list type="bullet">
-/// <item>Normal force per unit mass N = g cos θ (n·Z g); curvature of the ground is not modelled, so the ball stays in
+/// <item>Normal force per unit mass N = g cos θ (n·Z g); curvature of the ground is not modeled, so the ball stays in
 ///   contact (it doesn't leave the ground over crests).</item>
-/// <item>Sliding (contact point slipping at u = v + ω × (−r n)): Coulomb friction a_f = −μ_d N û on the centre and
+/// <item>Sliding (contact point slipping at u = v + ω × (−r n)): Coulomb friction a_f = −μ_d N û on the center and
 ///   torque (−r n) × m a_f, which drives the ball toward rolling.</item>
 /// <item>Rolling: a = (g_t + a_air)/(1 + k) − μ_r(v) N v̂ (+ grain), ω = n × v / r. For μ_r = 0 and no air this reduces
 ///   to the ideal rolling sphere, a = 5/7 g sin θ.</item>
@@ -75,7 +75,7 @@ internal static class RollModel
         var n = c.Terrain.GetSurfaceNormal(p.X, p.Y);
         var surf = c.SurfaceAt(p.X, p.Y);
         var ball = c.Ball;
-        double r = ball.RadiusMetres, k = ball.InertiaFactor, g = PhysicsConstants.Gravity;
+        double r = ball.RadiusUnits, k = ball.InertiaFactor, g = PhysicsConstants.Gravity;
         double normalAccel = g * n.Z;
         var gt = new Vector3D(0, 0, -g).ProjectOnPlane(n);
 

@@ -5,9 +5,9 @@ namespace GrimesGolf.Physics;
 /// bounces and roll-outs; only the green restitution and crater model come from published work (Penner 2002, "The run
 /// of a golf ball", Can. J. Phys. 80).
 /// <para>
-/// Bounce: normal restitution e(v_n) = clamp(a + b·v_n + c·v_n², min, max), with v_n the normal impact speed in m/s
-/// (Penner's green: a = 0.510, b = −0.0375, c = 0.000903 up to 20 m/s, 0.12 beyond). The turf is pushed into a crater
-/// which tilts the effective surface normal back toward the incoming ball by θ_c = θ_ref (v / 18.6 m/s)(θ_in / 44.4°)
+/// Bounce: normal restitution e(v_n) = clamp(a + b·v_n + c·v_n², min, max), with v_n the normal impact speed in wu/s
+/// (Penner's green: a = 0.510, b = −0.0375, c = 0.000903 up to 20 wu/s, 0.12 beyond). The turf is pushed into a crater
+/// which tilts the effective surface normal back toward the incoming ball by θ_c = θ_ref (v / 18.6 wu/s)(θ_in / 44.4°)
 /// (Penner: θ_ref = 15.4° on a green). Friction at the contact is Coulomb with static and dynamic coefficients.
 /// </para>
 /// <para>
@@ -27,14 +27,14 @@ public sealed record SurfaceProperties
     public double RestitutionConstant { get; init; } = 0.510;
     public double RestitutionPerSpeed { get; init; } = -0.0375;
     public double RestitutionPerSpeedSquared { get; init; } = 0.000903;
-    /// <summary>Normal speed (m/s) above which <see cref="MinimumRestitution"/> applies (where Penner's quadratic flattens out).</summary>
+    /// <summary>Normal speed (wu/s) above which <see cref="MinimumRestitution"/> applies (where Penner's quadratic flattens out).</summary>
     public double RestitutionCurveLimitSpeed { get; init; } = 20;
     public double MinimumRestitution { get; init; } = 0.12;
     public double MaximumRestitution { get; init; } = 0.75;
     /// <summary>Multiplies the restitution curve, so other surfaces can reuse Penner's shape.</summary>
     public double RestitutionScale { get; init; } = 1.0;
 
-    /// <summary>Crater angle θ_ref (degrees) at the reference impact (18.6 m/s at 44.4°).</summary>
+    /// <summary>Crater angle θ_ref (degrees) at the reference impact (18.6 wu/s at 44.4°).</summary>
     public double CraterAngleDegrees { get; init; } = 15.4;
     public double MaximumCraterAngleDegrees { get; init; } = 35;
 
@@ -50,7 +50,7 @@ public sealed record SurfaceProperties
     public double DynamicFriction { get; init; } = 0.40;
 
     /// <summary>
-    /// Slip speed (m/s) of the contact at which a bounce's friction has fallen to half: μ(u) = μ / (1 + u / this).
+    /// Slip speed (wu/s) of the contact at which a bounce's friction has fallen to half: μ(u) = μ / (1 + u / this).
     /// Short grass sheared by a fast, spinning ball grips less than it does a slow one, so a full shot skids through its
     /// first, hard landing keeping much of its backspin (the pitch mark still brakes it) and the turf grabs on the
     /// next, slower touch: the ball hops forward, then checks. 0 = friction doesn't fade (the ball grips at once).
@@ -59,25 +59,25 @@ public sealed record SurfaceProperties
     public double ImpactSkidSpeed { get; init; }
 
     /// <summary>
-    /// Turf drag on a landing ball (0-1): the share of its speed along the ground it loses ploughing through the grass,
-    /// pushed back through its centre so its spin is untouched. The full share on a landing at least
+    /// Turf drag on a landing ball (0-1): the share of its speed along the ground it loses plowing through the grass,
+    /// pushed back through its center so its spin is untouched. The full share on a landing at least
     /// <see cref="HardLandingSpeed"/> into the ground, proportionally less on gentler bounces. The crater tilt
     /// (<see cref="CraterAngleDegrees"/>) brakes steep landings; this brakes shallow ones too, so a low, spinning wedge
     /// loses enough pace on its first hop for its backspin to stop it. PROVISIONAL.
     /// </summary>
     public double ImpactDrag { get; init; }
 
-    /// <summary>Normal impact speed (m/s) from which a landing takes the full <see cref="ImpactDrag"/>.</summary>
+    /// <summary>Normal impact speed (wu/s) from which a landing takes the full <see cref="ImpactDrag"/>.</summary>
     public const double HardLandingSpeed = 12;
     /// <summary>Rolling resistance μ_r (deceleration of a rolling ball in g on flat ground).</summary>
     public double RollingResistance { get; init; } = 0.12;
-    /// <summary>Additional rolling resistance per m/s of speed (s/m).</summary>
+    /// <summary>Additional rolling resistance per wu/s of speed (s/wu).</summary>
     public double RollingResistancePerSpeed { get; init; }
 
     public double Firmness { get; init; } = 0.5;
     public double Moisture { get; init; }
-    /// <summary>Typical height of surface irregularities (m). Informational for now: not used by the bounce model.</summary>
-    public double RoughnessMetres { get; init; } = 0.005;
+    /// <summary>Typical height of surface irregularities (wu). Informational for now: not used by the bounce model.</summary>
+    public double RoughnessUnits { get; init; } = 0.005;
 
     /// <summary>Unit horizontal vector the grass grain grows toward (greens). Zero = no grain.</summary>
     public Vector3D GrainDirection { get; init; } = Vector3D.Zero;
@@ -109,7 +109,7 @@ public sealed record SurfaceProperties
         };
     }
 
-    /// <summary>Normal restitution at normal impact speed <paramref name="normalSpeed"/> (m/s). Call on an <see cref="Effective"/> surface.</summary>
+    /// <summary>Normal restitution at normal impact speed <paramref name="normalSpeed"/> (wu/s). Call on an <see cref="Effective"/> surface.</summary>
     public double RestitutionAt(double normalSpeed)
     {
         double v = Math.Abs(normalSpeed);
@@ -119,7 +119,7 @@ public sealed record SurfaceProperties
         return Math.Clamp(Math.Max(e, MinimumRestitution) * RestitutionScale, 0, MaximumRestitution);
     }
 
-    /// <summary>Crater angle (radians) for an impact at <paramref name="speed"/> m/s and <paramref name="impactAngleRad"/> below the surface tangent.</summary>
+    /// <summary>Crater angle (radians) for an impact at <paramref name="speed"/> wu/s and <paramref name="impactAngleRad"/> below the surface tangent.</summary>
     public double CraterAngle(double speed, double impactAngleRad) =>
         Math.Min(CraterAngleDegrees * (speed / 18.6) * (impactAngleRad * UnitConversion.RadiansToDegrees / 44.4), MaximumCraterAngleDegrees)
         * UnitConversion.DegreesToRadians;
@@ -139,7 +139,7 @@ public sealed record SurfaceProperties
 
 /// <summary>
 /// Provisional surface presets. Green follows Penner's (2002) restitution and crater model; its friction and
-/// tangential restitution, and all the other presets, are judgement chosen for the expected behaviour (hard ground
+/// tangential restitution, and all the other presets, are judgment chosen for the expected behavior (hard ground
 /// livelier than fairway, rough and sand deader, wedges checking on greens) and must be calibrated before being relied on.
 /// </summary>
 public static class Surfaces
@@ -161,13 +161,13 @@ public static class Surfaces
     public static SurfaceProperties Rough { get; } = new()
     {
         Name = "Rough", RestitutionScale = 0.7, CraterAngleDegrees = 20, StaticFriction = 0.65, DynamicFriction = 0.6,
-        RollingResistance = 0.30, Firmness = 0.4, RoughnessMetres = 0.04,
+        RollingResistance = 0.30, Firmness = 0.4, RoughnessUnits = 0.04,
     };
 
     public static SurfaceProperties DeepRough { get; } = new()
     {
         Name = "Deep rough", RestitutionScale = 0.45, CraterAngleDegrees = 28, StaticFriction = 0.85, DynamicFriction = 0.8,
-        RollingResistance = 0.6, Firmness = 0.35, RoughnessMetres = 0.1,
+        RollingResistance = 0.6, Firmness = 0.35, RoughnessUnits = 0.1,
     };
 
     /// <summary>
@@ -177,7 +177,7 @@ public static class Surfaces
     public static SurfaceProperties Sand { get; } = new()
     {
         Name = "Sand", RestitutionScale = SandBounce, CraterAngleDegrees = SandCrater, MaximumCraterAngleDegrees = 45, StaticFriction = 0.9,
-        DynamicFriction = 0.85, RollingResistance = SandRolling, ImpactDrag = SandDrag, Firmness = 0.2, RoughnessMetres = 0.01,
+        DynamicFriction = 0.85, RollingResistance = SandRolling, ImpactDrag = SandDrag, Firmness = 0.2, RoughnessUnits = 0.01,
     };
 
     /// <summary>
@@ -195,13 +195,13 @@ public static class Surfaces
 
     /// <summary>
     /// Concrete (cart paths): its own restitution curve, livelier than turf and falling off more gently with speed
-    /// (about 0.6 at 5 m/s, 0.45 at 20 m/s), almost no crater, and very little rolling resistance.
+    /// (about 0.6 at 5 wu/s, 0.45 at 20 wu/s), almost no crater, and very little rolling resistance.
     /// </summary>
     public static SurfaceProperties CartPath { get; } = new()
     {
         Name = "Cart path", RestitutionConstant = 0.68, RestitutionPerSpeed = -0.012, RestitutionPerSpeedSquared = 0,
         RestitutionCurveLimitSpeed = 30, MinimumRestitution = 0.3, CraterAngleDegrees = 1, MaximumCraterAngleDegrees = 5,
-        StaticFriction = 0.5, DynamicFriction = 0.45, TangentialRestitution = 0.05, RollingResistance = 0.035, RoughnessMetres = 0.001,
+        StaticFriction = 0.5, DynamicFriction = 0.45, TangentialRestitution = 0.05, RollingResistance = 0.035, RoughnessUnits = 0.001,
     };
 
     public static SurfaceProperties SoftGround { get; } = Fairway with { Name = "Soft ground", Firmness = 0.15 };

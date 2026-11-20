@@ -78,9 +78,9 @@ if it has gone to sleep.
 
 **Setting it up** (from Garmin's owner's manual):
 
-- Put the R10 on the floor **6 to 8 ft (1.8 to 2.4 m) behind the ball**, on its tripod, level and steady. On a
+- Put the R10 on the floor **6 to 8 ft behind the ball**, on its tripod, level and steady. On a
   hitting mat, its bottom edge must sit above the mat.
-- Indoors, the ball must be **at least 8 ft (2.4 m) from the net**, with room for high and wayward shots and for the
+- Indoors, the ball must be **at least 8 ft from the net**, with room for high and wayward shots and for the
   swing.
 - Point the red **alignment line** on top through the ball at your target (a club laid on the floor between them
   helps). The ball can be up to 1 ft either side of that line, in a 2 x 2 ft area starting 6 ft from the R10. Its
@@ -105,7 +105,7 @@ the shot is played from the ball numbers alone.
   obstruction, and keep to the distances above.
 - **Directions look off**: the alignment is out. Hit a short, straight wedge: if the app shows it starting right, the
   R10 is aimed left of your target line (and the other way round). Turn it a little and try again.
-- **It keeps dropping**: keep the PC's Bluetooth adapter in sight of the R10 and within a few metres; USB adapters at
+- **It keeps dropping**: keep the PC's Bluetooth adapter in sight of the R10 and within about 10 ft; USB adapters at
   the back of a PC can be blocked by the case.
 
 ### Sending a log
@@ -175,12 +175,19 @@ controls, HIT SHOT and the `D` demo shot are kept for development and testing ru
 [Development](development.md#command-line-switches). Replaying a recorded capture on the range still has its own
 HIT SHOT.) On a course the distance the shot plays, and `↑ / ↓` (Shift = 5 yd), set where the aim line ends.
 
-**Results wait for the ball**: the shot's numbers (range) and the result card, the next shot's distance, lie and
-club (course) only appear once the ball has stopped.
+**Results wait for the ball**: the result card, the next shot's distance, lie and club (course), and the numbers
+the flight decides (carry, total, apex, roll, offline, descent, hang time) only appear once the ball has stopped.
+What the launch monitor measures (ball speed, club speed, smash, launch, direction, spin and spin axis) shows the
+moment the shot arrives, while the ball is still in the air, and every number stays up until the next shot replaces
+it (a new hole, club or player doesn't clear them).
 
 ## Camera
 
-**Camera**: in Follow mode (`C`) it chases the ball until it stops. Before a shot, **Zoom** (`Z`) takes it down
+**Camera**: in Follow mode (`C`) a full shot works like GSPro's range camera: the camera stays where it is for the first second
+or so after the strike, then tilts up in place to keep the ball in view as it climbs. Once the ball is on its way down it
+swoops up and forward to a high spot behind the ball, looking down at it and the landing area, then settles
+nearly overhead and follows the ball as it rolls out. A pitch or chip holds for 1 s, then follows from directly behind the
+ball, well back (a pitch rising above it as it comes down, a chip staying low). Before a shot, **Zoom** (`Z`) takes it down
 the aim line to look at where the ball will land with the aim and power set; it follows aim and power changes,
 and comes back behind the ball when pressed again or when the shot is hit. Before the first tee
 shot on each hole it flies down the hole from behind the tee to the green (`Space` or `Esc` skips it; can be
@@ -189,9 +196,10 @@ turned off in Settings).
 ## Driving range
 
 **Range**: each shot flies down a 3D range with a camera that follows the ball, trails, landing rings and a
-minimap. Aim left and right (`← / →`, the ‹ › buttons, or click on the minimap), or step through the target
+minimap. Aim left and right (`← / →`, the ‹ › buttons, click on the minimap, or click anywhere on the ground in the 3D view), or step through the target
 flags (50-300 yd) to aim straight at one (`F` / `Shift+F`, gamepad Y, or the target button); a line on the range
-and the minimap shows where the shot is aimed and how far the power set carries it. The bottom bar shows Carry and Total large, with ball and club speed, smash, launch, direction, apex,
+and the minimap shows where the shot is aimed and how far the power set carries it. When the club you've picked
+reaches the flag you're aiming straight at, the line ends right on the flag instead. The bottom bar shows Carry and Total large, with ball and club speed, smash, launch, direction, apex,
 spin, spin axis, descent, offline, roll and hang time. The right column has the session history and a per-club
 summary (average carry and total, offline spread).
 
@@ -285,22 +293,26 @@ size. Press **Download** and the course joins the New Round list; **Update** app
 published, and **Remove** deletes a downloaded course. It needs the internet only while you're using it. A course
 you've downloaded plays offline like any other. To play a course online, everyone needs the same version of it.
 
-The course screen is laid out round the ball, with the panels kept to the edges. Top left, the hole badge: the
+The course screen is laid out around the ball, with the panels kept to the edges. Top left, the hole badge: the
 course logo, hole number, par and length, the stroke being played and the score (to par, "thru 4"); under it whose
 turn it is and the Mulligan button. Top right, the hole overview: the hole from above with the ball ringed in the
-player's colour, a line from it to where the shot is aimed (it swings with the aim and stretches or shrinks with
+player's color, a line from it to where the shot is aimed (it swings with the aim and stretches or shrinks with
 the power) with that distance, and the flag with its distance (click or drag on the map to aim); under it, the
-wind. Down the left, the shot's numbers (until the next shot): its launch (ball and club speed, launch, direction,
+wind. Down the left, the shot's numbers (until the next shot): its launch (ball and club speed, smash, launch, direction,
 spin and spin axis) as soon as it's struck, then its result (carry, total, offline, roll, apex, descent and the
 distance left) once the ball stops. Bottom left,
 the lie card: the lie, the side and up / down slope angles, and the shot penalty (how much shorter the club
 carries from there than from a clean, level lie); on the green, the green read with the flag, heat map and grid
-buttons instead (the grid starts on; press **G** or the Grid button to hide it). Bottom right, the shot panel: distance to the pin with the rise or fall to it ("153 yds", "up 2'",
+buttons instead (the grid starts on, golden-yellow lines and rolling dots, like the aim line, so it stands out on a bright green; press **G** or the Grid button to hide it). Bottom right, the shot panel: distance to the pin with the rise or fall to it ("153 yds", "up 2'",
 and what it plays), the club (its tooltip gives the carry from here) and the aim.
 The swing does the rest, and with a monitor connected: the shot panel holds the distance, the club and the lie card,
 and with more than one player a small leaderboard takes the bottom left. The aim line then runs out to the club's
-carry from this lie (your club distances, or the typical ones), whatever the distance to the pin; `↑ / ↓` move it a
-yard further or shorter (Shift = 5 yd). Aim with `← / →` or by clicking the map.
+carry from this lie (your club distances, or the typical ones); `↑ / ↓` move it a
+yard further or shorter (Shift = 5 yd). If the club reaches the pin (and the shot isn't a tee shot aimed at a landing
+area), the aim is straight at the pin and the line ends on the hole; pick another club and it follows (a club that
+falls short keeps the aim where it was and runs out to its own carry). Aim with `← / →`, by clicking the map, or by
+clicking (or tapping) the ground anywhere in the 3D view (a click on the flag aims at the hole; clicks on panels and
+buttons do what they always did).
 A line across the top appears after a shot only when there's something to say: holed, a penalty, relief, off a tree, who's
 up next, the next hole (where the ball lies and how far it has left are on the lie card and the numbers); holing out announces the
 score ("BIRDIE!") across the screen; the scorecard opens with `S`, from the menu, and after each hole. Once
@@ -318,12 +330,12 @@ and the last setup is remembered):
   the badge reads "2 UP" / "AS" / "1 DN" for whoever's up, the scorecard adds a row of who won each hole and the
   match's standing, "Ann wins 3 & 2"). With four players the teams are players 1 and 2 against 3 and 4; with two
   or three, a scramble or best ball is everyone together against par. Match play needs two players (or four, best
-  ball two against two); a game that doesn't suit the players is greyed out, and plays as stroke play if picked.
+  ball two against two); a game that doesn't suit the players is grayed out, and plays as stroke play if picked.
 - **Holes**: Full 18, Front 9 (holes 1-9), Back 9 (10-18) or Par 3s (just the par-3 holes), with the count, par and
   length shown. The badge and scorecard show the real hole numbers.
 - **Environment**: wind (below); altitude (the course's own height from its elevation data, sea level, or 2,500 /
   5,000 / 7,500 ft: thinner air carries further); weather (Mild as tuned; Hot 95 °F; Cold 45 °F; Wet: rain falling
-  round the camera under an overcast sky, and soft, wet ground).
+  around the camera under an overcast sky, and soft, wet ground).
 - **Course**: fairway speed (Slow / Medium / Fast: how far the ball runs out), green firmness (Soft / Medium / Firm:
   approach shots check or release) and green speed (stimp 8-13).
 
@@ -354,10 +366,10 @@ monitor reading a ball off a mat can't see the lie. Balls bounce and roll by sur
 back on the greens, the rough grabs. Sand takes the pace off: a ball rolling into a bunker runs on into the sand as
 far as its pace takes it (it can't roll out again over the lip), and one landing in it makes a low hop and runs a
 little, or buries near its pitch mark if it comes in steep and fast. Water and out of bounds are stroke-and-distance
-(one-stroke penalty, replay from the previous spot); putts that stop inside the gimme circle (drawn round the hole)
+(one-stroke penalty, replay from the previous spot); putts that stop inside the gimme circle (drawn around the hole)
 are tapped in. The
-cup has depth: a putt at the right pace drops in, one that's too firm for how far off-centre it is lips out (or
-skips over if it's dead straight). The flag is pulled once you're on the green (`F` to leave it in).
+cup has depth: a putt at the right pace drops in, one that's too firm for how far off-center it is lips out (or
+skips over if it's dead straight). The flagstick is pulled once you're on the green, so no pole or flag is drawn while you putt (`F` to leave it in).
 
 With elevation, Deer Run plays on real ground:
 
@@ -368,22 +380,22 @@ With elevation, Deer Run plays on real ground:
 - On the green the aim starts straight at the hole, and the lie card's read says how much to allow for the break
   ("2.5 ft left"); with **Auto-align putts** (house rules) it starts along the read instead. Demo putts are struck at
   the read's pace.
-- The ground is drawn as one mesh from the same grid, coloured by a coverage texture of the fairways, greens,
+- The ground is drawn as one mesh from the same grid, colored by a coverage texture of the fairways, greens,
   bunkers and water, so the ball sits on what you see.
 
 
 ## Multiplayer and house rules
 
-**Hot-seat multiplayer, 1-4 players** (set up in Settings): each player has their own ball, name, colour and
-handedness. Everyone tees off in honour order (lowest score on the last hole first; player order on the first),
-then whoever is farthest from the hole plays next. The hole card says "ANN TO PLAY" in her colour with everyone's
+**Hot-seat multiplayer, 1-4 players** (set up in Settings): each player has their own ball, name, color and
+handedness. Everyone tees off in honor order (lowest score on the last hole first; player order on the first),
+then whoever is farthest from the hole plays next. The hole card says "ANN TO PLAY" in her color with everyone's
 score, the other balls sit on the course with their names over them (and as dots on the minimap), and the result
 card says who's up next. When the turn changes the monitor switches to that player's hand and suggested club. The
 scorecard has a row per player (and per team in the team games).
 
 **House rules** (Settings): mulligans per player per round (**Mulligan** on the hole card, `U`, numpad 0 or
 gamepad X takes back the last shot of the round, penalty included, once the ball has stopped and before anyone
-else hits; not a holed one), the gimme circle (4, 6, 8, 10 or 12 ft round the hole, drawn on the green), picking up
+else hits; not a holed one), the gimme circle (4, 6, 8, 10 or 12 ft around the hole, drawn on the green), picking up
 at double par, **Auto-align putts** (the aim on the green follows the read; off, it's at the hole), and
 **Auto-putting** (nobody putts: once the ball stops on the green the hole is finished with 1 putt inside the gimme
 circle, 2 inside a second circle twice as wide, drawn too, and 2 or 3 beyond it; double par still caps it). The
@@ -398,7 +410,7 @@ starts again.
 
 **Home player**: the app asks who's playing the first time it starts (**Not now** skips it, and it asks again next
 time), and loads that player every time after. Give a name and a hand; the launch monitor type is read from the
-monitor when it connects. Under **Club distances (optional)**, enter the carries you know in yards: the grey numbers
+monitor when it connects. Under **Club distances (optional)**, enter the carries you know in yards: the gray numbers
 are estimates for the rest, worked out from yours. The distances set the caddie's club suggestions, the aim line and
 how far swings from the screen go. Shots from a launch monitor are never changed, and guests use the typical
 distances. Edit all of this from **Settings**.
@@ -414,7 +426,7 @@ house rules, auto-connect, the launch monitor to look for (**Auto**, any support
 or only a Garmin Approach R10) and an optional exact **device name** (as listed under Devices nearby, for when there
 are several), accepting shots from GSPro connector apps (see above), text size (Small / Normal / Large / Extra large: smaller for a laptop, bigger for
 reading from the mat or a projector), full screen (the app always opens full screen; untick this for a window until you close it), graphics quality (Low / Medium / High / Ultra: anti-aliasing,
-shadow detail and reach, bounced light and reflections in the water, how far 3D grass reaches round the camera, and soft focus on grass right in front of a low camera;
+shadow detail and reach, bounced light and reflections in the water, how far 3D grass reaches around the camera, and soft focus on grass right in front of a low camera;
 High is the default), the camera's hole flyover, sound effects (club, ball, cup and crowd; turn them off if you'd rather just hear your own strike), and a "Ready" chime when the launch monitor sees a ball and is ready for the shot (on by default, separate from the other sounds). The course last played and the camera mode are remembered too, so no command-line switches are
 needed. The whole UI also scales up with the window (a full-screen projector shows it bigger), and switches to a
 compact layout when large text leaves less room.

@@ -132,7 +132,7 @@ public partial class Hud
     {
         _rangeNote.Visible = text != null;
         _rangeNoteText.Text = text ?? "";
-        _rangeNote.ResetSize();   // shrink to the new text (the row keeps it centred)
+        _rangeNote.ResetSize();   // shrink to the new text (the row keeps it centered)
     }
 
     private Button _rangeTarget = null!;
@@ -161,20 +161,37 @@ public partial class Hud
         return v;
     }
 
-    /// <summary>Shows a range shot: headline and detail numbers, history row and session summary.</summary>
-    public void AddRangeShot(string number, string club, RangeShot s, FlightResult f)
+    /// <summary>
+    /// A range shot has just been struck: what the monitor measured goes up now; what the flight decides (carry,
+    /// total, apex, ...) shows "—" until <see cref="AddRangeShot"/> fills it in when the ball stops. Both stay until the next shot.
+    /// </summary>
+    public void ShowRangeLaunch(RangeShot s)
     {
-        _carry.Text = f.LandingIndex == 0 ? "—" : $"{f.CarryYards:0}";
-        _total.Text = $"{f.TotalYards:0}";
+        _carry.Text = _total.Text = "—";
+        foreach (var t in _rangeValues.Values) t.Text = "—";
+        SetRangeLaunchValues(s);
+    }
+
+    private void SetRangeLaunchValues(RangeShot s)
+    {
         void Set(string key, string value) => _rangeValues[key].Text = value;
         Set("Ball speed", $"{s.BallMph:0.0}");
         Set("Club speed", s.ClubMph is > 0 ? $"{s.ClubMph:0.0}" : "—");
         Set("Smash", s.Smash is > 0 ? $"{s.Smash:0.00}" : "—");
         Set("Launch", $"{s.LaunchDeg:0.0}°");
         Set("Direction", RangeShot.Side(s.DirectionDeg) + "°");
-        Set("Apex", f.LandingIndex == 0 ? "—" : $"{f.ApexYards:0}");
         Set("Spin", $"{s.SpinRpm:0}");
         Set("Spin axis", RangeShot.Side(s.SpinAxisDeg) + "°");
+    }
+
+    /// <summary>Shows a range shot: headline and detail numbers, history row and session summary.</summary>
+    public void AddRangeShot(string number, string club, RangeShot s, FlightResult f)
+    {
+        _carry.Text = f.LandingIndex == 0 ? "—" : $"{f.CarryYards:0}";
+        _total.Text = $"{f.TotalYards:0}";
+        void Set(string key, string value) => _rangeValues[key].Text = value;
+        SetRangeLaunchValues(s);
+        Set("Apex", f.LandingIndex == 0 ? "—" : $"{f.ApexYards:0}");
         Set("Descent", f.LandingIndex == 0 ? "—" : $"{f.DescentDeg:0}°");
         Set("Offline", RangeShot.Side(f.LateralYards, "0"));
         Set("Roll", f.LandingIndex == 0 ? "—" : $"{f.TotalYards - f.CarryYards:0}");

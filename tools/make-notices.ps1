@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-  Remakes installer/THIRD-PARTY-NOTICES.txt, the licences of what ships inside the app.
+  Remakes installer/THIRD-PARTY-NOTICES.txt, the licenses of what ships inside the app.
 
 .DESCRIPTION
-  Godot's licence and those of the libraries inside it come from the engine itself, and .NET's from the SDK. Run it
+  Godot's license and those of the libraries inside it come from the engine itself, and .NET's from the SDK. Run it
   again after moving to a new Godot or .NET version.
 
 .EXAMPLE
@@ -26,7 +26,7 @@ if (-not (Test-Path $temp)) { throw "Godot didn't write the notices." }
 
 $dotnet = Split-Path (Get-Command dotnet).Source
 $lines = @(
-    "Grimes Golf includes the software below. Its own licence is at https://github.com/devjared1/grimes-golf/blob/main/LICENSE"
+    "Grimes Golf includes the software below. Its own license is at https://github.com/devjared1/grimes-golf/blob/main/LICENSE"
     ""
     # Code ported into the app itself (the Garmin R10 support), from the repository's NOTICE.
     (Get-Content -Raw "$root/NOTICE")

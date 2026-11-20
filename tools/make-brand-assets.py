@@ -29,7 +29,7 @@ UI = ROOT / "src" / "GrimesGolf.Godot" / "assets" / "ui"
 ICONS = ROOT / "src" / "GrimesGolf.Godot" / "assets" / "icons"
 
 NEON = (126, 224, 129)        # the logo's lit lettering
-SPLASH_CENTRE = (23, 41, 28)  # the same dark green and near-black as the loading screen (LoadingScreen.cs)
+SPLASH_CENTER = (23, 41, 28)  # the same dark green and near-black as the loading screen (LoadingScreen.cs)
 SPLASH_EDGE = (6, 8, 9)
 ICON_SIZES = [16, 20, 24, 32, 40, 48, 64, 128, 256]
 
@@ -93,7 +93,7 @@ def letter_masks() -> dict[str, Image.Image]:
     return masks
 
 
-def centred_square(shape: Image.Image, canvas: int) -> Image.Image:
+def centered_square(shape: Image.Image, canvas: int) -> Image.Image:
     fit = canvas / max(shape.size)
     shape = shape.resize((round(shape.width * fit), round(shape.height * fit)), Image.LANCZOS)
     square = Image.new("L", (canvas, canvas), 0)
@@ -108,14 +108,14 @@ def monogram(masks: dict[str, Image.Image], canvas: int) -> Image.Image:
     out = Image.new("L", (second[0] + b.width, second[1] + b.height), 0)
     out.paste(a, (0, 0), a)
     out.paste(ImageChops.lighter(out.crop((*second, second[0] + b.width, second[1] + b.height)), b), second)
-    return centred_square(out, canvas)
+    return centered_square(out, canvas)
 
 
-def radial(size: tuple[int, int], centre: tuple[int, int, int], edge: tuple[int, int, int], reach: float = 1.0, noise: float = 0.0) -> Image.Image:
+def radial(size: tuple[int, int], center: tuple[int, int, int], edge: tuple[int, int, int], reach: float = 1.0, noise: float = 0.0) -> Image.Image:
     """A dark radial background. A touch of noise keeps a gradient this dark from showing bands on a big screen."""
-    small = Image.radial_gradient("L").resize(size, Image.BICUBIC)            # 0 at the centre, 255 at the corners
+    small = Image.radial_gradient("L").resize(size, Image.BICUBIC)            # 0 at the center, 255 at the corners
     t = small.point(lambda v: min(255, int(v / reach)))
-    image = Image.composite(Image.new("RGB", size, edge), Image.new("RGB", size, centre), t)
+    image = Image.composite(Image.new("RGB", size, edge), Image.new("RGB", size, center), t)
     if noise:
         grain = Image.effect_noise(size, noise).convert("L")
         image = ImageChops.add(image, Image.merge("RGB", (grain, grain, grain)), scale=1, offset=-128)
@@ -124,7 +124,7 @@ def radial(size: tuple[int, int], centre: tuple[int, int, int], edge: tuple[int,
 
 def make_splash(logo: Image.Image) -> Image.Image:
     size = (1920, 1080)
-    image = radial(size, SPLASH_CENTRE, SPLASH_EDGE, reach=0.9, noise=2.5).convert("RGBA")
+    image = radial(size, SPLASH_CENTER, SPLASH_EDGE, reach=0.9, noise=2.5).convert("RGBA")
     width = int(size[0] * 0.56)  # within the middle of the screen, so a 4:3 projector cropping the sides keeps all of it
     scaled = logo.resize((width, round(logo.height * width / logo.width)), Image.LANCZOS)
     image.alpha_composite(scaled, ((size[0] - scaled.width) // 2, (size[1] - scaled.height) // 2))
@@ -147,7 +147,7 @@ def make_icon(mark: Image.Image, size: int) -> Image.Image:
     grow = max(1, round(s * weight / 2))
     shape = shape.filter(ImageFilter.GaussianBlur(grow)).point(lambda v: 255 if v > 44 else int(v * 255 / 44))
 
-    tile = radial((s, s), SPLASH_CENTRE, SPLASH_EDGE, reach=0.85).convert("RGBA")
+    tile = radial((s, s), SPLASH_CENTER, SPLASH_EDGE, reach=0.85).convert("RGBA")
     if size >= 32:  # below this the glow only muddies the letters
         glow = shape.filter(ImageFilter.GaussianBlur(s * 0.022)).point(lambda v: int(v * 0.75))
         tile.paste(Image.new("RGBA", (s, s), (*NEON, 255)), (0, 0), glow)
@@ -169,7 +169,7 @@ def main() -> None:
     make_splash(logo).save(UI / "splash.png", optimize=True)
 
     masks = letter_masks()
-    pair, single = monogram(masks, 2048), centred_square(masks["golf"], 2048)
+    pair, single = monogram(masks, 2048), centered_square(masks["golf"], 2048)
     icons = [make_icon(pair if size >= 48 else single, size) for size in ICON_SIZES]
     icons[-1].save(ICONS / "grimes_golf_icon.png", optimize=True)
     # Plain bitmaps at every size: everything that reads .ico files understands them.

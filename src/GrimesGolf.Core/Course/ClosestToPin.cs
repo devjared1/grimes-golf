@@ -16,17 +16,17 @@ public sealed record TeeOption(string Name, P2 At, double Yards)
 /// </summary>
 public static class TeeBoxes
 {
-    /// <summary>A tee area counts for a hole if its middle is within this many metres of where the hole line starts...</summary>
-    public const double ReachMetres = 90;
+    /// <summary>A tee area counts for a hole if its middle is within this many world units of where the hole line starts...</summary>
+    public const double ReachUnits = 90;
     /// <summary>...and the pin lies within this many degrees of the same direction from it.</summary>
     public const double AlignDegrees = 25;
-    /// <summary>Tee areas this close together (m) are one tee.</summary>
-    private const double SameTeeMetres = 4;
+    /// <summary>Tee areas this close together (wu) are one tee.</summary>
+    private const double SameTeeUnits = 4;
 
     /// <summary>
     /// The tees to choose from, longest first (at least one: the hole's own tee). Holes with no mapped tee areas
     /// (the hand-made test holes) have only that. <paramref name="course"/> is every hole of the course: a tee area
-    /// goes to the hole whose own tee is nearest it, so a neighbour's tees aren't offered.
+    /// goes to the hole whose own tee is nearest it, so a neighbor's tees aren't offered.
     /// </summary>
     public static IReadOnlyList<TeeOption> For(Hole hole, IReadOnlyList<Hole>? course = null)
     {
@@ -35,14 +35,14 @@ public static class TeeBoxes
         foreach (var area in hole.Tees)
         {
             var at = area is Polygon poly ? poly.Centroid : area.Box.Center;
-            if (at.DistanceTo(hole.Tee) > ReachMetres || at.DistanceTo(hole.Pin) < 20) continue;
+            if (at.DistanceTo(hole.Tee) > ReachUnits || at.DistanceTo(hole.Pin) < 20) continue;
             if (course != null && course.Any(h => h.Number != hole.Number && at.DistanceTo(h.Tee) < at.DistanceTo(hole.Tee))) continue;
             if (AngleBetween(Bearing(at, hole.Pin), toPin) > AlignDegrees * Math.PI / 180) continue;
-            if (spots.Any(s => s.DistanceTo(at) < SameTeeMetres)) continue;
+            if (spots.Any(s => s.DistanceTo(at) < SameTeeUnits)) continue;
             spots.Add(at);
         }
         var ordered = spots.OrderByDescending(s => s.DistanceTo(hole.Pin)).ToList();
-        return ordered.Select((at, i) => new TeeOption(NameFor(i, ordered.Count), at, at.DistanceTo(hole.Pin) * Units.MetresToYards)).ToList();
+        return ordered.Select((at, i) => new TeeOption(NameFor(i, ordered.Count), at, at.DistanceTo(hole.Pin) * Units.WorldToYards)).ToList();
     }
 
     /// <summary>The tee that is where the hole's own line starts (what a round plays from): the index in <see cref="For"/>'s list.</summary>
@@ -116,7 +116,7 @@ public sealed record ClosestToPinSetup(
 }
 
 /// <summary>One ball hit at the pin: how far it finished from it (null: no distance, it went in the water or out of bounds).</summary>
-public sealed record PinShot(double? Metres, bool OnGreen, bool Holed, string Note)
+public sealed record PinShot(double? Distance, bool OnGreen, bool Holed, string Note)
 {
     /// <summary>What a shot scores from how its ball finished (a ball holed is 0, one in a hazard or out of bounds has no distance).</summary>
     public static PinShot From(ShotOutcome o, Hole hole)
@@ -127,19 +127,19 @@ public sealed record PinShot(double? Metres, bool OnGreen, bool Holed, string No
     }
 
     /// <summary>"7 ft 4 in" (yards from 20 yd out, "Holed", and "Water" or "Out of bounds" for a shot with no distance).</summary>
-    public string Text => Holed ? "Holed" : Metres is not { } m ? (Note == "In the water" ? "Water" : "Out of bounds") : Format(m);
+    public string Text => Holed ? "Holed" : Distance is not { } m ? (Note == "In the water" ? "Water" : "Out of bounds") : Format(m);
 
     /// <summary>A distance the way a pin is measured: inches under a foot, feet and inches to 20 yd, yards beyond.</summary>
-    public static string Format(double metres)
+    public static string Format(double units)
     {
-        if (metres * Units.MetresToYards >= 20) return $"{metres * Units.MetresToYards:0} yd";
-        int inches = (int)Math.Round(metres / Units.FeetToMetres * 12);
+        if (units * Units.WorldToYards >= 20) return $"{units * Units.WorldToYards:0} yd";
+        int inches = (int)Math.Round(units / Units.FeetToWorld * 12);
         int feet = inches / 12, rest = inches % 12;
         return feet == 0 ? $"{rest} in" : rest == 0 ? $"{feet} ft" : $"{feet} ft {rest} in";
     }
 
-    /// <summary>For ranking: shots to a hundredth of a metre, nothing last.</summary>
-    internal double Rank => Metres is { } m ? Math.Round(m, 2) : double.PositiveInfinity;
+    /// <summary>For ranking: shots to a hundredth of a world unit, nothing last.</summary>
+    internal double Rank => Distance is { } m ? Math.Round(m, 2) : double.PositiveInfinity;
 }
 
 /// <summary>A player's place in the game.</summary>
@@ -198,7 +198,7 @@ public sealed class ClosestToPinGame
     }
 
     /// <summary>The player's closest shot so far (null: nothing that counted yet).</summary>
-    public PinShot? BestOf(int player) => _shots[player].Where(s => s.Metres != null).OrderBy(s => s.Rank).FirstOrDefault();
+    public PinShot? BestOf(int player) => _shots[player].Where(s => s.Distance != null).OrderBy(s => s.Rank).FirstOrDefault();
 
     /// <summary>Everyone, best first. Players who have hit nothing that counted come last, in the order they play.</summary>
     public IReadOnlyList<PinStanding> Standings()

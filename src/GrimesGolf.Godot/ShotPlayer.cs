@@ -17,11 +17,11 @@ public partial class ShotPlayer : Node3D
     public const uint MapLayer = 1 << 1;
 
     private const int MaxHistory = 10;
-    /// <summary>Ball paths are drawn this far above y=0 so they sit on top of greens, sand and water (which are layered a few cm up).</summary>
+    /// <summary>Ball paths are drawn this far above y=0 so they sit on top of greens, sand and water (which are layered an inch or so up).</summary>
     private const float Lift = 0.16f;
-    /// <summary>In real proportion to the (enlarged) cup: a 42.67 mm ball to a 108 mm hole. Grows with distance, except near the cup.</summary>
+    /// <summary>In real proportion to the (enlarged) cup: a 1.68 in ball to a 4.25 in hole. Grows with distance, except near the cup.</summary>
     public const float BallRadius = Scenery.CupRadius * 42.67f / 108f;
-    /// <summary>Within this horizontal distance of the cup (m) the ball is drawn at true size; growth returns over <see cref="CupBlend"/> beyond it.</summary>
+    /// <summary>Within this horizontal distance of the cup (wu) the ball is drawn at true size; growth returns over <see cref="CupBlend"/> beyond it.</summary>
     private const float CupTrueSize = 1.5f, CupBlend = 6f;
     /// <summary>Distance at which the ball starts being drawn bigger than <see cref="BallRadius"/>.</summary>
     private const float GrowFrom = 12f;
@@ -72,14 +72,26 @@ public partial class ShotPlayer : Node3D
     public Vector3 BallPosition => _ball.Position;
     /// <summary>Horizontal direction of the current shot from where it was struck (defaults downrange).</summary>
     public Vector3 ShotDirection { get; private set; } = Vector3.Forward;
-    /// <summary>How far (m, along the ground) the current shot goes from where it was struck to where it stops.</summary>
+    /// <summary>How far (wu, along the ground) the current shot goes from where it was struck to where it stops.</summary>
     public float ShotLength { get; private set; } = 150;
+    /// <summary>Where the current shot was struck from (ground level).</summary>
+    public Vector3 ShotStart { get; private set; }
+    /// <summary>How far (wu) the current shot flies before it first comes down; 0 for a putt.</summary>
+    public float CarryUnits { get; private set; }
+    /// <summary>Where the current shot first comes down (meaningless for a putt).</summary>
+    public Vector3 LandingPoint { get; private set; }
+    /// <summary>Seconds into the current shot's flight (playback time, so it matches what's on screen).</summary>
+    public double ShotTime => _t;
+    /// <summary>When (in <see cref="ShotTime"/>) the current shot peaks; 0 for a putt.</summary>
+    public double ApexTime { get; private set; }
+    /// <summary>When (in <see cref="ShotTime"/>) the current shot first comes down; 0 for a putt.</summary>
+    public double LandTime { get; private set; }
 
     /// <summary>
-    /// The ball's time in the air plays this much faster than real time, so a long shot doesn't drag; once it's down,
+    /// The ball's time in the air plays at this fraction of real speed (a little slow, so the camera can follow it); once it's down,
     /// bounces and roll play at real speed (putts too).
     /// </summary>
-    private const double FlightSpeedUp = 1.2;
+    private const double FlightSpeedUp = 0.9;
 
     public override void _Ready()
     {
@@ -144,6 +156,21 @@ public partial class ShotPlayer : Node3D
         flat.Y = 0;
         if (flat.LengthSquared() > 0.25f) ShotDirection = flat.Normalized();
         ShotLength = flat.Length();
+        ShotStart = ToGodot(flight.Points[0]);
+        CarryUnits = 0;
+        ApexTime = 0;
+        LandTime = 0;
+        if (flight.LandingIndex > 0)
+        {
+            var carry = ToGodot(flight.Points[flight.LandingIndex]) - ShotStart;
+            carry.Y = 0;
+            CarryUnits = carry.Length();
+            LandingPoint = ToGodot(flight.Points[flight.LandingIndex]);
+            int apex = 0;
+            for (int i = 1; i <= flight.LandingIndex; i++) if (flight.Points[i].Y > flight.Points[apex].Y) apex = i;
+            ApexTime = flight.Points[apex].T;
+            LandTime = flight.Points[flight.LandingIndex].T;
+        }
         _placed = null;
         _t = 0;
         IsPlaying = true;
@@ -173,14 +200,14 @@ public partial class ShotPlayer : Node3D
 
     public void HideCarryLabel() => _carryLabel.Visible = false;
 
-    /// <summary>Another player's ball at rest: where it sits on the ground, their colour and name.</summary>
+    /// <summary>Another player's ball at rest: where it sits on the ground, their color and name.</summary>
     public readonly record struct OtherBall(Vector3 Ground, Color Color, string Name);
 
     private Node3D? _others;
 
     /// <summary>
-    /// Shows the other players' balls (multiplayer): a ball in their colour, drawn a little larger so it can be found
-    /// from a distance, with their name above it, and a dot in their colour on the minimap.
+    /// Shows the other players' balls (multiplayer): a ball in their color, drawn a little larger so it can be found
+    /// from a distance, with their name above it, and a dot in their color on the minimap.
     /// </summary>
     public void SetOtherBalls(IReadOnlyList<OtherBall> balls)
     {
@@ -276,7 +303,7 @@ public partial class ShotPlayer : Node3D
                 Vector3? tip = isCurrent ? head : null;
                 // Only the current shot leaves a trail in the air (earlier ones stay on the minimap), plus the
                 // previous one as a faint ghost for comparison when it was struck from the same spot.
-                // A putt's trail lies on the green and stops a few inches behind the ball; a flight's follows the ball's centre.
+                // A putt's trail lies on the green and stops a few inches behind the ball; a flight's follows the ball's center.
                 bool putt = shot.Flight.LandingIndex == 0;
                 if (isCurrent) BuildTrail((ImmediateMesh)shot.Trail.Mesh, shot.Flight.Points, upTo, head, _t, IdleSeconds, camPos,
                                           drop: putt ? Lift - GroundTop - PuttTrailHeight : 0, gap: putt ? PuttTrailGap : 0);
@@ -304,7 +331,7 @@ public partial class ShotPlayer : Node3D
             grow = Mathf.Lerp(1f, grow, Mathf.Clamp((toCup - CupTrueSize) / CupBlend, 0f, 1f));
         }
         _ball.Scale = Vector3.One * grow;
-        // Falls a little away from the sun; tall enough to reach the ground from the ball's centre, and no further.
+        // Falls a little away from the sun; tall enough to reach the ground from the ball's center, and no further.
         float r = BallRadius * grow;
         _contactShadow.Position = _ball.Position + Scenery.ShadowFalls * r * 0.6f;
         _contactShadow.Size = new Vector3(r * 3.6f, r * 4, r * 3.6f);
@@ -349,14 +376,16 @@ public partial class ShotPlayer : Node3D
     private const double TrailSolid = 1.0, TrailFade = 1.5;
     /// <summary>Once the ball stops, whatever trail is left fades out over this long (seconds).</summary>
     private const double TrailRestFade = 1.0;
+    /// <summary>The trail's overall opacity; and, for the last <see cref="TrailNearBall"/> seconds before the ball, how much of that it keeps right at the ball.</summary>
+    private const double TrailAlpha = 0.6, TrailNearBall = 0.35, TrailNearBallAlpha = 0.15;
 
-    /// <summary>A putt's trail: this high above the green (m), ending this far behind the ball (m).</summary>
+    /// <summary>A putt's trail: this high above the green (wu), ending this far behind the ball (wu).</summary>
     private const float PuttTrailHeight = 0.006f, PuttTrailGap = 0.08f;
 
     /// <summary>
     /// A camera-facing ribbon following the ball: solid just behind it, the oldest part fading out as the ball moves
-    /// on, and the remainder fading away once the ball has stopped. <paramref name="drop"/> lowers it (m) and
-    /// <paramref name="gap"/> ends it that far short of the ball (m), for a putt's trail along the green.
+    /// on, and the remainder fading away once the ball has stopped. <paramref name="drop"/> lowers it (wu) and
+    /// <paramref name="gap"/> ends it that far short of the ball (wu), for a putt's trail along the green.
     /// </summary>
     private static void BuildTrail(ImmediateMesh mesh, IReadOnlyList<FlightPoint> pts, int upTo, Vector3 head, double now, double idle, Vector3 camPos,
                                    float drop = 0, float gap = 0)
@@ -386,14 +415,16 @@ public partial class ShotPlayer : Node3D
             if (side.LengthSquared() < 1e-6f) side = Vector3.Right;
             side = side.Normalized() * Mathf.Max(0.015f, camPos.DistanceTo(p) * 0.0022f); // ~constant on-screen width
             double fade = 1 - Math.Clamp((age - TrailSolid) / TrailFade, 0, 1);
-            var c = new Color(Current, (float)(Current.A * fade * rest));
+            // See-through overall, and clearer still right behind the ball, so the ball itself stays easy to pick out.
+            double nearBall = Mathf.Lerp(TrailNearBallAlpha, 1f, (float)Math.Clamp(age / TrailNearBall, 0, 1));
+            var c = new Color(Current, (float)(Current.A * TrailAlpha * nearBall * fade * rest));
             mesh.SurfaceSetColor(c); mesh.SurfaceAddVertex(p + side);
             mesh.SurfaceSetColor(c); mesh.SurfaceAddVertex(p - side);
         }
         mesh.SurfaceEnd();
     }
 
-    /// <summary>Shortens a path by <paramref name="gap"/> metres at its end (the ball's end), cutting its last piece part way.</summary>
+    /// <summary>Shortens a path by <paramref name="gap"/> world units at its end (the ball's end), cutting its last piece part way.</summary>
     private static void TrimEnd(List<(Vector3 P, double Age)> path, float gap)
     {
         float left = gap;

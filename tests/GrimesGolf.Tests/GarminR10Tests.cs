@@ -12,7 +12,7 @@ namespace GrimesGolf.Tests;
 //             plus the MultiLink register response in its client test. https://github.com/divotmaker/10over
 //  [mholow]   mholow/gsp-r10-adapter, src/bluetooth/device/BaseDevice.cs (MIT): the handshake bytes it writes and the
 //             reply it waits for. https://github.com/mholow/gsp-r10-adapter
-//  [crc]      the CRC-16/ARC catalogue check value (also in tenover's docs/WIRE.md §4.1).
+//  [crc]      the CRC-16/ARC catalog check value (also in tenover's docs/WIRE.md §4.1).
 //  [cobs]     the worked examples in Cheshire and Baker's COBS paper, as listed on Wikipedia's "Consistent Overhead
 //             Byte Stuffing" page.
 // No real-device capture is in here yet: see docs/garmin-r10-protocol.md for how to make one.
@@ -20,7 +20,7 @@ namespace GrimesGolf.Tests;
 public class GarminFramingTests
 {
     [Fact]
-    public void Crc16ArcMatchesTheCatalogueCheckValue() =>   // [crc]
+    public void Crc16ArcMatchesTheCatalogCheckValue() =>   // [crc]
         Assert.Equal(0xBB3D, Crc16Arc.Compute("123456789"u8));
 
     public static TheoryData<string, string> CobsExamples => new()   // [cobs]
@@ -113,7 +113,7 @@ public class GarminFramingTests
     }
 
     [Fact]
-    public void AcknowledgementsAreLaidOutAsGspR10AdapterSendsThem()
+    public void AcknowledgmentsAreLaidOutAsGspR10AdapterSendsThem()
     {
         // [mholow] AcknowledgeMessage: 8813 (5000), the type acknowledged, then 00 (and, for protobuf, the request id and seven zeros).
         var ack = Gfdi.ParseFrame(Gfdi.BuildAck(Gfdi.DeviceInformation, 0));
@@ -222,17 +222,17 @@ public class GarminProtobufTests
         var shot = R10Shots.ToMonitorShot(m, leftHanded: true);
         var i = shot.Input;
         Assert.Equal(R10Shots.Device, i.Device);
-        Assert.Equal(67 * Units.MsToMph, i.BallSpeedMph!.Value, 4);
+        Assert.Equal(67 * Units.WorldSpeedToMph, i.BallSpeedMph!.Value, 4);
         Assert.Equal(12.5, i.LaunchAngleDegrees!.Value, 4);
         Assert.Equal(-1.2, i.LaunchDirectionDegrees!.Value, 4);   // left, as the R10 says
         Assert.Equal(2800, i.TotalSpinRpm);
         Assert.Equal(-5, i.SpinAxisDegrees);                       // the R10's 5 (tilted left) is −5 here (curving left)
         Assert.Null(i.BackspinRpm);                                // not reported: left for the adapter to derive
         Assert.Null(i.SidespinRpm);
-        Assert.Equal(44 * Units.MsToMph, i.ClubSpeedMph!.Value, 4);
+        Assert.Equal(44 * Units.WorldSpeedToMph, i.ClubSpeedMph!.Value, 4);
         Assert.Equal((-2.0, 1.5, -3.5), (i.ClubPathDegrees!.Value, i.FaceAngleDegrees!.Value, i.AttackAngleDegrees!.Value));
         Assert.Null(i.DynamicLoftDegrees);
-        Assert.Null(i.ImpactToeMillimetres);
+        Assert.Null(i.ImpactToeInches);
         Assert.True(i.LeftHanded);
         Assert.Contains(shot.Notes!, n => n.Contains("estimated", StringComparison.OrdinalIgnoreCase));
 
@@ -336,7 +336,7 @@ public class GarminProtobufTests
     }
 
     [Fact]
-    public void RecognisesRequestsForTheFakeDevice()
+    public void RecognizesRequestsForTheFakeDevice()
     {
         Assert.Equal("wake", R10Proto.RequestKind(R10Proto.WakeUpRequest()));
         Assert.Equal("status", R10Proto.RequestKind(R10Proto.StatusRequest()));

@@ -8,9 +8,9 @@ namespace GrimesGolf.Tests;
 /// </summary>
 public static class TestCourse
 {
-    // Holes are laid out in yards for readability and converted to metres.
-    private static P2 Y(double x, double z) => new(x * Units.YardsToMetres, z * Units.YardsToMetres);
-    private static double Yd(double v) => v * Units.YardsToMetres;
+    // Holes are laid out in yards for readability and converted to world units.
+    private static P2 Y(double x, double z) => new(x * Units.YardsToWorld, z * Units.YardsToWorld);
+    private static double Yd(double v) => v * Units.YardsToWorld;
     private static Ellipse E(double x, double z, double rx, double rz, double rot = 0) => new(Y(x, z), Yd(rx), Yd(rz), rot);
     private static Strip S(double width, params (double X, double Z)[] pts) => new(pts.Select(p => Y(p.X, p.Z)).ToList(), Yd(width));
 

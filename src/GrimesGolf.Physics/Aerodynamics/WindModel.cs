@@ -1,7 +1,7 @@
 namespace GrimesGolf.Physics;
 
 /// <summary>
-/// Air velocity (m/s, world frame) at a point and time. <c>heightAboveLaunch</c> is the height above the
+/// Air velocity (wu/s, world frame) at a point and time. <c>heightAboveLaunch</c> is the height above the
 /// launch surface, used for wind profiles. Implementations must be immutable and deterministic.
 /// </summary>
 public interface IWindField
@@ -18,15 +18,15 @@ public static class Wind
 {
     public static readonly IWindField Calm = new UniformWind(Vector3D.Zero);
 
-    /// <summary>Air velocity vector for a wind of <paramref name="speedMs"/> from <paramref name="fromDegrees"/>.</summary>
-    public static Vector3D FromDirection(double speedMs, double fromDegrees)
+    /// <summary>Air velocity vector for a wind of <paramref name="speedWps"/> from <paramref name="fromDegrees"/>.</summary>
+    public static Vector3D FromDirection(double speedWps, double fromDegrees)
     {
         double a = fromDegrees * UnitConversion.DegreesToRadians;
         // The wind comes from (sin a, cos a) and blows the opposite way.
-        return new Vector3D(-speedMs * Math.Sin(a), -speedMs * Math.Cos(a), 0);
+        return new Vector3D(-speedWps * Math.Sin(a), -speedWps * Math.Cos(a), 0);
     }
 
-    public static IWindField Uniform(double speedMs, double fromDegrees) => new UniformWind(FromDirection(speedMs, fromDegrees));
+    public static IWindField Uniform(double speedWps, double fromDegrees) => new UniformWind(FromDirection(speedWps, fromDegrees));
 }
 
 /// <summary>The same wind everywhere and always.</summary>
@@ -37,22 +37,22 @@ public sealed record UniformWind(Vector3D Velocity) : IWindField
 
 /// <summary>
 /// Wind that grows with height by a power law, v(h) = v_ref (h / h_ref)^α, from a wind measured at
-/// <see cref="ReferenceHeightMetres"/>. α ≈ 0.14 for open, short grass (the "1/7 law"); larger over rougher ground.
-/// Below <see cref="MinimumHeightMetres"/> the speed is held at its value there.
+/// <see cref="ReferenceHeightUnits"/>. α ≈ 0.14 for open, short grass (the "1/7 law"); larger over rougher ground.
+/// Below <see cref="MinimumHeightUnits"/> the speed is held at its value there.
 /// </summary>
-public sealed record PowerLawWindProfile(double ReferenceSpeedMs, double FromDegrees, double ReferenceHeightMetres = 10,
-                                         double Exponent = 0.143, double MinimumHeightMetres = 0.5) : IWindField
+public sealed record PowerLawWindProfile(double ReferenceSpeedWps, double FromDegrees, double ReferenceHeightUnits = 10,
+                                         double Exponent = 0.143, double MinimumHeightUnits = 0.5) : IWindField
 {
     private readonly Vector3D _dir = Wind.FromDirection(1, FromDegrees);
 
     public double SpeedAt(double height) =>
-        ReferenceSpeedMs * Math.Pow(Math.Max(height, MinimumHeightMetres) / ReferenceHeightMetres, Exponent);
+        ReferenceSpeedWps * Math.Pow(Math.Max(height, MinimumHeightUnits) / ReferenceHeightUnits, Exponent);
 
     public Vector3D VelocityAt(in Vector3D position, double heightAboveLaunch, double time) => _dir * SpeedAt(heightAboveLaunch);
 }
 
 /// <summary>A layer of a <see cref="TabulatedWindProfile"/>: wind speed and direction at a height.</summary>
-public readonly record struct WindLayer(double HeightMetres, double SpeedMs, double FromDegrees);
+public readonly record struct WindLayer(double HeightUnits, double SpeedWps, double FromDegrees);
 
 /// <summary>
 /// Wind given at a list of heights; the velocity vector is interpolated linearly between layers and held constant
@@ -65,10 +65,10 @@ public sealed class TabulatedWindProfile : IWindField
 
     public TabulatedWindProfile(IEnumerable<WindLayer> layers)
     {
-        var sorted = layers.OrderBy(l => l.HeightMetres).ToArray();
+        var sorted = layers.OrderBy(l => l.HeightUnits).ToArray();
         if (sorted.Length == 0) throw new ArgumentException("A wind profile needs at least one layer.");
-        _h = sorted.Select(l => l.HeightMetres).ToArray();
-        _v = sorted.Select(l => Wind.FromDirection(l.SpeedMs, l.FromDegrees)).ToArray();
+        _h = sorted.Select(l => l.HeightUnits).ToArray();
+        _v = sorted.Select(l => Wind.FromDirection(l.SpeedWps, l.FromDegrees)).ToArray();
     }
 
     public Vector3D VelocityAt(in Vector3D position, double heightAboveLaunch, double time)
@@ -87,7 +87,7 @@ public sealed class TabulatedWindProfile : IWindField
 
 /// <summary>
 /// Adds deterministic gusts to a base wind: the speed along the base wind direction varies between the mean and
-/// <see cref="GustSpeedMs"/> as a sum of three sinusoids with periods of a few seconds and phases fixed by
+/// <see cref="GustSpeedWps"/> as a sum of three sinusoids with periods of a few seconds and phases fixed by
 /// <see cref="Seed"/>, plus a smaller crosswise part (<see cref="LateralFraction"/> of the gust amplitude). The same
 /// seed always gives the same gusts. This is a simple stand-in for turbulence, not a spectral turbulence model.
 /// </summary>
@@ -97,13 +97,13 @@ public sealed class GustingWind : IWindField
     private static readonly double[] Weights = { 0.5, 0.3, 0.2 };
     private readonly double[] _phaseAlong = new double[3], _phaseAcross = new double[3];
 
-    public GustingWind(IWindField baseWind, double meanSpeedMs, double gustSpeedMs, double fromDegrees, int seed = 1,
+    public GustingWind(IWindField baseWind, double meanSpeedWps, double gustSpeedWps, double fromDegrees, int seed = 1,
                        double lateralFraction = 0.3)
     {
-        if (gustSpeedMs < meanSpeedMs) throw new ArgumentException("Gust speed must be at least the mean speed.");
+        if (gustSpeedWps < meanSpeedWps) throw new ArgumentException("Gust speed must be at least the mean speed.");
         Base = baseWind;
-        GustSpeedMs = gustSpeedMs;
-        MeanSpeedMs = meanSpeedMs;
+        GustSpeedWps = gustSpeedWps;
+        MeanSpeedWps = meanSpeedWps;
         Seed = seed;
         LateralFraction = lateralFraction;
         _along = Wind.FromDirection(1, fromDegrees);
@@ -114,14 +114,14 @@ public sealed class GustingWind : IWindField
 
     private readonly Vector3D _along, _across;
     public IWindField Base { get; }
-    public double MeanSpeedMs { get; }
-    public double GustSpeedMs { get; }
+    public double MeanSpeedWps { get; }
+    public double GustSpeedWps { get; }
     public int Seed { get; }
     public double LateralFraction { get; }
 
     public Vector3D VelocityAt(in Vector3D position, double heightAboveLaunch, double time)
     {
-        double amplitude = GustSpeedMs - MeanSpeedMs, along = 0, across = 0;
+        double amplitude = GustSpeedWps - MeanSpeedWps, along = 0, across = 0;
         for (int i = 0; i < 3; i++)
         {
             // Each term is 0..1, so the gust adds 0..amplitude along the wind.

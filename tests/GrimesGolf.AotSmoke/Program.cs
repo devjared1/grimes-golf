@@ -35,7 +35,7 @@ void Check(string what, Func<(string Before, string After)> roundTrip)
 
 string Text<T>(T value) => JsonSerializer.Serialize(value, typeof(T) == typeof(OnlineSave) ? OnlineSave.Json : GolfData.Json);
 
-var rules = new HouseRules(Mulligans: 2, GimmeMetres: 1.8, PickUpAtDoublePar: true, AutoAlignPutts: true);
+var rules = new HouseRules(Mulligans: 2, GimmeUnits: 1.8, PickUpAtDoublePar: true, AutoAlignPutts: true);
 var setup = new GameSetup(GameType.Scramble, HoleSet.Back9, WindStrength.Breezy, AltitudeSetting.Course, Weather.Wet, FairwaySpeed.Fast, GreenFirmness.Firm, 11);
 var shot = new RangeShot(151.2, 12.5, -1.5, 2650, 4.0, 104.9, 1.44) { Source = ShotSource.Monitor };
 var position = new MatchSnapshot.Position(3, 201.5, -12.25, Lie.Bunker, 2, false, null, false);

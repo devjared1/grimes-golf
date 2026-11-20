@@ -10,7 +10,7 @@ namespace GrimesGolf.Game;
 /// </summary>
 public partial class GrassPatch : MultiMeshInstance3D
 {
-    /// <summary>Blades reach this far from the ball (m), at full density within <see cref="FullUntil"/>.</summary>
+    /// <summary>Blades reach this far from the ball (wu), at full density within <see cref="FullUntil"/>.</summary>
     public const float Radius = 10f, FullUntil = 5.5f;
 
     private const string ShaderCode = """
@@ -42,7 +42,7 @@ public partial class GrassPatch : MultiMeshInstance3D
         }
         """;
 
-    /// <summary>How each cut grows: tufts per m², blade height (m) and its two colours (as the ground shader's).</summary>
+    /// <summary>How each cut grows: tufts per wu², blade height (wu) and its two colors (as the ground shader's).</summary>
     private static (float Density, float Height, Color A, Color B) Cut(Lie lie) => lie switch
     {
         Lie.DeepRough or Lie.OutOfBounds => (110, 0.11f, Scenery.DeepRough, Scenery.DeepRoughAlt),
@@ -72,7 +72,7 @@ public partial class GrassPatch : MultiMeshInstance3D
     /// </summary>
     public void Grow(P2 ball, Func<P2, Lie> lieAt, Func<P2, Lie, float> groundAt)
     {
-        // Lies looked up once per 25 cm cell rather than per tuft (finer than the ground's 1 m coverage texture).
+        // Lies looked up once per quarter-unit cell rather than per tuft (finer than the ground's one-unit coverage texture).
         const double cell = 0.25;
         int n = (int)Math.Ceiling(2 * Radius / cell) + 1;
         var lies = new Lie[n * n];
@@ -84,7 +84,7 @@ public partial class GrassPatch : MultiMeshInstance3D
         // Same spot, same grass: the seed comes from the position.
         var rng = new Random(HashCode.Combine(Math.Round(ball.X, 2), Math.Round(ball.Z, 2)));
         int candidates = (int)(Mathf.Pi * Radius * Radius * MaxDensity);
-        // Per tuft: a 3×4 transform (rows of basis | origin), then custom data (linear colour, sway phase).
+        // Per tuft: a 3×4 transform (rows of basis | origin), then custom data (linear color, sway phase).
         const int stride = 16;
         var buffer = new float[candidates * stride];
         int count = 0;
@@ -102,7 +102,7 @@ public partial class GrassPatch : MultiMeshInstance3D
             if (roll >= density / MaxDensity * edge) continue;
 
             float h = height * (float)size * (0.55f + 0.45f * edge);
-            // Wide enough to read on screen even for short grass; tufts sit a few mm into the ground.
+            // Wide enough to read on screen even for short grass; tufts sit a fraction of an inch into the ground.
             float w = Mathf.Max(h * 1.3f, 0.08f);
             float cos = (float)Math.Cos(yaw), sin = (float)Math.Sin(yaw);
             var at = Scenery.ToGodot(p, groundAt(p, lie) - 0.004f);

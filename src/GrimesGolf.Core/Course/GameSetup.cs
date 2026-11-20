@@ -66,14 +66,14 @@ public sealed record GameSetup(
     /// <summary>The game actually played by this many players: the chosen one, or stroke play if it can't be.</summary>
     public GameType TypeFor(int players) => Problem(Type, players) == null ? Type : GameType.Stroke;
 
-    /// <summary>The air's height above sea level, m (<paramref name="courseMetres"/> is the course's own).</summary>
-    public double AltitudeMetres(double courseMetres) => Altitude switch
+    /// <summary>The air's height above sea level, m (<paramref name="courseUnits"/> is the course's own).</summary>
+    public double AltitudeUnits(double courseUnits) => Altitude switch
     {
         AltitudeSetting.SeaLevel => 0,
-        AltitudeSetting.Feet2500 => 2500 * Units.FeetToMetres,
-        AltitudeSetting.Feet5000 => 5000 * Units.FeetToMetres,
-        AltitudeSetting.Feet7500 => 7500 * Units.FeetToMetres,
-        _ => courseMetres,
+        AltitudeSetting.Feet2500 => 2500 * Units.FeetToWorld,
+        AltitudeSetting.Feet5000 => 5000 * Units.FeetToWorld,
+        AltitudeSetting.Feet7500 => 7500 * Units.FeetToWorld,
+        _ => courseUnits,
     };
 
     /// <summary>
@@ -81,9 +81,9 @@ public sealed record GameSetup(
     /// wetness (mild weather keeps the tuning's); fairways that roll out more or less; softer or firmer greens; and
     /// the green speed. Everything else stays as tuned.
     /// </summary>
-    public PhysicsTuning ApplyTo(PhysicsTuning t, double courseAltitudeMetres)
+    public PhysicsTuning ApplyTo(PhysicsTuning t, double courseAltitudeUnits)
     {
-        t = t.With("air.altitude", AltitudeMetres(courseAltitudeMetres) / Units.FeetToMetres);
+        t = t.With("air.altitude", AltitudeUnits(courseAltitudeUnits) / Units.FeetToWorld);
         t = Weather switch
         {
             Weather.Hot => t.With("air.temperature", 95).With("air.humidity", 40),

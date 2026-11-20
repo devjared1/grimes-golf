@@ -36,7 +36,7 @@ parts.
 ## 1. Join the Apple Developer Program
 
 1. Go to [developer.apple.com/programs/enroll](https://developer.apple.com/programs/enroll/) and follow it with your
-   Apple ID. As an individual, the account is in your name; as an organisation it needs a D-U-N-S number and takes
+   Apple ID. As an individual, the account is in your name; as an organization it needs a D-U-N-S number and takes
    longer.
 2. When it's approved, open [developer.apple.com/account](https://developer.apple.com/account) and note the **Team ID**
    under **Membership details**: ten letters and digits. That's the `IOS_TEAM_ID` secret.

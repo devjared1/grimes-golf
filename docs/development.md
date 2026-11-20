@@ -1,6 +1,6 @@
 # Development guide
 
-Running Grimes Golf from source, the switches for testing, how the code is organised, and where the course data
+Running Grimes Golf from source, the switches for testing, how the code is organized, and where the course data
 comes from. For the tools to install, see [System requirements](../README.md#to-build-from-source).
 
 ## Contents
@@ -74,16 +74,16 @@ shots by themselves (`--demo-shots`, `--hole`, `--hit-at`, `--tune`) don't save 
 | `--monitor-drawer`, `--settings`, `--menu`, `--new-game`, `--practice`, `--games`, `--pin-setup`, `--scorecard` | Opens that screen (`--new-game` is New Round, `--practice` Practice Options, `--games` the Games page, `--pin-setup` Closest to the Pin's setup; the scorecard just before the screenshot) |
 | `--closest-to-pin` | Starts a Closest to the Pin game on the first course's first par 3. With it: `--pin-players=N` (1-6, default 3), `--pin-shots=N` (default 2) and `--pin-row` (all shots in a row); `--demo-shots=N` then plays N shots |
 | `--history`, `--history=practice` | Opens History on the Rounds (or Practice) tab |
-| `--putting-green`, `--chipping-green` | Starts on that practice green. With them: `--practice-spot=N` and `--practice-hole=N` (from 1) put the ball on that spot and aim at that hole, and `--practice-ball=X,Z` puts it at that point (metres from the middle of the green, X toward the back; `--demo-shots=1` then putts or chips it) |
+| `--putting-green`, `--chipping-green` | Starts on that practice green. With them: `--practice-spot=N` and `--practice-hole=N` (from 1) put the ball on that spot and aim at that hole, and `--practice-ball=X,Z` puts it at that point (feet from the middle of the green, X toward the back; `--demo-shots=1` then putts or chips it) |
 | `--home-player`, `--home-player=clubs` | Opens the home player panel (with the club distances open). It's otherwise only asked for on a normal run with no player saved |
 | `--monitor-ui` | Uses the layout and status for a connected monitor (no on-screen shot controls, lie card in the shot panel, leaderboard, "Ready — hit!" at 85% battery), to check it without one |
-| `--ball=-40,-30,-33,ready`, `--stick=1.5`, `--aligned=1.2` | With `--monitor-ui`: shows the ball position panel with this ball (mm; the panel is hidden for now, see `ShowBallZone` in `Hud.Course.cs`), the alignment panel with this reading, or this alignment as already set |
+| `--ball=-1.6,-1.2,-1.3,ready`, `--stick=1.5`, `--aligned=1.2` | With `--monitor-ui`: shows the ball position panel with this ball (inches; the panel is hidden for now, see `ShowBallZone` in `Hud.Course.cs`), the alignment panel with this reading, or this alignment as already set |
 | `--reconnecting`, `--loading-screen`, `--celebrate=Birdie` | Shows the reconnecting banner, the loading screen, or a hole's score announcement |
 | `--players=Ann,Bob,Cat:L` | Players for this run (`:L` = left-handed) |
 | `--text-size=Large`, `--graphics=Ultra` | Display settings for this run |
 | `--game=Scramble`, `--holes=Back9`, `--wind=Breezy`, `--weather=Wet` | Game setup for this run (game: Stroke, Scramble, BestBall, MatchPlay) |
 | `--green-read` | Turns on the green heat map and grid (the grid is on by default; this adds the heat map) |
-| `--ball-on-green` | Puts the ball 6 m short of the pin (needs `--course`), to check the flag, the grid and the putting view |
+| `--ball-on-green` | Puts the ball 6 yd short of the pin (needs `--course`), to check the flag, the grid and the putting view |
 | `--landing-view` | Presses Zoom just before the screenshot, to check how the landing ring looks |
 | `--ball-closeup` | Holds the camera right beside the ball, to check how it looks (with `--graphics=Medium`: High and Ultra blur anything this near) |
 | `--tuner`, `--tuner-tab=Lies` | Opens the physics tuner (the screenshot also saves it as `file-tuner.png`), on a tab (`Flight`, `Lies`, or a surface such as `Green`) |
@@ -202,7 +202,7 @@ saved data stays in `%APPDATA%`.
 ### Publishing a release
 
 1. Raise `config/version` in `src/GrimesGolf.Godot/project.godot`. Online play needs everyone on the same version.
-   After moving to a new Godot or .NET version, also run `./tools/make-notices.ps1`, which remakes the licence notices
+   After moving to a new Godot or .NET version, also run `./tools/make-notices.ps1`, which remakes the license notices
    the installer ships.
 2. Run `./tools/release.ps1`. It runs the tests, exports the app and makes `dist\GrimesGolf-Setup-<version>.exe`
    (with [Inno Setup 6](https://jrsoftware.org/isinfo.php): `winget install JRSoftware.InnoSetup`). Try the installer.
@@ -319,7 +319,7 @@ Multiplayer turn order lives in `GrimesGolf.Core/Course/Match.cs`. The practice 
 over a synthetic `Terrain`) with a spot list and the session's `PracticeStats`, so they're unit-tested without the game
 (`tests/GrimesGolf.Tests/PracticeGreenTests.cs`) and played by the same code as a round.
 Closest to the Pin's rules are in `GrimesGolf.Core/Course/ClosestToPin.cs` (`ClosestToPinGame`: the shot order, standings and tiebreaks;
-`TeeBoxes`: a hole's tee boxes from the tee areas mapped round it, and the hole as played from one; `ClosestToPinSetup`, which
+`TeeBoxes`: a hole's tee boxes from the tee areas mapped around it, and the hole as played from one; `ClosestToPinSetup`, which
 is kept in `settings.json`), tested in `tests/GrimesGolf.Tests/ClosestToPinTests.cs`. In the game each player has a one-hole
 `Match` of their own that goes back to the tee for every shot, with strict house rules (no gimmes), and the round that was
 loaded waits on the same shelf practice uses.
@@ -339,6 +339,19 @@ trees are in play (balls hit them); trees planted on a course without a survey a
 The world and UI are built in C# (`RangeWorld`, `CourseWorld`, `ShotPlayer`, `CameraRig`, `Hud`); `Main.tscn` is
 just the root.
 
+**Units.** The game is US-only: players see yards (long distances), feet and inches (putts, slopes, heights, spin
+offsets) and mph, never metric. Inside the code every length is a **world unit** (wu): course coordinates, heights,
+ball paths, the physics engine and the Godot scene all use it, speeds are wu/s and accelerations wu/s². One world
+unit is 1.0936 yd (1 yd = 0.9144 wu), so the numbers in the physics and the scene are not rescaled; only the
+edges convert, with `Units` in `GrimesGolf.Core/Course/Hole.cs`
+(`WorldToYards`, `YardsToWorld`, `FeetToWorld`, `WorldToFeet`, `WorldSpeedToMph`) and `UnitConversion` in
+`GrimesGolf.Physics` (the same, plus `InchesToWorld`, `WorldToInches` and `MphToWorldSpeed`). Names say what they hold:
+`...Units` is a length in wu (`GimmeUnits`, `RadiusUnits`), `...Wps` a speed in wu/s, `...Yards`, `...Feet` and
+`...Inches` are already converted for display. Monitors that report metric lengths (the Square's ball position and
+impact point) are converted to inches where the packet is read. Two saved formats keep older field names so existing
+files keep working: `GimmeMetres` in settings and rounds (the gimme circle in wu), and the `height_m,crown_m` header
+of `trees.csv.gz`; their values are in wu.
+
 ## Course data
 
 A course is a folder (`CoursePack.cs`): `course.json` (`id`, `name`, `place`, `description`, `version`), `map.osm`, and
@@ -350,19 +363,19 @@ course is in both, the higher `version` wins. To add one, see [Adding a course](
 
 `OsmCourse.cs` builds a course from OpenStreetMap data: `golf=hole` lines (ref, par, name), `golf=tee`, `green`,
 `fairway`, `bunker`, water hazards / `natural=water`, ditches and streams, cart paths (`golf=cartpath`, or paths
-tagged `golf_cart=yes`; 2.5 m wide unless `width` is tagged, and `bridge=yes` ones carry the path over water), woods,
+tagged `golf_cart=yes`; about 3 yd wide unless `width` is tagged, and `bridge=yes` ones carry the path over water), woods,
 and the `leisure=golf_course` outline (out of bounds).
 Holes without a mapped fairway get a generated one; duplicate or missing hole numbers are fixed by routing (the
 next tee nearest the last green). What it fixed or generated is printed to the log when the course loads.
 
-Courses often sit side by side, so a box round one catches its neighbours. Only hole lines inside the outline named by
+Courses often sit side by side, so a box round one catches its neighbors. Only hole lines inside the outline named by
 the course's `name` count. If that still leaves more than 18 with some numbers duplicated (a par-3 course inside the
 same outline, as at Payne's Valley), the duplicates are settled by which line is nearest the next or previous hole.
-Neighbours' greens and bunkers stay as scenery. A real bonus hole mapped without its own number won't be included.
+Neighbors' greens and bunkers stay as scenery. A real bonus hole mapped without its own number won't be included.
 
 Cart paths are concrete: a ball landing on one bounces higher and runs further (tune it under Physics → Bounce &
 roll → Cart path). A ball that stops on a path gets free relief, moved to the nearest point no nearer the hole that's
-0.6 m clear of every path (room for the stance) and on grass, not in a bunker, on a green or in water.
+2 ft clear of every path (room for the stance) and on grass, not in a bunker, on a green or in water.
 
 Deer Run's map is `src/GrimesGolf.Godot/courses/deer-run/map.osm`. To pick up map edits (for example, after tracing
 its fairways, ponds and woods on openstreetmap.org), re-download it, and raise `version` in its `course.json`:
@@ -371,16 +384,16 @@ its fairways, ponds and woods on openstreetmap.org), re-download it, and raise `
 ./tools/fetch-osm-course.ps1
 ```
 
-Map data © OpenStreetMap contributors, under the [Open Database Licence](https://opendatacommons.org/licenses/odbl/);
+Map data © OpenStreetMap contributors, under the [Open Database License](https://opendatacommons.org/licenses/odbl/);
 the app shows this credit under the scorecard.
 
-Ground elevation comes from the USGS 3D Elevation Program (1 m lidar DEM, public domain), embedded as
+Ground elevation comes from the USGS 3D Elevation Program (about 3 ft lidar-derived DEM, public domain), embedded as
 `ground.dem` in the course folder; re-download it with `./tools/fetch-elevation.ps1` (same bounding box
-as the map). It's resampled to a 2 m grid (`Terrain`), lightly smoothed, and each green is reshaped as a built
+as the map). It's resampled to a grid of about 2 yd (`Terrain`), lightly smoothed, and each green is reshaped as a built
 surface (its overall tilt capped at 3.5%, a little of its contour kept) so lidar noise doesn't read as bumps.
 
 The trees come from the same lidar, kept as `trees.csv.gz` in the course folder and read
-by `TreeSurvey.cs`; the course keeps the ~9,900 within 150 m of it, and the scenery plants each one at its height
+by `TreeSurvey.cs`; the course keeps the ~9,900 within 165 yd of it, and the scenery plants each one at its height
 and crown width (tall, narrow ones mostly as conifers, wide ones as broadleaf), leaving only the camera spot behind
 each tee clear. A course without tree data still gets trees planted at random between the holes. Re-make the file
 with `./tools/fetch-canopy.ps1` (Python 3 with numpy and `laspy[lazrs]`; `-Install` installs them): it downloads

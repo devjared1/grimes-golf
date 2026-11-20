@@ -5,12 +5,12 @@ namespace GrimesGolf.Game;
 
 /// <summary>
 /// The driving range: grass, fairway, tee, target greens with flags and yardage signs, and tree lines.
-/// Godot axes: X right, Y up, -Z downrange (metres). The tee is at the origin. Sky and sun come from <see cref="Scenery"/>.
+/// Godot axes: X right, Y up, -Z downrange (world units). The tee is at the origin. Sky and sun come from <see cref="Scenery"/>.
 /// </summary>
 public partial class RangeWorld : Node3D
 {
     public const float Yard = 0.9144f;
-    public const float RangeLength = 330f; // metres of mown range
+    public const float RangeLength = 330f; // world units of mown range
     public static readonly int[] TargetYards = { 50, 100, 150, 200, 250, 300 };
 
     private AimGuide _aim = null!;
@@ -31,7 +31,7 @@ public partial class RangeWorld : Node3D
 
     /// <summary>
     /// The aim line from the tee: along <paramref name="headingRad"/> (0 = straight downrange, positive = right) for
-    /// <paramref name="length"/> metres, with a ring where it ends. Hidden while a shot is in the air.
+    /// <paramref name="length"/> world units, with a ring where it ends. Hidden while a shot is in the air.
     /// </summary>
     public void SetAim(double headingRad, double length, bool visible, bool landingView = false)
     {

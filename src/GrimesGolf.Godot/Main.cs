@@ -17,7 +17,7 @@ namespace GrimesGolf.Game;
 /// <c>Main.DevTools.cs</c>.
 /// <para>
 /// Every shot raises <see cref="ShotFinished"/> with its full context; saving data hooks into it.
-/// Bluetooth events arrive on background threads and are marshalled to the main thread through <see cref="Post"/>.
+/// Bluetooth events arrive on background threads and are marshaled to the main thread through <see cref="Post"/>.
 /// </para>
 /// The app opens on the main menu; everything a guest needs is on screen or in the settings. Command-line switches
 /// (all optional): <c>--autoconnect</c> connects to the first Square found even with auto-connect off;
@@ -92,7 +92,7 @@ public partial class Main : Node3D
         _hud.HitPressed += HitPress;
         _hud.AlignPressed += OpenAlignment;
         _hud.Alignment.Confirmed += angle => FinishAlignment(true, angle);
-        _hud.Alignment.Cancelled += () => FinishAlignment(false, _hud.Alignment.LastReading);
+        _hud.Alignment.Canceled += () => FinishAlignment(false, _hud.Alignment.LastReading);
         _hud.RangeTargetPressed += CycleRangeTarget;
         _hud.Shot.PowerChanged += () => { if (_courseMode) UpdateAim(); else UpdateRangeAim(); };
         _hud.ClubChanged += OnClubChanged;
@@ -215,7 +215,7 @@ public partial class Main : Node3D
             Far = 800,
             CullMask = 1 | ShotPlayer.MapLayer,
             Current = true,
-            // No fog from 300 m up.
+            // No fog from 330 yd up.
             Environment = new Godot.Environment
             {
                 BackgroundMode = Godot.Environment.BGMode.Color,
@@ -276,7 +276,7 @@ public partial class Main : Node3D
     }
 
     /// <summary>
-    /// Tells the camera how much of the screen the UI covers, so the ball stays centred in what's left (in UI units,
+    /// Tells the camera how much of the screen the UI covers, so the ball stays centered in what's left (in UI units,
     /// which the camera compares with the visible rect, so the UI scale doesn't matter).
     /// </summary>
     private void UpdateInsets() => _camera.Insets = _hud.ViewInsets;
@@ -285,13 +285,13 @@ public partial class Main : Node3D
     /// On the hole overview: the ball, the aim line out to where the shot set up will carry (it follows the aim and
     /// the power), and the flag with its distance.
     /// </summary>
-    private void UpdateMapMarkers(P2 aimPoint, double aimMetres)
+    private void UpdateMapMarkers(P2 aimPoint, double aimUnits)
     {
         var round = _round;
         if (!_courseMode || round == null || round.Holed || _outcome != null) { _hud.HideMapMarkers(); return; }
         bool green = round.Lie == Lie.Green;
         _hud.SetMapMarkers(_mapCamera.UnprojectPosition(BallAt(round.Ball)), _mapCamera.UnprojectPosition(BallAt(aimPoint)),
-            _mapCamera.UnprojectPosition(BallAt(round.Hole.Pin)), PinDistance(aimMetres, green || Putter),
+            _mapCamera.UnprojectPosition(BallAt(round.Hole.Pin)), PinDistance(aimUnits, green || Putter),
             PinDistance(round.DistanceToPin, green), UiTheme.PlayerColor(_match!.Turn));
     }
 

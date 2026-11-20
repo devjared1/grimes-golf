@@ -100,7 +100,7 @@ static uint64_t AddressOf(CBPeripheral *peripheral) {
 - (NSString *)whyNotOn {
     switch (_central.state) {
         case CBManagerStateUnauthorized: return @"Bluetooth isn't allowed for Grimes Golf. Allow it in Settings > Grimes Golf > Bluetooth.";
-        case CBManagerStatePoweredOff: return @"Bluetooth is turned off. Turn it on in Settings or Control Centre.";
+        case CBManagerStatePoweredOff: return @"Bluetooth is turned off. Turn it on in Settings or Control Center.";
         case CBManagerStateUnsupported: return @"This device has no Bluetooth LE.";
         default: return @"Bluetooth isn't ready.";
     }

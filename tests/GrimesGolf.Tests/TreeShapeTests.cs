@@ -7,7 +7,7 @@ namespace GrimesGolf.Tests;
 /// <summary>A ball meets a tree only where the tree is drawn (<see cref="TreeShape"/>), and only trees that are drawn.</summary>
 public class TreeShapeTests
 {
-    /// <summary>A tall, slender tree (20 m, crown 4 m) somewhere it's drawn as a conifer.</summary>
+    /// <summary>A tall, slender tree (20 wu, crown 4 wu) somewhere it's drawn as a conifer.</summary>
     private static CourseTree Pine()
     {
         for (int i = 0; ; i++)
@@ -17,7 +17,7 @@ public class TreeShapeTests
         }
     }
 
-    /// <summary>A level flight from x = 0 to 200 m, <paramref name="side"/> m to the side of the line, at this height.</summary>
+    /// <summary>A level flight from x = 0 to 200 wu, <paramref name="side"/> wu to the side of the line, at this height.</summary>
     private static FlightPoint[] Level(double side, double height) =>
         Enumerable.Range(0, 41).Select(i => new FlightPoint(i * 0.1, i * 5.0, height, side)).ToArray();
 
@@ -26,7 +26,7 @@ public class TreeShapeTests
     {
         var pine = Pine();
         var field = new TreeField(new[] { pine }, null);
-        // 14 m up the tree is drawn about 1.3 m wide; the old crown shape reached nearly 4 m there.
+        // 14 wu up the tree is drawn about 1.3 wu wide; the old crown shape reached nearly 4 wu there.
         double up = 14 - TreeShape.Sunk;
         Assert.InRange(TreeShape.CrownRadiusAt(pine, true, TreeShape.Width(pine, true), 14), 1, 1.6);
         var path = Level(pine.At.Z + 2.5, up);

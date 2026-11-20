@@ -34,12 +34,12 @@ public partial class OnlinePanel : Control
         var bg = new ColorRect { Color = new Color(0.04f, 0.05f, 0.06f, 0.94f), MouseFilter = MouseFilterEnum.Ignore };
         bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(bg);
-        var centre = new CenterContainer();
-        centre.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        AddChild(centre);
+        var center = new CenterContainer();
+        center.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        AddChild(center);
         var card = new PanelContainer { CustomMinimumSize = new Vector2(760, 0) };
         card.AddThemeStyleboxOverride("panel", UiTheme.Box(UiTheme.Card, 14, 1, 28));
-        centre.AddChild(card);
+        center.AddChild(card);
         var column = new VBoxContainer();
         column.AddThemeConstantOverride("separation", 12);
         card.AddChild(column);

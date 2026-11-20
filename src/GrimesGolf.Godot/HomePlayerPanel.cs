@@ -105,7 +105,7 @@ public partial class HomePlayerPanel : Control
     {
         var box = new VBoxContainer();
         box.AddThemeConstantOverride("separation", 10);
-        var note = UiTheme.Text("Carry in yards. Fill in the ones you know; the grey numbers are estimates from them. These set the caddie's club "
+        var note = UiTheme.Text("Carry in yards. Fill in the ones you know; the gray numbers are estimates from them. These set the caddie's club "
                                 + "suggestions and the aim line, and how far swings from the screen go. Shots from a launch monitor are never changed.", 13, UiTheme.Muted);
         note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         box.AddChild(note);
@@ -207,13 +207,13 @@ public partial class HomePlayerPanel : Control
         return known;
     }
 
-    /// <summary>Estimates for the clubs left blank, and a warning colour on a carry that can't be right.</summary>
+    /// <summary>Estimates for the clubs left blank, and a warning color on a carry that can't be right.</summary>
     private void RefreshClubs()
     {
         var known = KnownYards();
         foreach (var (code, field) in _yards)
         {
-            field.PlaceholderText = $"{Caddie.Carry(code, known) * Units.MetresToYards:0}";
+            field.PlaceholderText = $"{Caddie.Carry(code, known) * Units.WorldToYards:0}";
             bool bad = field.Text.Length > 0 && !Valid(field.Text, out _);
             field.TooltipText = bad ? $"A carry from {MinYards} to {MaxYards} yards" : "";
             if (bad) field.AddThemeColorOverride("font_color", UiTheme.Danger);

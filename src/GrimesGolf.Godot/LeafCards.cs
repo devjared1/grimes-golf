@@ -5,7 +5,7 @@ namespace GrimesGolf.Game;
 /// <summary>
 /// Leaf cards for the nearby trees (see <see cref="TreeFactory"/>): flat quads carrying a picture of a spray of leaves
 /// or needles, cut out by its alpha, set all over a crown so its outline and surface break up into leaves. The
-/// pictures are painted in code at start-up (no image files), in greys with a little hue so each tree's tint colours them.
+/// pictures are painted in code at start-up (no image files), in grays with a little hue so each tree's tint colors them.
 /// </summary>
 public static class LeafCards
 {
@@ -45,7 +45,7 @@ public static class LeafCards
 
     private static ShaderMaterial? _broadleaf, _conifer;
 
-    /// <summary>Cards of broad leaves: a round spray, its middle at the card's centre.</summary>
+    /// <summary>Cards of broad leaves: a round spray, its middle at the card's center.</summary>
     public static ShaderMaterial Broadleaf => _broadleaf ??= Material(PaintLeaves());
 
     /// <summary>Cards of needles: a twig along the card from its base (u = 0) to its tip (u = 1), needles either side.</summary>
@@ -65,7 +65,7 @@ public static class LeafCards
 
     private const int Size = 256;
 
-    /// <summary>About 50 pointed leaves round the middle, each turned its own way, with a darker midrib.</summary>
+    /// <summary>About 50 pointed leaves around the middle, each turned its own way, with a darker midrib.</summary>
     private static Image PaintLeaves()
     {
         var img = Image.CreateEmpty(Size, Size, false, Image.Format.Rgba8);
@@ -85,7 +85,7 @@ public static class LeafCards
     }
 
     /// <summary>A leaf: pointed at both ends, widest a third of the way along, from <paramref name="at"/> along <paramref name="dir"/>.</summary>
-    private static void PaintLeaf(Image img, Vector2 at, Vector2 dir, float length, float width, Color colour)
+    private static void PaintLeaf(Image img, Vector2 at, Vector2 dir, float length, float width, Color color)
     {
         var side = new Vector2(-dir.Y, dir.X);
         int x0 = (int)Mathf.Max(0, at.X - length - 2), x1 = (int)Mathf.Min(Size - 1, at.X + length + 2);
@@ -101,7 +101,7 @@ public static class LeafCards
                 float rib = Mathf.Abs(across) < 0.9f ? 0.8f : 1f;
                 // Lighter toward the edges, as a leaf catches the light across its curve.
                 float curve = 0.85f + 0.15f * Mathf.Abs(across) / Mathf.Max(half, 0.01f);
-                img.SetPixel(x, y, new Color(colour.R * rib * curve, colour.G * rib * curve, colour.B * rib * curve));
+                img.SetPixel(x, y, new Color(color.R * rib * curve, color.G * rib * curve, color.B * rib * curve));
             }
     }
 
@@ -127,7 +127,7 @@ public static class LeafCards
         return img;
     }
 
-    private static void PaintLine(Image img, Vector2 a, Vector2 b, float width, Color colour)
+    private static void PaintLine(Image img, Vector2 a, Vector2 b, float width, Color color)
     {
         int steps = (int)Mathf.Ceil(a.DistanceTo(b) * 2);
         for (int s = 0; s <= steps; s++)
@@ -136,11 +136,11 @@ public static class LeafCards
             for (int y = (int)(p.Y - width); y <= (int)(p.Y + width); y++)
                 for (int x = (int)(p.X - width); x <= (int)(p.X + width); x++)
                     if (x >= 0 && y >= 0 && x < Size && y < Size && new Vector2(x + 0.5f, y + 0.5f).DistanceTo(p) <= width / 2 + 0.5f)
-                        img.SetPixel(x, y, colour);
+                        img.SetPixel(x, y, color);
         }
     }
 
-    /// <summary>Accumulates cards (two triangles each, with UVs, normals and vertex colours) into an ArrayMesh.</summary>
+    /// <summary>Accumulates cards (two triangles each, with UVs, normals and vertex colors) into an ArrayMesh.</summary>
     public sealed class Builder
     {
         private readonly List<Vector3> _v = new(), _n = new();

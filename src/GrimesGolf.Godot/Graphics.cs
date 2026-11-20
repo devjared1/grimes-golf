@@ -9,7 +9,7 @@ namespace GrimesGolf.Game;
 /// </summary>
 public static class Graphics
 {
-    /// <summary>What a preset turns on. Shadow distance is in metres; the atlas is the shadow map's size in pixels.</summary>
+    /// <summary>What a preset turns on. Shadow distance is in world units; the atlas is the shadow map's size in pixels.</summary>
     private sealed record Preset(
         Viewport.Msaa Msaa, bool Taa, Viewport.ScreenSpaceAAEnum ScreenAa, float RenderScale,
         DirectionalLight3D.ShadowMode Splits, float ShadowDistance, int ShadowAtlas, RenderingServer.ShadowQuality Softness,
@@ -30,7 +30,7 @@ public static class Graphics
         GraphicsQuality.High => new(Viewport.Msaa.Msaa2X, false, Viewport.ScreenSpaceAAEnum.Smaa, 1,
             DirectionalLight3D.ShadowMode.Parallel4Splits, 320, 4096, RenderingServer.ShadowQuality.SoftMedium,
             Sky.RadianceSizeEnum.Size512, true, true, true, Dof: true),
-        // Plus 4× MSAA and sharper, longer shadows. (Volumetric fog was tried for light shafts: it greys the whole view
+        // Plus 4× MSAA and sharper, longer shadows. (Volumetric fog was tried for light shafts: it grays the whole view
         // once the camera rises after the ball.)
         _ => new(Viewport.Msaa.Msaa4X, false, Viewport.ScreenSpaceAAEnum.Smaa, 1,
             DirectionalLight3D.ShadowMode.Parallel4Splits, 450, 8192, RenderingServer.ShadowQuality.SoftHigh,

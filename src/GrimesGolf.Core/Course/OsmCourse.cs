@@ -7,8 +7,8 @@ namespace GrimesGolf.Core.Course;
 /// <summary>
 /// Builds a <see cref="Course"/> from OpenStreetMap data (an .osm XML file, e.g. from <c>tools/fetch-osm-course.ps1</c>).
 /// Uses golf=hole lines (ref, par, name), golf=tee/green/fairway/bunker, water hazards and natural=water, ditches and
-/// streams, golf=cartpath (or paths tagged golf_cart=yes), woods, and the leisure=golf_course outline as the out-of-bounds line. Coordinates are projected to metres around the
-/// course centre: X north, Z east.
+/// streams, golf=cartpath (or paths tagged golf_cart=yes), woods, and the leisure=golf_course outline as the out-of-bounds line. Coordinates are projected to world units around the
+/// course center: X north, Z east.
 /// Holes without a mapped fairway get one generated along the hole line. Duplicate or missing hole numbers are
 /// repaired by routing (the next hole's tee is the one nearest the previous green). What was fixed or generated is
 /// listed in <see cref="Course.Notes"/>.
@@ -21,13 +21,13 @@ public static class OsmCourse
     public const double FairwayWidth = 32, ApronWidth = 24;
     /// <summary>Generated fairways start this far from the tee on par 4s and 5s (about 100 yd).</summary>
     public const double FairwayStart = 90;
-    /// <summary>Width of a cart path mapped as a line without a width tag (m).</summary>
+    /// <summary>Width of a cart path mapped as a line without a width tag (wu).</summary>
     public const double CartPathWidth = 2.5;
 
     private const double EarthRadius = 6371008.8;
-    /// <summary>How far the modelled ground extends past the course (beyond it the ground continues flat).</summary>
+    /// <summary>How far the modeled ground extends past the course (beyond it the ground continues flat).</summary>
     private const double TerrainMargin = 200;
-    /// <summary>How far past the course surveyed trees are kept (inside the modelled ground).</summary>
+    /// <summary>How far past the course surveyed trees are kept (inside the modeled ground).</summary>
     private const double TreeMargin = 150;
 
     private sealed record Way(long Id, List<long> Nodes, Dictionary<string, string> Tags)
@@ -79,7 +79,7 @@ public static class OsmCourse
         var holeWays = ways.Values.Where(w => w.Tag("golf") == "hole" && w.Nodes.Count >= 2).ToList();
         if (holeWays.Count == 0) throw new InvalidDataException("No golf=hole lines in the OSM data.");
 
-        // The course outline (the named one, else the largest) and the projection origin at its centre.
+        // The course outline (the named one, else the largest) and the projection origin at its center.
         var outlines = areas.Where(a => a.Tags.GetValueOrDefault("leisure") == "golf_course").ToList();
         if (name != null && outlines.Any(a => Named(a.Tags, name)))
             outlines = outlines.Where(a => Named(a.Tags, name)).ToList();
@@ -95,14 +95,14 @@ public static class OsmCourse
             w.Id, Int(w.Tag("ref")), Int(w.Tag("par")), w.Tag("name") ?? "", w.Nodes.Select(Project).ToList())).ToList();
 
         var boundary = outlines.Select(a => Poly(a.Ring)).Where(p => p.Points.Count >= 3).ToList();
-        // Courses often sit side by side, and a box round one catches its neighbours' holes: only the named course's count.
+        // Courses often sit side by side, and a box round one catches its neighbors' holes: only the named course's count.
         if (name != null && boundary.Count > 0 && outlines.Any(a => Named(a.Tags, name)))
         {
             bool Inside(HoleLine l) => l.Route.Count(p => boundary.Any(b => b.Contains(p))) * 2 >= l.Route.Count;
             var ours = lines.Where(Inside).ToList();
             if (ours.Count > 0 && ours.Count < lines.Count)
             {
-                notes.Add($"Left out {lines.Count - ours.Count} hole lines outside the outline of {name} (a neighbouring course's).");
+                notes.Add($"Left out {lines.Count - ours.Count} hole lines outside the outline of {name} (a neighboring course's).");
                 lines = ours;
             }
         }
@@ -131,7 +131,7 @@ public static class OsmCourse
             .ToList();
         var allWater = water.Cast<Shape>().Concat(waterLines).ToList();
 
-        // Cart paths: lines as wide as tagged (2.5 m if not), or mapped as areas (area=yes). Bridges carry them over water.
+        // Cart paths: lines as wide as tagged (about 3 yd if not), or mapped as areas (area=yes). Bridges carry them over water.
         bool NearBox(Bounds b) => b.Max.X >= near.Min.X && b.Min.X <= near.Max.X && b.Max.Z >= near.Min.Z && b.Min.Z <= near.Max.Z;
         var pathLines = ways.Values
             .Where(w => w.Nodes.Count >= 2 && IsCartPath(w.Tags) && !(w.Closed && w.Tag("area") == "yes"))
@@ -157,8 +157,9 @@ public static class OsmCourse
 
         if (boundary.Count == 0)
         {
-            notes.Add("No golf course outline mapped; out of bounds is 60 m outside the holes.");
-            var b = extent.Expand(60);
+            const double OutOfBoundsMargin = 60;
+            notes.Add($"No golf course outline mapped; out of bounds is {OutOfBoundsMargin * Units.WorldToYards:0} yd outside the holes.");
+            var b = extent.Expand(OutOfBoundsMargin);
             boundary.Add(new Polygon(new[] { b.Min, new P2(b.Max.X, b.Min.Z), b.Max, new P2(b.Min.X, b.Max.Z) }));
             extent = b;
         }
@@ -191,7 +192,7 @@ public static class OsmCourse
         }
         if (generated.Count > 0)
             notes.Add($"Fairways aren't mapped for {(generated.Count == numbered.Count ? "any hole" : "holes " + string.Join(", ", generated))}; " +
-                      $"generated {FairwayWidth * Units.MetresToYards:0}-yd fairways along the hole lines.");
+                      $"generated {FairwayWidth * Units.WorldToYards:0}-yd fairways along the hole lines.");
 
         var holes = numbered.Select(x =>
         {
@@ -204,7 +205,7 @@ public static class OsmCourse
             if (!greens.Any(g => g.Contains(pin)))
             {
                 var g = greens.Where(g => g.DistanceTo(pin) < 25).OrderBy(g => g.DistanceTo(pin)).FirstOrDefault();
-                if (g != null) { pin = g.Centroid; notes.Add($"Hole {n}'s line ends off the green; pin moved to the green's centre."); }
+                if (g != null) { pin = g.Centroid; notes.Add($"Hole {n}'s line ends off the green; pin moved to the green's center."); }
             }
 
             // Aim off the tee: the dog-leg point if it's in driving range, otherwise ~250 yd down the line.
@@ -262,7 +263,7 @@ public static class OsmCourse
     /// <summary>
     /// Sometimes a second course is inside the same outline (a par-3 course at a resort), so with more than 18 lines some
     /// numbers are there twice. Golfers walk from each green to the next tee: starting from the highest number there's
-    /// only one of, each duplicate is settled by which line is nearest its neighbour on the way round, and the rest go.
+    /// only one of, each duplicate is settled by which line is nearest its neighbor on the way round, and the rest go.
     /// </summary>
     private static List<HoleLine> WithoutSecondCourse(List<HoleLine> lines, List<string> notes)
     {
@@ -343,7 +344,7 @@ public static class OsmCourse
         return len;
     }
 
-    /// <summary>The point <paramref name="s"/> metres along the route (clamped to its ends).</summary>
+    /// <summary>The point <paramref name="s"/> world units along the route (clamped to its ends).</summary>
     public static P2 PointAt(IReadOnlyList<P2> route, double s)
     {
         for (int i = 1; i < route.Count; i++)
@@ -355,7 +356,7 @@ public static class OsmCourse
         return route[^1];
     }
 
-    /// <summary>The part of the route between <paramref name="from"/> and <paramref name="to"/> metres along it.</summary>
+    /// <summary>The part of the route between <paramref name="from"/> and <paramref name="to"/> world units along it.</summary>
     public static List<P2> SubPath(IReadOnlyList<P2> route, double from, double to)
     {
         var pts = new List<P2> { PointAt(route, from) };
@@ -369,10 +370,11 @@ public static class OsmCourse
         return pts;
     }
 
-    /// <summary>The tagged width (metres), or a typical one for the kind of waterway.</summary>
+    /// <summary>The tagged width (world units), or a typical one for the kind of waterway.</summary>
     private static double WaterwayWidth(Way w) =>
         TaggedWidth(w) ?? w.Tag("waterway") switch { "stream" => 3, "river" or "canal" => 10, _ => 1.5 };
 
+    /// <summary>OpenStreetMap's <c>width</c> tag: a number of its own metric units, read as world units (they are the same size).</summary>
     private static double? TaggedWidth(Way w) =>
         double.TryParse(w.Tag("width")?.Replace(" m", ""), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) && v > 0 ? v : null;
 
@@ -381,7 +383,7 @@ public static class OsmCourse
         t.GetValueOrDefault("golf") == "cartpath"
         || (t.GetValueOrDefault("golf_cart") is "designated" or "yes" && t.GetValueOrDefault("highway") is "path" or "track" or "service" or "footway");
 
-    private static int GuessPar(double metres) => metres < 230 ? 3 : metres < 430 ? 4 : 5;
+    private static int GuessPar(double units) => units < 230 ? 3 : units < 430 ? 4 : 5;
 
     private static bool Named(Dictionary<string, string> tags, string name) =>
         tags.GetValueOrDefault("name")?.Contains(name, StringComparison.OrdinalIgnoreCase) == true;

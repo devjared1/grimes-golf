@@ -29,12 +29,12 @@ public partial class LoadingScreen : Control
         bg.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(bg);
 
-        var centre = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
-        centre.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
-        AddChild(centre);
+        var center = new CenterContainer { MouseFilter = MouseFilterEnum.Ignore };
+        center.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+        AddChild(center);
         var v = new VBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
         v.AddThemeConstantOverride("separation", 18);
-        centre.AddChild(v);
+        center.AddChild(v);
 
         if (Brand.Logo is { } logo)
         {

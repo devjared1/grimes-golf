@@ -5,17 +5,17 @@ namespace GrimesGolf.Game;
 
 /// <summary>
 /// Trees built in code: conifers (a trunk with drooping, jagged tiers of needles) and broadleaf trees (trunk and
-/// branches under a crown of lumpy leaf clumps), mixed about half and half, with per-tree size, lean, turn and colour.
+/// branches under a crown of lumpy leaf clumps), mixed about half and half, with per-tree size, lean, turn and color.
 /// <para>
 /// Each kind has a detailed mesh for nearby trees and a very cheap one for distant ones. Trees are grouped into
 /// <see cref="ChunkSize"/> patches, each drawn with one MultiMesh per mesh, so whole patches switch detail with
-/// distance (Godot visibility ranges, cross-faded). Meshes are one unit tall; the instance scale is the height in metres.
+/// distance (Godot visibility ranges, cross-faded). Meshes are one unit tall; the instance scale is the height in world units.
 /// </para>
 /// <para>
 /// The foliage shader gives leaves without textures: 3D noise breaks the surfaces into light and dark leaf masses and
 /// cuts holes where they're seen edge-on (so outlines are ragged, not smooth shells), light shows through from behind,
-/// and the crowns sway a little in the wind. Mesh vertex colours carry baked shading (darker inside and low in the
-/// crown); instance colours carry each tree's tint.
+/// and the crowns sway a little in the wind. Mesh vertex colors carry baked shading (darker inside and low in the
+/// crown); instance colors carry each tree's tint.
 /// </para>
 /// <para>
 /// Nearby trees also wear <see cref="LeafCards"/>: sprays of leaves (or needles along each conifer branch) over the
@@ -25,7 +25,7 @@ namespace GrimesGolf.Game;
 public static class TreeFactory
 {
     private const float ChunkSize = 120;
-    /// <summary>Distance (m, from a patch's centre) where its trees switch from detailed to simple meshes, and the cross-fade either side.</summary>
+    /// <summary>Distance (wu, from a patch's center) where its trees switch from detailed to simple meshes, and the cross-fade either side.</summary>
     private const float DetailRange = 230, FadeMargin = 30;
 
     /// <summary>
@@ -51,7 +51,7 @@ public static class TreeFactory
             float up = p.y - base.y;
             if (up < -1.0 || up > h + 1.0) return 0.0;
             // Between them, anything near the line (crown and a margin); behind the ball or the camera, only a
-            // tree whose crown is over the ball or round the camera.
+            // tree whose crown is over the ball or around the camera.
             bool between = raw >= 0.0 && raw <= 1.0;
             float r = between ? w * 0.45 + 1.5 : w * 0.35;
             return 1.0 - smoothstep(r, r + 1.5, length(p.xz - base.xz));
@@ -163,7 +163,7 @@ public static class TreeFactory
     /// <summary>
     /// Plants surveyed trees, each at its spot (ground level). Its kind and size come from <see cref="TreeShape"/>,
     /// which the ball's flight past trees uses too, so a ball meets a tree only where one is drawn. The turn, lean and
-    /// colour are the same every time for <paramref name="seed"/>.
+    /// color are the same every time for <paramref name="seed"/>.
     /// </summary>
     public static void AddMeasured(Node3D parent, IReadOnlyList<(Vector3 At, CourseTree Tree)> trees, ulong seed)
     {
@@ -288,8 +288,8 @@ public static class TreeFactory
                 rim[s] = dir * r + new Vector3(0, bottom - rng.RandfRange(0.01f, 0.05f), 0);
                 mid[s] = dir * r * 0.55f + new Vector3(0, Mathf.Lerp(top, bottom, 0.5f) + 0.015f, 0);
             }
-            var centre = new Vector3(0, top - 0.12f, 0);
-            Vector3 N(Vector3 p) => ((p - centre).Normalized() + Vector3.Up * 0.35f).Normalized();
+            var center = new Vector3(0, top - 0.12f, 0);
+            Vector3 N(Vector3 p) => ((p - center).Normalized() + Vector3.Up * 0.35f).Normalized();
             for (int s = 0; s < spokes; s++)
             {
                 int n = (s + 1) % spokes;
@@ -331,7 +331,7 @@ public static class TreeFactory
     }
 
     /// <summary>
-    /// A crown of lumpy leaf clumps around an egg-shaped centre, and in <paramref name="cards"/> leaf sprays set over
+    /// A crown of lumpy leaf clumps around an egg-shaped center, and in <paramref name="cards"/> leaf sprays set over
     /// the clumps' surfaces, each tilted its own way so some stand out from the outline.
     /// </summary>
     private static ArrayMesh Broadleaf(int seed, LeafCards.Builder cards)
@@ -377,10 +377,10 @@ public static class TreeFactory
                 var e2 = facing.Cross(e1);
                 float roll = rng.RandfRange(0, Mathf.Tau), half = r * rng.RandfRange(0.4f, 0.52f);
                 var along = (e1 * Mathf.Cos(roll) + e2 * Mathf.Sin(roll)) * half;
-                var centre = pts[i] + (pts[i] - at).Normalized() * r * 0.06f;
+                var center = pts[i] + (pts[i] - at).Normalized() * r * 0.06f;
                 var off = (pts[i] - crown);
                 float outward = Mathf.Clamp(off.Length() / 0.42f, 0, 1), high = Mathf.Clamp((pts[i].Y - 0.4f) / 0.55f, 0, 1);
-                cards.Card(centre - along, centre + along, facing.Cross(along), n, Shade(0.55f + 0.35f * outward + 0.2f * high));
+                cards.Card(center - along, center + along, facing.Cross(along), n, Shade(0.55f + 0.35f * outward + 0.2f * high));
             }
         }
         return b.Build();
@@ -457,7 +457,7 @@ public static class TreeFactory
         return new Sphere(pts.ToArray(), faces.ToArray());
     }
 
-    /// <summary>Accumulates triangles (with normals and vertex colours) into an ArrayMesh.</summary>
+    /// <summary>Accumulates triangles (with normals and vertex colors) into an ArrayMesh.</summary>
     private sealed class MeshBuilder
     {
         private readonly List<Vector3> _v = new(), _n = new();

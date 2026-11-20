@@ -11,13 +11,13 @@ public static class TreeShape
     /// <summary>How far a crown reaches from the trunk, as a share of the mesh's width.</summary>
     public const double ConiferReach = 0.35, BroadleafReach = 0.43;
 
-    /// <summary>Trees are planted this far into the ground (m), so they never stand on air on a slope.</summary>
+    /// <summary>Trees are planted this far into the ground (wu), so they never stand on air on a slope.</summary>
     public const double Sunk = 0.3;
 
     /// <summary>A conifer's tiers start at this share of its height; the tip is at the top.</summary>
     private const double ConiferBottom = 0.16, ConiferTierSpan = 0.66, ConiferTierTop = 0.96;
 
-    /// <summary>A broadleaf crown: an egg round this share of the height, this tall either way.</summary>
+    /// <summary>A broadleaf crown: an egg around this share of the height, this tall either way.</summary>
     private const double BroadleafMiddle = 0.68, BroadleafHalfHeight = 0.35;
 
     /// <summary>
@@ -31,12 +31,12 @@ public static class TreeShape
         return Unit(t.At) < chance;
     }
 
-    /// <summary>The mesh's width (m): what makes its crown reach as far as measured, within sensible proportions.</summary>
+    /// <summary>The mesh's width (wu): what makes its crown reach as far as measured, within sensible proportions.</summary>
     public static double Width(CourseTree t, bool conifer) =>
         Math.Clamp(t.Crown / (conifer ? ConiferReach : BroadleafReach), t.Height * 0.45, t.Height * 1.2);
 
     /// <summary>
-    /// How far the drawn crown reaches from the trunk at <paramref name="up"/> metres above the tree's base (its
+    /// How far the drawn crown reaches from the trunk at <paramref name="up"/> world units above the tree's base (its
     /// ground less <see cref="Sunk"/>); 0 where there is no crown at that height.
     /// </summary>
     public static double CrownRadiusAt(CourseTree t, bool conifer, double width, double up)
@@ -55,11 +55,11 @@ public static class TreeShape
         return Math.Abs(v) >= 1 ? 0 : BroadleafReach * width * Math.Sqrt(1 - v * v);
     }
 
-    /// <summary>Lowest point of the crown (m above the tree's base): below it there's only the trunk.</summary>
+    /// <summary>Lowest point of the crown (wu above the tree's base): below it there's only the trunk.</summary>
     public static double CrownBottom(CourseTree t, bool conifer) =>
         t.Height * (conifer ? ConiferBottom : BroadleafMiddle - BroadleafHalfHeight);
 
-    /// <summary>A number in [0, 1) from a point, the same on every machine (the point is rounded to the centimetre).</summary>
+    /// <summary>A number in [0, 1) from a point, the same on every machine (the point is rounded to the hundredth of a world unit).</summary>
     private static double Unit(P2 p)
     {
         ulong h = (ulong)(long)Math.Round(p.X * 100) * 0x9E3779B97F4A7C15UL ^ (ulong)(long)Math.Round(p.Z * 100) * 0xC2B2AE3D27D4EB4FUL;

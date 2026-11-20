@@ -4,7 +4,7 @@ using GrimesGolf.Core.Course;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// Editing the players (1-4, or <see cref="MaxPlayers">as many as the list is set to take</see>): a row each with their colour, name, handedness and Remove, "+ Add player" and a pick from
+/// Editing the players (1-4, or <see cref="MaxPlayers">as many as the list is set to take</see>): a row each with their color, name, handedness and Remove, "+ Add player" and a pick from
 /// the saved players. Used by the settings screen, New Round's player list and Add / Remove Players during a round. Each
 /// row remembers which of the players it was loaded from (<see cref="Origins"/>), so a round can carry their scores over.
 /// </summary>
@@ -170,7 +170,7 @@ public partial class PlayerListEditor : VBoxContainer
         {
             int i = _players.IndexOf(entry);
             if (i < 0 || _players.Count <= 1) return;
-            // Rebuild so the colours stay in player order.
+            // Rebuild so the colors stay in player order.
             Rebuild(_players.Where((_, k) => k != i).Select(p => (new Golfer(p.Name.Text, p.LeftHanded.ButtonPressed), p.Origin)).ToList());
             FocusAdd();
             Changed?.Invoke();

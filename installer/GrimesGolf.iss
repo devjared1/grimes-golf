@@ -11,7 +11,7 @@
 #define VersionNumber Copy(AppVersion, 1, Pos("-", AppVersion + "-") - 1)
 
 [Setup]
-; Never change AppId: it's how a new version recognises the old one and installs over it.
+; Never change AppId: it's how a new version recognizes the old one and installs over it.
 AppId={{6C1E2A54-8F0B-4B4D-9E3A-7D52C1F0A9B6}
 AppName=Grimes Golf
 AppVersion={#AppVersion}
@@ -52,7 +52,7 @@ Source: "{#Source}\data_GrimesGolf.Godot_windows_x86_64\*"; DestDir: "{app}\data
 Source: "{#Source}\courses\*"; DestDir: "{app}\courses"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Presets may have been changed from the tuner, so ones already there are kept.
 Source: "{#Source}\tuning\*"; DestDir: "{app}\tuning"; Flags: onlyifdoesntexist uninsneveruninstall
-; The licences of what ships inside the app (Godot, its libraries and .NET): tools/make-notices.ps1 makes this file.
+; The licenses of what ships inside the app (Godot, its libraries and .NET): tools/make-notices.ps1 makes this file.
 Source: "THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]

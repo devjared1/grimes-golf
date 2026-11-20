@@ -7,7 +7,7 @@
   bunkers, water hazards, rough, cart paths), the golf_course outline, water, ditches and woods, plus the nodes they use. Everything
   else (roads, buildings, ...) is dropped. Re-run it after editing the course on openstreetmap.org.
 
-  Map data (c) OpenStreetMap contributors, available under the Open Database Licence (ODbL).
+  Map data (c) OpenStreetMap contributors, available under the Open Database License (ODbL).
 
 .EXAMPLE
   ./tools/fetch-osm-course.ps1                       # Deer Run, Moulton AL (the default)

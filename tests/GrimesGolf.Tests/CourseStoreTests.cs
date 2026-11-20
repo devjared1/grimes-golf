@@ -98,13 +98,13 @@ public sealed class CourseStoreTests : IDisposable
     }
 
     [Fact]
-    public void AnonymisingAMapRenamesItWithoutChangingHowItPlays()
+    public void AnonymizingAMapRenamesItWithoutChangingHowItPlays()
     {
         var before = MakePack("test-course", 1);
         var original = before.Load();
         string map = Path.Combine(before.Folder, CoursePack.MapFile);
 
-        OsmAnonymiser.Rewrite(map, "Deer Run", "Alabama Pines");
+        OsmAnonymizer.Rewrite(map, "Deer Run", "Alabama Pines");
         File.WriteAllText(Path.Combine(before.Folder, CoursePack.ManifestFile), """{"id":"test-course","name":"Alabama Pines","version":1}""");
         var after = CoursePack.Read(before.Folder).Load();
 
@@ -116,11 +116,11 @@ public sealed class CourseStoreTests : IDisposable
     }
 
     [Fact]
-    public void AnonymisingNeedsTheCourseToBeInTheMap()
+    public void AnonymizingNeedsTheCourseToBeInTheMap()
     {
         string map = Path.Combine(MakePack("test-course", 1).Folder, CoursePack.MapFile);
         string before = File.ReadAllText(map);
-        Assert.Throws<InvalidDataException>(() => OsmAnonymiser.Rewrite(map, "Nowhere Near", "Alabama Pines"));
+        Assert.Throws<InvalidDataException>(() => OsmAnonymizer.Rewrite(map, "Nowhere Near", "Alabama Pines"));
         Assert.Equal(before, File.ReadAllText(map));
     }
 
@@ -244,7 +244,7 @@ public sealed class CourseStoreTests : IDisposable
     }
 
     [Fact]
-    public void ANeighbouringCoursesHolesAreLeftOut()
+    public void ANeighboringCoursesHolesAreLeftOut()
     {
         var course = ImportWithExtras(hole => hole(34.05, -86.97, 5, 4) + hole(34.06, -86.97, 19, 4));
         Assert.Equal(Enumerable.Range(1, 18), course.Holes.Select(h => h.Number));

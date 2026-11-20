@@ -98,7 +98,7 @@ public partial class SettingsPanel : Control
         _gimme = new OptionButton { CustomMinimumSize = new Vector2(110, 0),
                                     TooltipText = "A circle drawn round the hole: putts that finish inside it are tapped in for one more stroke" };
         foreach (int feet in HouseRules.GimmeFeetChoices) _gimme.AddItem($"{feet} ft");
-        v.AddChild(Row("Gimme circle (radius round the hole)", _gimme));
+        v.AddChild(Row("Gimme circle (radius around the hole)", _gimme));
         _doublePar = new CheckBox { Text = "Pick up at double par (a hole never costs more than twice its par)" };
         v.AddChild(_doublePar);
         _autoAlign = new CheckBox { Text = "Auto-align putts (aim along the read, allowing for the break; off: aim at the hole)" };
@@ -261,7 +261,7 @@ public partial class SettingsPanel : Control
         var s = _current.WithGuests(_guests.Golfers) with
         {
             Players = _players.Golfers,
-            HouseRules = new HouseRules((int)_mulligans.Value, HouseRules.GimmeFeetChoices[Math.Max(0, _gimme.Selected)] * Units.FeetToMetres,
+            HouseRules = new HouseRules((int)_mulligans.Value, HouseRules.GimmeFeetChoices[Math.Max(0, _gimme.Selected)] * Units.FeetToWorld,
                                         _doublePar.ButtonPressed, _autoAlign.ButtonPressed, _autoPutt.ButtonPressed),
             AutoConnect = _autoConnect.ButtonPressed,
             MonitorType = (LaunchMonitorType)Math.Max(0, _monitorType.Selected),

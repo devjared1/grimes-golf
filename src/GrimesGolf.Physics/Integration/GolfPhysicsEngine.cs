@@ -11,8 +11,8 @@ public enum SimulationInputMode
 }
 
 /// <summary>
-/// One shot to simulate. Give either <see cref="Input"/> (launch monitor data, normalised and validated by
-/// <see cref="LaunchMonitorAdapter"/>) or <see cref="Launch"/> (already normalised launch conditions).
+/// One shot to simulate. Give either <see cref="Input"/> (launch monitor data, normalized and validated by
+/// <see cref="LaunchMonitorAdapter"/>) or <see cref="Launch"/> (already normalized launch conditions).
 /// </summary>
 public sealed record SimulationRequest
 {
@@ -89,7 +89,7 @@ public sealed class GolfPhysicsEngine : IGolfPhysicsEngine
             }
             else
             {
-                if (input.HasBallLaunch) warnings.Add("Club impact mode: the measured ball launch is ignored in favour of the impact model.");
+                if (input.HasBallLaunch) warnings.Add("Club impact mode: the measured ball launch is ignored in favor of the impact model.");
                 if (request.Club is null) problems.Add("Club impact mode needs club properties.");
                 else problems.AddRange(request.Club.Validate());
                 var norm = LaunchMonitorAdapter.NormalizeClubDelivery(input);

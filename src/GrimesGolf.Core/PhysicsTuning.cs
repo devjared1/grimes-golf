@@ -141,7 +141,7 @@ public sealed class PhysicsTuning
         Add("air.altitude", Flight, "Air", "Altitude", "ft", 0, -1000, 12000, 50, "Higher courses have thinner air: about 2% more carry per 1000 ft.");
         Add("air.humidity", Flight, "Air", "Humidity", "%", 0, 0, 100, 1, "Humid air is slightly lighter (a small effect).");
 
-        Add("wind.speed", Flight, "Wind", "Wind speed", "mph", 0, 0, 40, 0.5, "Measured 10 m (33 ft) up, like a weather report.");
+        Add("wind.speed", Flight, "Wind", "Wind speed", "mph", 0, 0, 40, 0.5, "Measured 33 ft up, like a weather report.");
         Add("wind.from", Flight, "Wind", "Wind from", "°", 0, 0, 355, 5,
             "Direction the wind blows from. On the range 0° is straight into your face and 90° from the right; on a course 0° is from the north.");
         Add("wind.gusts", Flight, "Wind", "Gusts", "+mph", 0, 0, 20, 0.5, "Gusts on top of the wind speed, varying over a few seconds.");
@@ -162,11 +162,11 @@ public sealed class PhysicsTuning
                 "Sliding friction between ball and turf: how hard the ground grabs a skidding or spinning ball.");
             Add(k + ".grab", Ground, title, "Spin grab", "", s.TangentialRestitution, 0, 0.9, 0.01,
                 "Turf returning the ball's spin on impact (tangential restitution). With backspin this pulls the ball back.");
-            Add(k + ".skid", Ground, title, "Skid on landing", "m/s", s.ImpactSkidSpeed, 0, 40, 0.5,
+            Add(k + ".skid", Ground, title, "Skid on landing", "wu/s", s.ImpactSkidSpeed, 0, 40, 0.5,
                 "How much a fast, spinning ball skids through a hard landing instead of being grabbed at once (the slip speed at which "
                 + "bounce friction halves; 0 = no skid). Lower: hops forward first and checks on a later bounce; 0: grabs on the first touch.");
             Add(k + ".drag", Ground, title, "Turf drag on landing", "", s.ImpactDrag, 0, 1, 0.01,
-                "How much pace a landing ball loses ploughing through the turf, without losing spin (a fraction of how hard it lands). "
+                "How much pace a landing ball loses plowing through the turf, without losing spin (a fraction of how hard it lands). "
                 + "More: shorter hops; low, spinning wedges stop sooner.");
             if (lie == Lie.Green)
                 Add("ground.green.stimp", Ground, title, "Green speed (stimp)", "ft", 10, 6, 15, 0.5, "Stimpmeter reading. Higher is faster.");
@@ -275,12 +275,12 @@ public sealed record PhysicsSettings(
         var air = new AtmosphericConditions
         {
             TemperatureCelsius = (t["air.temperature"] - 32) * 5 / 9,
-            AltitudeMetres = t["air.altitude"] * UnitConversion.FeetToMetres,
+            AltitudeUnits = t["air.altitude"] * UnitConversion.FeetToWorld,
             RelativeHumidityPercent = t["air.humidity"],
         };
-        double windMs = t["wind.speed"] * UnitConversion.MphToMetresPerSecond, gustMs = t["wind.gusts"] * UnitConversion.MphToMetresPerSecond;
-        IWindField wind = windMs <= 0 && gustMs <= 0 ? Wind.Calm : new PowerLawWindProfile(windMs, t["wind.from"], Exponent: t["wind.shear"]);
-        if (gustMs > 0) wind = new GustingWind(wind, windMs, windMs + gustMs, t["wind.from"]);
+        double windWps = t["wind.speed"] * UnitConversion.MphToWorldSpeed, gustWps = t["wind.gusts"] * UnitConversion.MphToWorldSpeed;
+        IWindField wind = windWps <= 0 && gustWps <= 0 ? Wind.Calm : new PowerLawWindProfile(windWps, t["wind.from"], Exponent: t["wind.shear"]);
+        if (gustWps > 0) wind = new GustingWind(wind, windWps, windWps + gustWps, t["wind.from"]);
         var still = air == AtmosphericConditions.Standard ?EnvironmentConditions.Standard : new EnvironmentConditions { Atmosphere = air };
         var environment = wind == Wind.Calm ? still : still with { Wind = wind };
 

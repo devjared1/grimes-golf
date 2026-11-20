@@ -1,4 +1,5 @@
 using Godot;
+using GrimesGolf.Core.Course;
 
 namespace GrimesGolf.Game;
 
@@ -125,7 +126,7 @@ public partial class Main
             if (CommandFor(e) is Command.Back) { _hud.Home.Close(); GetViewport().SetInputAsHandled(); }
             return;
         }
-        // Get More Courses: the same (Esc / B closes it, once any download is finished or cancelled).
+        // Get More Courses: the same (Esc / B closes it, once any download is finished or canceled).
         if (_hud.Store.IsOpen)
         {
             if (CommandFor(e) is Command.Back) { _hud.Store.Close(); GetViewport().SetInputAsHandled(); }
@@ -164,6 +165,36 @@ public partial class Main
         }
         if (CommandFor(e) is not { } c) return;
         if (Do(c)) GetViewport().SetInputAsHandled();
+    }
+
+    /// <summary>A left click or tap anywhere in the 3D view (not on a panel or button: the UI takes those first) aims at the ground there.</summary>
+    public override void _UnhandledInput(InputEvent e)
+    {
+        if (e is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } click) return;
+        if (_loading || _camera.Flying || _hud.ModalOpen || _hud.SettingsOpen) return;
+        if (GetViewport().GuiGetHoveredControl() != null) return;   // (over a panel that lets clicks through)
+        if (GroundAt(click.Position) is not { } at) return;
+        if (_courseMode && _round is { } round && round.Hole.Pin.DistanceTo(at) < 1.5) at = round.Hole.Pin;   // a click on the flag aims at the hole
+        AimAtPoint(at);
+        GetViewport().SetInputAsHandled();
+    }
+
+    /// <summary>The ground under a point of the 3D view (a course point, or the range's for the same), null for the sky or too far off to be sure.</summary>
+    private P2? GroundAt(Vector2 screen)
+    {
+        var origin = _camera.ProjectRayOrigin(screen);
+        var ray = _camera.ProjectRayNormal(screen);
+        if (ray.Y > -0.02f) return null;
+        // The ground isn't flat on a course: find where the ray meets the plane at the height found so far, a few times over.
+        float y = _courseMode && _round is { } r ? (float)r.GroundAt(r.Ball) : 0;
+        P2 at = default;
+        for (int i = 0; i < (_courseMode ? 4 : 1); i++)
+        {
+            var point = origin + ray * ((y - origin.Y) / ray.Y);
+            at = new P2(-point.Z, point.X);
+            if (_courseMode && _round is { } round) y = (float)round.GroundAt(at);
+        }
+        return at.DistanceTo(new P2(-origin.Z, origin.X)) > 600 ? null : at;
     }
 
     /// <summary>Esc / B with a panel open: closes the top one (false if there's nothing it closes, e.g. the main menu's home page).</summary>

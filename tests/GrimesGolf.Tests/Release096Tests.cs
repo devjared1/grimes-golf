@@ -23,9 +23,9 @@ public class AlignmentProtocolTests
         var e = Assert.IsType<StickEvent>(SquarePacketParser.Parse(Int32s(1, -123, 2500, -700, 10)));
         Assert.Equal(StickStatus.Stable, e.Status);
         Assert.Equal(-1.23, e.AngleDeg, 3);
-        Assert.Equal(25.0, e.X, 3);
-        Assert.Equal(-7.0, e.Y, 3);
-        Assert.Equal(0.1, e.Z, 3);
+        Assert.Equal(25.0 / 25.4, e.X, 3);
+        Assert.Equal(-7.0 / 25.4, e.Y, 3);
+        Assert.Equal(0.1 / 25.4, e.Z, 3);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class AlignmentProtocolTests
         var e = Assert.IsType<SensorEvent>(SquarePacketParser.Parse(Convert.FromHexString(hex)));
         Assert.Equal(ready, e.BallReady);
         Assert.True(e.BallDetected);
-        Assert.Equal(new BallPosition(x, y, z), e.Position!.Value);
+        Assert.Equal(new BallPosition(x / 25.4, y / 25.4, z / 25.4), e.Position!.Value);
     }
 
     [Fact]
@@ -85,12 +85,12 @@ public class TreeHitTests
     [Fact]
     public void A_wall_of_trunks_stops_a_low_shot_short()
     {
-        // A low running ball, with trunks across its line at 60 m.
+        // A low running ball, with trunks across its line at 60 wu.
         var shot = new RangeShot(BallMph: 90, LaunchDeg: 1, DirectionDeg: 0, SpinRpm: 1500, SpinAxisDeg: 0, ClubMph: null, Smash: null) { Source = ShotSource.Monitor };
         var free = new HoleRound(new[] { Open });
         free.StartHole(0);
-        double clear = free.Play(shot, false, 0).Flight.TotalYards * Units.YardsToMetres;
-        Assert.True(clear > 60, $"Reached {clear} m unblocked");
+        double clear = free.Play(shot, false, 0).Flight.TotalYards * Units.YardsToWorld;
+        Assert.True(clear > 60, $"Reached {clear} wu unblocked");
 
         var trunks = Enumerable.Range(-6, 13).Select(i => new CourseTree(new P2(60, i * 0.5), 12, 0.5, TreeKind.Single));
         var round = new HoleRound(new[] { Open }) { Trees = new TreeField(trunks, null) };
@@ -98,7 +98,7 @@ public class TreeHitTests
         var o = round.Play(shot, false, 0);
         Assert.NotNull(o.Flight.TreeHitIndex);
         Assert.StartsWith("Off a tree.", o.Message);
-        Assert.True(o.Rest.X < 60, $"Stopped at {o.Rest.X} m");
+        Assert.True(o.Rest.X < 60, $"Stopped at {o.Rest.X} wu");
     }
 
     [Fact]

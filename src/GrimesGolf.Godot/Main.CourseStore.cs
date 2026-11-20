@@ -94,7 +94,7 @@ public partial class Main
             ScanCourses();
             message = $"{course.Title} is ready: pick it on the New Game list.";
         }
-        catch (OperationCanceledException) when (cancel.IsCancellationRequested) { message = "Download cancelled."; }
+        catch (OperationCanceledException) when (cancel.IsCancellationRequested) { message = "Download canceled."; }
         catch (Exception ex) when (ex is HttpRequestException or IOException or UnauthorizedAccessException or InvalidDataException or TaskCanceledException)
         {
             Log($"Couldn't install {course.Title}: {ex.Message}");

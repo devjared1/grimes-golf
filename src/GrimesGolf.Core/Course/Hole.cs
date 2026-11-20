@@ -7,7 +7,7 @@ namespace GrimesGolf.Core.Course;
 /// </summary>
 public enum Lie { Tee, Fairway, Fringe, Rough, DeepRough, Green, Bunker, Water, OutOfBounds, CartPath }
 
-/// <summary>A ground point in metres, in the same frame as <see cref="FlightPoint"/>: X forward from the tee, Z right.</summary>
+/// <summary>A ground point in world units, in the same frame as <see cref="FlightPoint"/>: X forward from the tee, Z right.</summary>
 public readonly record struct P2(double X, double Z)
 {
     public static P2 operator +(P2 a, P2 b) => new(a.X + b.X, a.Z + b.Z);
@@ -113,7 +113,7 @@ public sealed record Polygon(IReadOnlyList<P2> Points) : Shape
 
     /// <summary>
     /// The outline with its corners rounded off (Chaikin corner cutting, <paramref name="passes"/> times), the way a
-    /// mower turns: each corner sharper than a few degrees is cut at most <paramref name="maxCut"/> metres back along
+    /// mower turns: each corner sharper than a few degrees is cut at most <paramref name="maxCut"/> world units back along
     /// both edges, and never more than a quarter of an edge, so straight runs and the shape's size stay as mapped.
     /// </summary>
     public Polygon Rounded(double maxCut = 2.5, int passes = 3)
@@ -140,7 +140,7 @@ public sealed record Polygon(IReadOnlyList<P2> Points) : Shape
         return new Polygon(pts);
     }
 
-    /// <summary>Enclosed area in m².</summary>
+    /// <summary>Enclosed area in wu².</summary>
     public double Area
     {
         get
@@ -170,7 +170,7 @@ public readonly record struct Bounds(P2 Min, P2 Max)
 }
 
 /// <summary>
-/// One hole. Coordinates are metres; for the test holes the tee is at the origin with X toward the hole and Z right,
+/// One hole. Coordinates are world units; for the test holes the tee is at the origin with X toward the hole and Z right,
 /// for a mapped course every hole shares one frame (X north, Z east).
 /// <see cref="TeeAim"/> is where the tee shot is aimed by default (the landing area on longer holes).
 /// <see cref="Bounds"/> frames the hole; it is also the out-of-bounds line unless <see cref="Boundary"/> is set.
@@ -223,7 +223,7 @@ public sealed record Hole(
         || Greens.Any(g => Within(g, p, FringeWidth + FirstCutWidth));
 
     /// <summary>
-    /// True if <paramref name="p"/> is inside <paramref name="shape"/> grown by <paramref name="margin"/> metres, the same
+    /// True if <paramref name="p"/> is inside <paramref name="shape"/> grown by <paramref name="margin"/> world units, the same
     /// growth the renderer uses (ellipses grow both radii; polygons and strips by distance from the edge).
     /// </summary>
     public static bool Within(Shape shape, P2 p, double margin) => shape switch
@@ -233,7 +233,7 @@ public sealed record Hole(
     };
 
     /// <summary>Playing length along the hole line, or via the tee aim point when there is none.</summary>
-    public double LengthYards => (Route != null ? OsmCourse.Length(Route) : Tee.DistanceTo(TeeAim) + TeeAim.DistanceTo(Pin)) * Units.MetresToYards;
+    public double LengthYards => (Route != null ? OsmCourse.Length(Route) : Tee.DistanceTo(TeeAim) + TeeAim.DistanceTo(Pin)) * Units.WorldToYards;
 
     private IEnumerable<Shape> PlayAreas => Fairways.Concat(Greens).Concat(Bunkers).Concat(Water).Concat(Tees).Concat(CartPaths);
 
@@ -246,9 +246,14 @@ public sealed record Hole(
         p.DistanceTo(Tee) - TeeBoxRadius <= margin || PlayAreas.Any(s => s.IsNear(p, margin));
 }
 
+/// <summary>
+/// The game's length unit is the world unit: positions, distances, heights and speeds (per second) inside the course,
+/// physics and 3D scene code are all in world units. Players only ever see yards, feet and inches (and mph), so
+/// conversions happen at the edges, through these constants.
+/// </summary>
 public static class Units
 {
-    public const double MetresToYards = 1.0936133, YardsToMetres = 0.9144, FeetToMetres = 0.3048;
-    /// <summary>Metres per second to miles per hour (the monitor reports m/s; shots are shown in mph).</summary>
-    public const double MsToMph = 2.2369362920544;
+    public const double WorldToYards = 1.0936133, YardsToWorld = 0.9144, FeetToWorld = 0.3048, WorldToFeet = 1 / FeetToWorld;
+    /// <summary>World units per second to miles per hour (monitors report speeds in world units per second; shots are shown in mph).</summary>
+    public const double WorldSpeedToMph = 2.2369362920544;
 }

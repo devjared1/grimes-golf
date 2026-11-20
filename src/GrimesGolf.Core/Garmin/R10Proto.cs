@@ -1,4 +1,4 @@
-// The R10's protobuf messages, from LaunchMonitor.proto in gsp-r10-adapter (Copyright (c) 2022 mholow, MIT licence;
+// The R10's protobuf messages, from LaunchMonitor.proto in gsp-r10-adapter (Copyright (c) 2022 mholow, MIT license;
 // see NOTICE), cross-checked against the tenover crate's schema. Only the fields the app uses are decoded; the rest
 // are skipped. Field numbers are noted beside each message.
 using System.Buffers.Binary;
@@ -14,12 +14,12 @@ public enum R10SpinSource { Ratio = 0, BallFlight = 1, Other = 2, Measured = 3 }
 public enum R10ErrorCode { Unknown = 0, Overheating = 1, RadarSaturation = 2, PlatformTilted = 3 }
 public enum R10Severity { Warning = 0, Serious = 1, Fatal = 2 }
 
-/// <summary>BallMetrics (Metrics field 3): m/s, degrees, rpm, in the device's signs (spin axis positive = tilted left).</summary>
+/// <summary>BallMetrics (Metrics field 3): wu/s, degrees, rpm, in the device's signs (spin axis positive = tilted left).</summary>
 public sealed record R10Ball(
     float? LaunchAngle, float? LaunchDirection, float? BallSpeed, float? SpinAxis, float? TotalSpin,
     R10SpinSource? SpinSource, int? GolfBallType);
 
-/// <summary>ClubMetrics (Metrics field 4): m/s and degrees.</summary>
+/// <summary>ClubMetrics (Metrics field 4): wu/s and degrees.</summary>
 public sealed record R10Club(float? HeadSpeed, float? Face, float? Path, float? AttackAngle);
 
 /// <summary>Metrics (AlertDetails field 2): one shot.</summary>

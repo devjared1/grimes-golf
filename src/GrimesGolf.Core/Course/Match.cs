@@ -7,7 +7,7 @@ public sealed record Golfer(string Name, bool LeftHanded = false);
 /// A hot-seat match: 1-4 players on the same course, each with their own ball and <see cref="HoleRound"/> (strokes,
 /// scores, mulligans), all on the same hole. <see cref="Turn"/> is whose shot it is:
 /// <list type="bullet">
-/// <item>On the tee, players tee off in honour order: lowest score on the last hole first (ties keep the order before).</item>
+/// <item>On the tee, players tee off in honor order: lowest score on the last hole first (ties keep the order before).</item>
 /// <item>After that, whoever is farthest from the hole plays next (a player who has to replay from the tee after a
 /// penalty counts as far away).</item>
 /// </list>
@@ -26,7 +26,7 @@ public sealed class Match
 
     private readonly HoleRound[] _rounds;
     /// <summary>Players in teeing order for the current hole.</summary>
-    private int[] _honour;
+    private int[] _honor;
     private readonly int[] _sideOf;
     /// <summary>Scramble: who has hit from the team's spot this stroke, and where their shot left their round.</summary>
     private readonly bool[] _hit;
@@ -45,7 +45,7 @@ public sealed class Match
         _sideOf = new int[players.Count];
         for (int s = 0; s < Sides.Count; s++) foreach (int p in Sides[s]) _sideOf[p] = s;
         _rounds = players.Select(_ => new HoleRound(holes, terrain, Rules)).ToArray();
-        _honour = Enumerable.Range(0, players.Count).ToArray();
+        _honor = Enumerable.Range(0, players.Count).ToArray();
         _hit = new bool[players.Count];
         _after = new HoleRound.State?[players.Count];
         _away = new bool[players.Count];
@@ -79,7 +79,7 @@ public sealed class Match
     public Hole Hole => Holes[HoleIndex];
     public bool HoleComplete => _rounds.All(r => r.Holed);
     public bool RoundComplete => _rounds.All(r => r.RoundComplete);
-    public IReadOnlyList<int> TeeOrder => _honour;
+    public IReadOnlyList<int> TeeOrder => _honor;
 
     /// <summary>
     /// Scramble: the last pick of the team's best shot (whose shot, and the message to show), set when the last
@@ -104,17 +104,17 @@ public sealed class Match
 
     private bool Scramble(int side) => Type == GameType.Scramble && Sides[side].Count > 1;
 
-    /// <summary>Every player to the tee of hole <paramref name="index"/>; the player with the honour is up.</summary>
+    /// <summary>Every player to the tee of hole <paramref name="index"/>; the player with the honor is up.</summary>
     public void StartHole(int index)
     {
-        _honour = HonourFor(index);
+        _honor = HonorFor(index);
         foreach (var r in _rounds) r.StartHole(index);
         Array.Clear(_hit);
         Array.Clear(_after);
         LastToPlay = null;
         LastPick = null;
         foreach (int p in Enumerable.Range(0, Players.Count).Where(p => _away[p])) Excuse(p);
-        Turn = _honour[0];
+        Turn = _honor[0];
         Turn = NextToPlay();
     }
 
@@ -122,7 +122,7 @@ public sealed class Match
     /// Teeing order for hole <paramref name="index"/>: by the score on the hole before (lowest first), ties keeping
     /// the order of the hole before that; player order on the first hole or when the hole before isn't scored.
     /// </summary>
-    private int[] HonourFor(int index)
+    private int[] HonorFor(int index)
     {
         var order = Enumerable.Range(0, Players.Count).ToArray();
         for (int h = 0; h < index; h++)
@@ -169,7 +169,7 @@ public sealed class Match
         }
         LastToPlay = null;   // the pick can't be taken back
         string where = chosen.Holed ? (chosen.PickedUp ? "picked up" : "holed")
-                     : $"{HoleRound.LieName(chosen.Lie).ToLowerInvariant()}, {chosen.Ball.DistanceTo(Hole.Pin) * Units.MetresToYards:0} yd to the pin";
+                     : $"{HoleRound.LieName(chosen.Lie).ToLowerInvariant()}, {chosen.Ball.DistanceTo(Hole.Pin) * Units.WorldToYards:0} yd to the pin";
         LastPick = (side, best, members.Count == 1 ? "" : $"{SideName(side)} play {Players[best].Name}'s ball ({where})");
     }
 
@@ -185,12 +185,12 @@ public sealed class Match
     }
 
     /// <summary>
-    /// Who plays next: players yet to tee off in honour order, then whoever is farthest from the hole. In a scramble,
-    /// a team part-way through a stroke carries on (its players in honour order), then teams go by the same rules.
+    /// Who plays next: players yet to tee off in honor order, then whoever is farthest from the hole. In a scramble,
+    /// a team part-way through a stroke carries on (its players in honor order), then teams go by the same rules.
     /// </summary>
     public int NextToPlay()
     {
-        var waiting = _honour.Where(p => !_rounds[p].Holed && !_away[p]).ToList();
+        var waiting = _honor.Where(p => !_rounds[p].Holed && !_away[p]).ToList();
         if (waiting.Count == 0) return Turn;
         if (Type == GameType.Scramble)
         {
@@ -199,7 +199,7 @@ public sealed class Match
         }
         var toTee = waiting.Where(p => _rounds[p].Strokes == 0).ToList();
         if (toTee.Count > 0) return toTee[0];
-        // Farthest away; ties go in honour order (OrderByDescending is stable).
+        // Farthest away; ties go in honor order (OrderByDescending is stable).
         return waiting.OrderByDescending(p => Math.Round(_rounds[p].DistanceToPin, 2)).First();
     }
 
@@ -246,7 +246,7 @@ public sealed class Match
 
     /// <summary>The whole state of the match, to send to other PCs or keep (see <see cref="MatchSnapshot"/>).</summary>
     public MatchSnapshot Capture() =>
-        new(Turn, LastToPlay, _honour.ToArray(),
+        new(Turn, LastToPlay, _honor.ToArray(),
             Enumerable.Range(0, Players.Count).Select(p =>
             {
                 var r = _rounds[p];
@@ -274,7 +274,7 @@ public sealed class Match
             _after[p] = d.After?.ToState();
             _away[p] = d.Away;
         }
-        _honour = s.Honour.Length == Players.Count ? s.Honour.ToArray() : HonourFor(s.HoleIndex);
+        _honor = s.Honor.Length == Players.Count ? s.Honor.ToArray() : HonorFor(s.HoleIndex);
         SetWind(s.Wind.ToWind());
         LastToPlay = s.LastToPlay is { } l && l >= 0 && l < Players.Count ? l : null;
         LastPick = s.LastPick is { } k ? (k.Side, k.Player, k.Message) : null;
@@ -316,7 +316,7 @@ public sealed class Match
     {
         for (int i = 0; i < _rounds.Length && i < players.Count; i++)
             _rounds[i].Resume(players[i].Scores, players[i].Current, players[i].MulligansLeft, players[i].FirstHole);
-        _honour = HonourFor(HoleIndex);
+        _honor = HonorFor(HoleIndex);
         LastToPlay = null;
         Settle();
         Turn = Math.Clamp(turn, 0, Players.Count - 1);
@@ -362,9 +362,9 @@ public sealed class Match
             }
             else m._rounds[i].JoinAt(HoleIndex);
         }
-        m._honour = m.HonourFor(HoleIndex);
+        m._honor = m.HonorFor(HoleIndex);
         m.Settle();
-        m.Turn = m._honour[0];
+        m.Turn = m._honor[0];
         m.Turn = m.NextToPlay();
         return m;
     }

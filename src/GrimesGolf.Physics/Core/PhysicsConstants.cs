@@ -3,21 +3,21 @@ namespace GrimesGolf.Physics;
 /// <summary>Physical constants (SI).</summary>
 public static class PhysicsConstants
 {
-    /// <summary>Standard gravity (m/s²).</summary>
+    /// <summary>Standard gravity (wu/s²).</summary>
     public const double Gravity = 9.80665;
 
-    /// <summary>ISA sea-level air density (kg/m³), 15 °C, 101325 Pa, dry.</summary>
+    /// <summary>ISA sea-level air density (kg/wu³), 15 °C, 101325 Pa, dry.</summary>
     public const double StandardAirDensity = 1.225;
     public const double StandardTemperatureCelsius = 15.0;
     public const double StandardPressurePa = 101325.0;
 
     public const double CelsiusToKelvin = 273.15;
 
-    /// <summary>Specific gas constants (J/(kg·K)) for dry air and water vapour.</summary>
+    /// <summary>Specific gas constants (J/(kg·K)) for dry air and water vapor.</summary>
     public const double DryAirGasConstant = 287.058;
-    public const double WaterVapourGasConstant = 461.495;
+    public const double WaterVaporGasConstant = 461.495;
 
-    /// <summary>ISA troposphere temperature lapse rate (K/m) and the barometric exponent g·M/(R·L).</summary>
+    /// <summary>ISA troposphere temperature lapse rate (K/wu) and the barometric exponent g·M/(R·L).</summary>
     public const double IsaLapseRate = 0.0065;
     public const double IsaSeaLevelTemperatureK = 288.15;
     public const double BarometricExponent = 5.25588;
@@ -28,16 +28,17 @@ public static class PhysicsConstants
     public const double SutherlandConstantK = 110.4;
 }
 
-/// <summary>Unit conversions. The engine is SI inside; convert at the boundary with these.</summary>
+/// <summary>Unit conversions. The engine works in world units (and kg, s, rad) inside; convert at the boundary with these.</summary>
 public static class UnitConversion
 {
-    public const double MphToMetresPerSecond = 0.44704;
-    public const double MetresPerSecondToMph = 1 / MphToMetresPerSecond;
-    public const double YardsToMetres = 0.9144;
-    public const double MetresToYards = 1 / YardsToMetres;
-    public const double FeetToMetres = 0.3048;
-    public const double MetresToFeet = 1 / FeetToMetres;
-    public const double InchesToMetres = 0.0254;
+    public const double MphToWorldSpeed = 0.44704;
+    public const double WorldSpeedToMph = 1 / MphToWorldSpeed;
+    public const double YardsToWorld = 0.9144;
+    public const double WorldToYards = 1 / YardsToWorld;
+    public const double FeetToWorld = 0.3048;
+    public const double WorldToFeet = 1 / FeetToWorld;
+    public const double InchesToWorld = 0.0254;
+    public const double WorldToInches = 1 / InchesToWorld;
     public const double RpmToRadiansPerSecond = 2 * Math.PI / 60;
     public const double RadiansPerSecondToRpm = 60 / (2 * Math.PI);
     public const double DegreesToRadians = Math.PI / 180;

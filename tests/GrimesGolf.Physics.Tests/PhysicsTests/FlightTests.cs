@@ -78,8 +78,8 @@ public class FlightTests
         Assert.True(quartering.CarryLateral < 0);
         var calm = TestShots.Carry(TestShots.Driver());
         Assert.True(quartering.CarryDistance < calm.CarryDistance);
-        // The same 5 m/s reference wind matters more higher up, so a profile measured at 2 m hurts more than uniform 5 m/s.
-        var profile = TestShots.Carry(TestShots.Driver(), TestShots.WithWind(new PowerLawWindProfile(5, 0, ReferenceHeightMetres: 2)));
+        // The same 5 wu/s reference wind matters more higher up, so a profile measured at 2 wu hurts more than uniform 5 wu/s.
+        var profile = TestShots.Carry(TestShots.Driver(), TestShots.WithWind(new PowerLawWindProfile(5, 0, ReferenceHeightUnits: 2)));
         var uniform = TestShots.Carry(TestShots.Driver(), TestShots.WithWind(Wind.Uniform(5, 0)));
         Assert.True(profile.CarryDistance < uniform.CarryDistance);
     }
@@ -112,17 +112,17 @@ public class FlightTests
     public void BallLaunchedHorizontallyFromATeeFallsUnderGravity()
     {
         var r = TestShots.Fly(LaunchConditions.FromDisplayUnits(20, 0, 0, 0, 0),
-                              options: SimulationOptions.Default with { TeeHeightMetres = 0.05, EnableBounce = false });
+                              options: SimulationOptions.Default with { TeeHeightUnits = 0.05, EnableBounce = false });
         double fall = Math.Sqrt(2 * 0.05 / PhysicsConstants.Gravity);
         Assert.InRange(r.TimeOfFlight, fall * 0.99, fall * 1.03);
-        Assert.InRange(r.CarryDistance, 20 * UnitConversion.MphToMetresPerSecond * fall * 0.95, 20 * UnitConversion.MphToMetresPerSecond * fall);
+        Assert.InRange(r.CarryDistance, 20 * UnitConversion.MphToWorldSpeed * fall * 0.95, 20 * UnitConversion.MphToWorldSpeed * fall);
     }
 
     [Fact]
     public void BallLaunchedVerticallyComesStraightBack()
     {
         var r = TestShots.Fly(LaunchConditions.FromDisplayUnits(60, 90, 0, 0, 0), options: SimulationOptions.Default with { EnableBounce = false });
-        double v = 60 * UnitConversion.MphToMetresPerSecond;
+        double v = 60 * UnitConversion.MphToWorldSpeed;
         Assert.True(r.CarryDistance < 1e-6);
         Assert.True(r.ApexHeight < v * v / (2 * PhysicsConstants.Gravity), "drag lowers the apex below the vacuum value");
         Assert.True(r.ApexHeight > 0.5 * v * v / (2 * PhysicsConstants.Gravity));
@@ -227,6 +227,6 @@ public class FlightTests
         var flat = TestShots.Carry(TestShots.SevenIron());
         var raised = TestShots.Carry(TestShots.SevenIron(), terrain: new FunctionTerrain((x, y) => y > 100 ? 10 : 0, Surfaces.Fairway));
         Assert.True(raised.CarryDistance < flat.CarryDistance - 5);
-        Assert.Equal(10, raised.LandingPosition.Z - BallProperties.Standard.RadiusMetres, 3);
+        Assert.Equal(10, raised.LandingPosition.Z - BallProperties.Standard.RadiusUnits, 3);
     }
 }

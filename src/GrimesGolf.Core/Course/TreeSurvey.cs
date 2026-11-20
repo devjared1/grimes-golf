@@ -6,7 +6,7 @@ namespace GrimesGolf.Core.Course;
 /// <summary>How a tree stands: on its own, in a group of 2-5 whose crowns touch, or in woods (6 or more).</summary>
 public enum TreeKind { Single, Group, Dense }
 
-/// <summary>A tree on the course: where its trunk is, how tall it is and how far its crown reaches (radius), in metres.</summary>
+/// <summary>A tree on the course: where its trunk is, how tall it is and how far its crown reaches (radius), in world units.</summary>
 public readonly record struct CourseTree(P2 At, double Height, double Crown, TreeKind Kind);
 
 /// <summary>

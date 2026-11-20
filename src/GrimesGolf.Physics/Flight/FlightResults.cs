@@ -49,7 +49,7 @@ public interface IGroundObserver
 }
 
 /// <summary>
-/// The result of a shot. Distances are metres, horizontal, from the start position; "lateral" is signed distance
+/// The result of a shot. Distances are world units, horizontal, from the start position; "lateral" is signed distance
 /// right (+) / left (−) of the aim line. Use the <c>…Yards</c> helpers or <see cref="UnitConversion"/> for display.
 /// </summary>
 public sealed record FlightResults
@@ -97,11 +97,11 @@ public sealed record FlightResults
     public SimulationEnd End { get; init; }
     public IReadOnlyList<string> Diagnostics { get; init; } = Array.Empty<string>();
 
-    public double CarryYards => CarryDistance * UnitConversion.MetresToYards;
-    public double TotalYards => TotalDistance * UnitConversion.MetresToYards;
-    public double ApexYards => ApexHeight * UnitConversion.MetresToYards;
-    public double ApexFeet => ApexHeight * UnitConversion.MetresToFeet;
-    public double CarryLateralYards => CarryLateral * UnitConversion.MetresToYards;
-    public double FinalLateralYards => FinalLateral * UnitConversion.MetresToYards;
-    public double RollYards => RollDistance * UnitConversion.MetresToYards;
+    public double CarryYards => CarryDistance * UnitConversion.WorldToYards;
+    public double TotalYards => TotalDistance * UnitConversion.WorldToYards;
+    public double ApexYards => ApexHeight * UnitConversion.WorldToYards;
+    public double ApexFeet => ApexHeight * UnitConversion.WorldToFeet;
+    public double CarryLateralYards => CarryLateral * UnitConversion.WorldToYards;
+    public double FinalLateralYards => FinalLateral * UnitConversion.WorldToYards;
+    public double RollYards => RollDistance * UnitConversion.WorldToYards;
 }

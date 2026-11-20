@@ -8,7 +8,7 @@ public static class Scenery
 {
     /// <summary>
     /// Shared GLSL for grass and sand photo detail (see assets/CREDITS.md). The photo is divided by its own average
-    /// colour, so it adds blade-level variation to each area's colour without changing it. It's sampled twice, the
+    /// color, so it adds blade-level variation to each area's color without changing it. It's sampled twice, the
     /// second time 3.7× larger and turned, so its tiling doesn't show. Needs <c>TURF_VERTEX</c> in vertex() for the
     /// normal map's tangents (UVs are world x/z).
     /// </summary>
@@ -31,13 +31,13 @@ public static class Scenery
         """;
 
     /// <summary>
-    /// Shared GLSL for cloud shadows: soft patches of shade a few hundred metres across, drifting with the wind, so
+    /// Shared GLSL for cloud shadows: soft patches of shade a few hundred world units across, drifting with the wind, so
     /// the course isn't evenly lit. <c>cloud_light(world_pos, TIME, PROJECTION_MATRIX)</c> is 1 in sun and lower under a cloud; things
     /// multiply their albedo by it (the sun is most of the light, so that's close to taking the sun away there).
     /// </summary>
     public const string CloudGlsl = """
         global uniform sampler2D cloud_noise : filter_linear_mipmap, repeat_enable;
-        global uniform vec4 cloud_shadow;   // drift x, z (m/s), noise tile size (m), darkening under a cloud (0 = off)
+        global uniform vec4 cloud_shadow;   // drift x, z (wu/s), noise tile size (wu), darkening under a cloud (0 = off)
         float cloud_light(vec3 world, float time, mat4 projection) {
             // Not from the overhead map camera (orthographic): shade there would read as features of the hole.
             if (cloud_shadow.w <= 0.0 || projection[3][3] > 0.5) return 1.0;
@@ -53,7 +53,7 @@ public static class Scenery
         BINORMAL = normalize(cross(TANGENT, NORMAL));
         """;
 
-    /// <summary>How a kind of grass shows the photo detail: tile size (m), colour variation (1 = the photo's own; more exaggerates it) and bumpiness.</summary>
+    /// <summary>How a kind of grass shows the photo detail: tile size (wu), color variation (1 = the photo's own; more exaggerates it) and bumpiness.</summary>
     public enum Turf { Rough, Fairway, Green }
 
     public static (float Tile, float Detail, float Bump) TurfLook(Turf t) => t switch
@@ -78,7 +78,7 @@ public static class Scenery
         m.SetShaderParameter("sand_normal", _sandNormal);
     }
 
-    /// <summary>Tile size (m) of the raked-sand photo.</summary>
+    /// <summary>Tile size (wu) of the raked-sand photo.</summary>
     public const float SandTile = 3.5f;
 
     private const string GrassShader = """
@@ -123,7 +123,7 @@ public static class Scenery
     public static readonly Color Rough = new(0.22f, 0.42f, 0.17f), RoughAlt = new(0.30f, 0.50f, 0.20f);
     public static readonly Color DeepRough = new(0.12f, 0.25f, 0.09f), DeepRoughAlt = new(0.17f, 0.31f, 0.11f);
 
-    /// <summary>A shape grown by <paramref name="d"/> metres, the same growth <see cref="Hole.Within"/> uses for lies.</summary>
+    /// <summary>A shape grown by <paramref name="d"/> world units, the same growth <see cref="Hole.Within"/> uses for lies.</summary>
     public static Shape Grown(Shape shape, double d) => shape switch
     {
         Ellipse e => e with { RadiusX = e.RadiusX + d, RadiusZ = e.RadiusZ + d },
@@ -217,7 +217,7 @@ public static class Scenery
     }
 
     /// <summary>
-    /// The colour grade (a 3D lookup applied after tone mapping): a touch of contrast, shadows a little cool and
+    /// The color grade (a 3D lookup applied after tone mapping): a touch of contrast, shadows a little cool and
     /// highlights a little warm, the afternoon-broadcast look.
     /// </summary>
     private static ImageTexture3D Grade()
@@ -265,7 +265,7 @@ public static class Scenery
         if (_globalsAdded) return;
         _globalsAdded = true;
         RenderingServer.GlobalShaderParameterAdd("cup_hole", RenderingServer.GlobalShaderParameterType.Vec4, Vector4.Zero);
-        // Big soft blobs (a tileable noise, thresholded in CloudGlsl) drifting at 4 m/s, about a third of the ground shaded.
+        // Big soft blobs (a tileable noise, thresholded in CloudGlsl) drifting at 4 wu/s, about a third of the ground shaded.
         var noise = new NoiseTexture2D
         {
             Width = 256, Height = 256, Seamless = true, GenerateMipmaps = true,
@@ -304,7 +304,7 @@ public static class Scenery
         }
         """;
 
-    /// <summary>Unshaded, see-through, vertex-coloured: for read-outs laid on the ground (kept out of the open cup).</summary>
+    /// <summary>Unshaded, see-through, vertex-colored: for read-outs laid on the ground (kept out of the open cup).</summary>
     public static ShaderMaterial Overlay(float opacity)
     {
         EnsureGlobals();
@@ -313,7 +313,7 @@ public static class Scenery
         return m;
     }
 
-    /// <summary>Bunker sand colour; the raked-sand photo adds its texture.</summary>
+    /// <summary>Bunker sand color; the raked-sand photo adds its texture.</summary>
     public static readonly Color SandColor = new(0.87f, 0.80f, 0.60f);
 
     public static StandardMaterial3D Sand() => new()
@@ -330,18 +330,18 @@ public static class Scenery
         Roughness = 1, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
     };
 
-    /// <summary>Cart path concrete, weathered light grey.</summary>
+    /// <summary>Cart path concrete, weathered light gray.</summary>
     public static readonly Color Concrete = new(0.66f, 0.65f, 0.61f);
 
     /// <summary>Cart path concrete for the flat test holes (the terrain shader draws its own).</summary>
     public static StandardMaterial3D CartPath() => new() { AlbedoColor = Concrete, Roughness = 0.85f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
 
-    /// <summary>Open water colours: deep and dark (the sky's reflection does most of the work), and the silty shallows.</summary>
+    /// <summary>Open water colors: deep and dark (the sky's reflection does most of the work), and the silty shallows.</summary>
     public static readonly Color WaterDeep = new(0.035f, 0.11f, 0.13f), WaterShallow = new(0.20f, 0.30f, 0.24f);
 
     /// <summary>
     /// Shared GLSL for moving water: ripples as a normal map (tangent x = world x, y = world z; needs
-    /// <c>TURF_VERTEX</c>-style tangents) from a few travelling waves plus wind-blown noise, calmed with distance so
+    /// <c>TURF_VERTEX</c>-style tangents) from a few traveling waves plus wind-blown noise, calmed with distance so
     /// far water doesn't shimmer.
     /// </summary>
     public const string WaterGlsl = """
@@ -446,8 +446,8 @@ public static class Scenery
     }
 
     /// <summary>
-    /// The outline pushed out by <paramref name="d"/> metres (fringes, the first cut): rounded round the corners that
-    /// point out, mitred into the ones that point in, so it matches the "within d" the lie rules use.
+    /// The outline pushed out by <paramref name="d"/> world units (fringes, the first cut): rounded around the corners that
+    /// point out, miterd into the ones that point in, so it matches the "within d" the lie rules use.
     /// </summary>
     public static List<P2> Grow(IReadOnlyList<P2> pts, double d)
     {
@@ -464,7 +464,7 @@ public static class Scenery
         {
             P2 prev = pts[(i + pts.Count - 1) % pts.Count], cur = pts[i], next = pts[(i + 1) % pts.Count];
             P2 n1 = Normal(prev, cur), n2 = Normal(cur, next);
-            // Growing outward round a corner that points out: an arc, as everything within d of the corner is (the
+            // Growing outward around a corner that points out: an arc, as everything within d of the corner is (the
             // lie rules measure distance, so this is where they put the edge too).
             bool convex = (next - cur).X * n1.X + (next - cur).Z * n1.Z < 0;
             if (d > 0 && convex)
@@ -480,7 +480,7 @@ public static class Scenery
             }
             var n = n1 + n2;
             double len = n.Length;
-            // Mitre (|n1 + n2| = 2 cos(half angle)), limited to 3× the offset so sharp corners don't spike.
+            // Miter (|n1 + n2| = 2 cos(half angle)), limited to 3× the offset so sharp corners don't spike.
             double scale = len < 1e-9 ? 0 : d * Math.Min(2 / (len * len), 3 / len);
             result.Add(cur + n * scale);
         }

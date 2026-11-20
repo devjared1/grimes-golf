@@ -63,7 +63,7 @@ public sealed class FakeSquareSession : ILaunchMonitorSession, IBallSensingMonit
             Connected?.Invoke(SquareMonitor.Info(new SquareDeviceInfo("FAKE-SQUARE", "3.1", "{\"launcher\":\"1.0.1\",\"mmi\":\"1.4.0\",\"lm\":\"1.5.8\"}")));
             Battery?.Invoke(SquareMonitor.Battery(new BatteryEvent(85, 1)));
             StateChanged?.Invoke(SquareDeviceState.Detecting.ToString());
-            Sensor?.Invoke(new SensorEvent(BallReady: true, BallDetected: true, new BallPosition(-40, -30, -33)));
+            Sensor?.Invoke(new SensorEvent(BallReady: true, BallDetected: true, new BallPosition(-1.6, -1.2, -1.3)));
             while (!ct.IsCancellationRequested)
             {
                 await Task.Delay(3000, ct);
@@ -86,12 +86,12 @@ public sealed class FakeSquareSession : ILaunchMonitorSession, IBallSensingMonit
     {
         // As the Square sends it: spin axis and sidespin negative = curving right.
         double rad = shot.SpinAxisDeg * Math.PI / 180;
-        var ball = new BallMetricsEvent(shot.BallMph / Units.MsToMph, shot.LaunchDeg, shot.DirectionDeg, (int)Math.Round(shot.SpinRpm),
+        var ball = new BallMetricsEvent(shot.BallMph / Units.WorldSpeedToMph, shot.LaunchDeg, shot.DirectionDeg, (int)Math.Round(shot.SpinRpm),
             -shot.SpinAxisDeg, (int)Math.Round(shot.SpinRpm * Math.Cos(rad)), (int)Math.Round(-shot.SpinRpm * Math.Sin(rad)));
-        var club = shot.ClubMph is { } c ? new ClubMetricsEvent(0x41, 1.5, 0.5, -2, null, null, null, c / Units.MsToMph, null) : null;
+        var club = shot.ClubMph is { } c ? new ClubMetricsEvent(0x41, 1.5, 0.5, -2, null, null, null, c / Units.WorldSpeedToMph, null) : null;
         Sensor?.Invoke(new SensorEvent(false, false));
         Shot?.Invoke(SquareShots.ToMonitorShot(ball, club, _leftHanded, "Square Golf (fake)"));
-        _ = Task.Delay(1500, _cts.Token).ContinueWith(_ => Sensor?.Invoke(new SensorEvent(true, true, new BallPosition(-40, -30, -33))),
+        _ = Task.Delay(1500, _cts.Token).ContinueWith(_ => Sensor?.Invoke(new SensorEvent(true, true, new BallPosition(-1.6, -1.2, -1.3))),
             TaskContinuationOptions.OnlyOnRanToCompletion);
     }
 }

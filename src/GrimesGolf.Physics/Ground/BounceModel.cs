@@ -2,8 +2,8 @@ namespace GrimesGolf.Physics;
 
 /// <summary>Outcome of one ball-ground impact.</summary>
 /// <param name="Outgoing">Ball state just after the impact (position unchanged).</param>
-/// <param name="NormalSpeedIn">Speed into the ground along the true surface normal (m/s, ≥ 0).</param>
-/// <param name="NormalSpeedOut">Speed away from the ground along the true surface normal (m/s; can be ≤ 0 when the crater holds the ball).</param>
+/// <param name="NormalSpeedIn">Speed into the ground along the true surface normal (wu/s, ≥ 0).</param>
+/// <param name="NormalSpeedOut">Speed away from the ground along the true surface normal (wu/s; can be ≤ 0 when the crater holds the ball).</param>
 /// <param name="Restitution">Normal coefficient of restitution used.</param>
 /// <param name="CraterAngle">Tilt of the effective normal (radians).</param>
 /// <param name="Slid">True if the contact slid for the whole impact (friction limited), false if it reached rolling contact.</param>
@@ -22,7 +22,7 @@ public readonly record struct BounceResult(BallState Outgoing, double NormalSpee
 ///   (<see cref="SurfaceProperties.ImpactSkidSpeed"/>): a fast landing skids, keeping its backspin for the next touch.</item>
 /// <item>v' = v + (J_n n_e + J_t)/m, ω' = ω + (−r n_e) × J_t / I.</item>
 /// <item>Turf drag (<see cref="SurfaceProperties.ImpactDrag"/>): v' loses that share of its speed along the true
-///   ground (full share when |v_n| ≥ <see cref="SurfaceProperties.HardLandingSpeed"/>), through the centre, so ω' is unchanged.</item>
+///   ground (full share when |v_n| ≥ <see cref="SurfaceProperties.HardLandingSpeed"/>), through the center, so ω' is unchanged.</item>
 /// </list>
 /// </summary>
 public static class BounceModel
@@ -45,10 +45,10 @@ public static class BounceModel
         double vn = Vector3D.Dot(v, ne);
         if (vn >= 0) { ne = n; vn = vnTrue; crater = 0; }   // crater can't turn the impact around
         double e = effectiveSurface.RestitutionAt(-vn);
-        double m = ball.MassKg, r = ball.RadiusMetres, k = ball.InertiaFactor, inertia = ball.MomentOfInertia;
+        double m = ball.MassKg, r = ball.RadiusUnits, k = ball.InertiaFactor, inertia = ball.MomentOfInertia;
         double jn = m * (1 + e) * -vn;
 
-        var rc = ne * -r;   // contact point relative to the centre
+        var rc = ne * -r;   // contact point relative to the center
         var u = v + Vector3D.Cross(incoming.AngularVelocity, rc);
         u -= ne * Vector3D.Dot(u, ne);
         // Gripping impulse: leaves the contact slipping at −e_t times its incoming slip (e_t = 0: rolling contact).
@@ -62,7 +62,7 @@ public static class BounceModel
 
         var vOut = v + (ne * jn + jt) / m;
         var wOut = incoming.AngularVelocity + Vector3D.Cross(rc, jt) / inertia;
-        // Turf drag through the centre: takes a share of the speed along the ground (spin untouched), the full share on a
+        // Turf drag through the center: takes a share of the speed along the ground (spin untouched), the full share on a
         // hard landing, less on gentle bounces.
         if (effectiveSurface.ImpactDrag > 0)
         {

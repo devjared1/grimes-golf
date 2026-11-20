@@ -10,8 +10,8 @@ public class ImpactTests
                                     double toe = 0, double height = 0) =>
         ImpactModel.Simulate(new ClubDelivery
         {
-            ClubSpeed = mph * UnitConversion.MphToMetresPerSecond, AttackAngleDegrees = attack, DynamicLoftDegrees = loft,
-            FaceAngleDegrees = face, PathDegrees = path, ImpactToeMetres = toe, ImpactHeightMetres = height,
+            ClubSpeed = mph * UnitConversion.MphToWorldSpeed, AttackAngleDegrees = attack, DynamicLoftDegrees = loft,
+            FaceAngleDegrees = face, PathDegrees = path, ImpactToeUnits = toe, ImpactHeightUnits = height,
         }, club, Ball);
 
     private static ImpactResult Driver(double face = 0, double path = 0, double toe = 0, double height = 0, double loft = 12.8) =>
@@ -32,7 +32,7 @@ public class ImpactTests
     }
 
     [Fact]
-    public void SquareCentredStrikeIsStraight()
+    public void SquareCenteredStrikeIsStraight()
     {
         var r = Driver();
         Assert.Equal(0, r.Launch.LaunchDirectionDegrees, 9);
@@ -45,7 +45,7 @@ public class ImpactTests
     public void ConservesLinearMomentumAndDoesNotCreateEnergy()
     {
         var club = ClubProperties.SevenIron;
-        var d = new ClubDelivery { ClubSpeed = 40, AttackAngleDegrees = -4, DynamicLoftDegrees = 24, FaceAngleDegrees = 2, PathDegrees = -3, ImpactToeMetres = 0.01 };
+        var d = new ClubDelivery { ClubSpeed = 40, AttackAngleDegrees = -4, DynamicLoftDegrees = 24, FaceAngleDegrees = 2, PathDegrees = -3, ImpactToeUnits = 0.01 };
         var r = ImpactModel.Simulate(d, club, Ball);
         double p = 40 * club.Mass;
         var vClub = new Vector3D(Math.Sin(-3 * Math.PI / 180) * Math.Cos(-4 * Math.PI / 180), Math.Cos(-3 * Math.PI / 180) * Math.Cos(-4 * Math.PI / 180), Math.Sin(-4 * Math.PI / 180)) * 40;
@@ -78,18 +78,18 @@ public class ImpactTests
     [Fact]
     public void GearEffect()
     {
-        var centre = Driver();
+        var center = Driver();
         var toe = Driver(toe: 0.015);
         var heel = Driver(toe: -0.015);
         Assert.True(toe.Launch.SpinAxisDegrees < -5, "toe strike hooks");
         Assert.True(heel.Launch.SpinAxisDegrees > 5, "heel strike slices");
         Assert.True(toe.Launch.LaunchDirectionDegrees > 0, "toe strike starts right of a square face (the face opens)");
-        Assert.True(toe.Launch.BallSpeed < centre.Launch.BallSpeed);
-        Assert.True(heel.Launch.BallSpeed < centre.Launch.BallSpeed);
+        Assert.True(toe.Launch.BallSpeed < center.Launch.BallSpeed);
+        Assert.True(heel.Launch.BallSpeed < center.Launch.BallSpeed);
 
         var high = Driver(height: 0.01);
         var low = Driver(height: -0.01);
-        Assert.True(high.Launch.TotalSpin < centre.Launch.TotalSpin && centre.Launch.TotalSpin < low.Launch.TotalSpin);
+        Assert.True(high.Launch.TotalSpin < center.Launch.TotalSpin && center.Launch.TotalSpin < low.Launch.TotalSpin);
         Assert.True(high.Launch.LaunchAngle > low.Launch.LaunchAngle);
     }
 
@@ -110,8 +110,8 @@ public class ImpactTests
         var rh = Driver(toe: 0.015);
         var lh = ImpactModel.Simulate(new ClubDelivery
         {
-            ClubSpeed = 113 * UnitConversion.MphToMetresPerSecond, AttackAngleDegrees = -1.3, DynamicLoftDegrees = 12.8,
-            ImpactToeMetres = 0.015, LeftHanded = true,
+            ClubSpeed = 113 * UnitConversion.MphToWorldSpeed, AttackAngleDegrees = -1.3, DynamicLoftDegrees = 12.8,
+            ImpactToeUnits = 0.015, LeftHanded = true,
         }, ClubProperties.Driver, Ball);
         Assert.Equal(-rh.Launch.SpinAxisDegrees, lh.Launch.SpinAxisDegrees, 6);
     }

@@ -21,7 +21,7 @@ public enum LaunchParameter
 }
 
 /// <summary>
-/// Initial ball conditions in SI (m/s, radians, rad/s), relative to the aim line: launch direction and spin axis are
+/// Initial ball conditions in SI (wu/s, radians, rad/s), relative to the aim line: launch direction and spin axis are
 /// positive to the right. Spin axis is the tilt of the spin axis from horizontal: positive tilts it so the ball curves
 /// right. Backspin = total × cos(axis), sidespin = total × sin(axis) (positive = curves right).
 /// </summary>
@@ -41,7 +41,7 @@ public sealed record LaunchConditions
     public double Backspin => TotalSpin * Math.Cos(SpinAxis);
     public double Sidespin => TotalSpin * Math.Sin(SpinAxis);
 
-    public double BallSpeedMph => BallSpeed * UnitConversion.MetresPerSecondToMph;
+    public double BallSpeedMph => BallSpeed * UnitConversion.WorldSpeedToMph;
     public double LaunchAngleDegrees => LaunchAngle * UnitConversion.RadiansToDegrees;
     public double LaunchDirectionDegrees => LaunchDirection * UnitConversion.RadiansToDegrees;
     public double TotalSpinRpm => TotalSpin * UnitConversion.RadiansPerSecondToRpm;
@@ -53,7 +53,7 @@ public sealed record LaunchConditions
     public static LaunchConditions FromDisplayUnits(double ballSpeedMph, double launchAngleDeg, double launchDirectionDeg,
                                                     double totalSpinRpm, double spinAxisDeg, ValueSource source = ValueSource.Measured) => new()
     {
-        BallSpeed = ballSpeedMph * UnitConversion.MphToMetresPerSecond,
+        BallSpeed = ballSpeedMph * UnitConversion.MphToWorldSpeed,
         LaunchAngle = launchAngleDeg * UnitConversion.DegreesToRadians,
         LaunchDirection = launchDirectionDeg * UnitConversion.DegreesToRadians,
         TotalSpin = totalSpinRpm * UnitConversion.RpmToRadiansPerSecond,

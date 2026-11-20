@@ -101,7 +101,7 @@ public class SpinBackTests
     private static readonly LaunchConditions SevenIron = LaunchConditions.FromDisplayUnits(118, 16.5, 0, 7000, 0);
     private static readonly LaunchConditions LowWedge = LaunchConditions.FromDisplayUnits(80, 25, 0, 10500, 0);
 
-    /// <summary>Forward distance (m) from the landing to the second touch, and the furthest the ball got past the landing.</summary>
+    /// <summary>Forward distance (wu) from the landing to the second touch, and the furthest the ball got past the landing.</summary>
     private static (double FirstHop, double Furthest, double Final) Bounces(LaunchConditions l, SurfaceProperties s)
     {
         var r = TestShots.Fly(l, terrain: new FlatTerrain(s));
@@ -113,16 +113,16 @@ public class SpinBackTests
     [Fact]
     public void FullShotsHopForwardBeforeTheGreenGrabsThem()
     {
-        // The stock green is receptive: a spinny full PW only just hops forward (~0.2 m) before it checks.
+        // The stock green is receptive: a spinny full PW only just hops forward (~0.2 wu) before it checks.
         var pw = Bounces(Pw, Surfaces.Green);
-        Assert.True(pw.FirstHop > 0.1, $"PW first hop {pw.FirstHop:0.00} m");
-        Assert.True(pw.Final < pw.Furthest - 1, $"PW checks back: final {pw.Final:0.00} m, furthest {pw.Furthest:0.00} m");
+        Assert.True(pw.FirstHop > 0.1, $"PW first hop {pw.FirstHop:0.00} wu");
+        Assert.True(pw.Final < pw.Furthest - 1, $"PW checks back: final {pw.Final:0.00} wu, furthest {pw.Furthest:0.00} wu");
 
         // A mid iron hops further and finishes past its pitch mark (on the stock green it then stops; less grippy greens
         // let it roll out).
         var iron = Bounces(SevenIron, Surfaces.Green);
-        Assert.True(iron.FirstHop > 1, $"7-iron first hop {iron.FirstHop:0.00} m");
-        Assert.True(iron.Final > 1, $"7-iron finishes past its pitch mark: final {iron.Final:0.00} m");
+        Assert.True(iron.FirstHop > 1, $"7-iron first hop {iron.FirstHop:0.00} wu");
+        Assert.True(iron.Final > 1, $"7-iron finishes past its pitch mark: final {iron.Final:0.00} wu");
 
         // Without skid the green grabs the PW on its first touch and throws it back.
         Assert.True(Bounces(Pw, Surfaces.Green with { ImpactSkidSpeed = 0 }).FirstHop < 0);
@@ -132,8 +132,8 @@ public class SpinBackTests
     public void LowSpinningWedgeSkipsThenChecks()
     {
         var w = Bounces(LowWedge, Surfaces.Green);
-        Assert.True(w.FirstHop > 2, $"first hop {w.FirstHop:0.00} m");
-        Assert.True(w.Final < w.Furthest - 1 && w.Final < 5, $"checks: final {w.Final:0.00} m, furthest {w.Furthest:0.00} m");
+        Assert.True(w.FirstHop > 2, $"first hop {w.FirstHop:0.00} wu");
+        Assert.True(w.Final < w.Furthest - 1 && w.Final < 5, $"checks: final {w.Final:0.00} wu, furthest {w.Furthest:0.00} wu");
         // Turf drag is what stops it: without, it skips on and releases.
         Assert.True(Bounces(LowWedge, Surfaces.Green with { ImpactDrag = 0 }).Final > w.Final + 3);
     }

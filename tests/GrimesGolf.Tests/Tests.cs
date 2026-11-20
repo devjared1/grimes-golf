@@ -36,7 +36,7 @@ public class ParserTests
     public void ParsesBallMetrics()
     {
         var ev = Assert.IsType<BallMetricsEvent>(SquarePacketParser.Parse(Ball(6700, 1250, -150, 2800, -500, 2750, -240)));
-        Assert.Equal(67.0, ev.BallSpeedMs);
+        Assert.Equal(67.0, ev.BallSpeedWps);
         Assert.Equal(12.5, ev.LaunchDeg);
         Assert.Equal(-1.5, ev.DirectionDeg);
         Assert.Equal(2800, ev.TotalSpinRpm);
@@ -50,7 +50,7 @@ public class ParserTests
         var full = Assert.IsType<ClubMetricsEvent>(SquarePacketParser.Parse(Club(0xFF, 150, -200, -300, 1800, 0, 0, 4500, 148)));
         Assert.Equal(1.5, full.PathDeg);
         Assert.Equal(-2.0, full.FaceDeg);
-        Assert.Equal(45.0, full.ClubSpeedMs);
+        Assert.Equal(45.0, full.ClubSpeedWps);
         Assert.True(full.HasAnyData);
 
         var untracked = Assert.IsType<ClubMetricsEvent>(SquarePacketParser.Parse(Club(0x00)));
@@ -59,7 +59,7 @@ public class ParserTests
         // Mask bit set but sentinel value present => still null
         var partial = Assert.IsType<ClubMetricsEvent>(SquarePacketParser.Parse(Club(0xFF, -1, -1, -1, -1, -1, -1, 4500, -1)));
         Assert.Null(partial.PathDeg);
-        Assert.Equal(45.0, partial.ClubSpeedMs);
+        Assert.Equal(45.0, partial.ClubSpeedWps);
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class ParserTests
         var data = new byte[] { 0x11, 0x07, 0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
         var club = Assert.IsType<ClubMetricsEvent>(SquarePacketParser.Parse(data));
         Assert.False(club.HasAnyData);
-        Assert.Null(club.ClubSpeedMs);
+        Assert.Null(club.ClubSpeedWps);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public class RangeShotTests
         var ball = new BallMetricsEvent(50, 15, 2, 6000, -8, 5900, -800);
         var club = new ClubMetricsEvent(0xff, 1, 2, -3, 20, null, null, 37.5, null);
         var s = RangeShot.FromSquare(ball, club);
-        Assert.Equal(50 * Units.MsToMph, s.BallMph, 6);
+        Assert.Equal(50 * Units.WorldSpeedToMph, s.BallMph, 6);
         Assert.Equal(8, s.SpinAxisDeg);           // device -8 (curves right) -> +8
         Assert.Equal(2, s.DirectionDeg);
         Assert.Equal(50 / 37.5, s.Smash!.Value, 6); // derived when the device sends none
@@ -196,7 +196,7 @@ public class ScreenShotTests
     [Fact]
     public void PowerSetsTheShareOfTheClubsCarry()
     {
-        double full = Caddie.Carry("PW") * Units.MetresToYards;
+        double full = Caddie.Carry("PW") * Units.WorldToYards;
         foreach (double p in new[] { 0.6, 0.8 })
             Assert.InRange(Caddie.SwingShot(Pw, new Swing(p)).Fly().CarryYards, full * p * 0.93, full * p * 1.07);
         Assert.True(Caddie.SwingShot(Pw, new Swing(0.5)).SpinRpm < Pw.SpinRpm, "a partial swing spins less");
@@ -230,15 +230,15 @@ public class ScreenShotTests
     }
 
     [Fact]
-    public void PuttPowerIsTheShareOfTheMetersRoll()
+    public void PuttPowerIsTheShareOfTheFullRoll()
     {
-        var putt = Caddie.SwingPutt(new Swing(0.5), fullScaleMetres: 6, Lie.Green);
-        Assert.Equal(3, Caddie.PuttRollMetres(putt.BallMph / Units.MsToMph, Lie.Green), 6);
+        var putt = Caddie.SwingPutt(new Swing(0.5), fullScaleUnits: 6, Lie.Green);
+        Assert.Equal(3, Caddie.PuttRollUnits(putt.BallMph / Units.WorldSpeedToMph, Lie.Green), 6);
         Assert.Equal(0, putt.DirectionDeg, 9);
         // The scale is a round number of feet with the putt at about 70%.
-        double scale = Caddie.PuttScaleMetres(4);
+        double scale = Caddie.PuttScaleUnits(4);
         Assert.InRange(4 / scale, 0.55, 0.72);
-        Assert.Equal(0, Math.Round(scale * Units.MetresToYards * 3) % 5);
+        Assert.Equal(0, Math.Round(scale * Units.WorldToYards * 3) % 5);
     }
 }
 
@@ -265,11 +265,11 @@ public class CourseTests
     public void LiesFollowTheShapes()
     {
         var h2 = Hole(2);
-        Assert.Equal(Lie.Water, h2.LieAt(new P2(85 * Units.YardsToMetres, 0)));       // middle of the pond
-        Assert.Equal(Lie.Bunker, h2.LieAt(new P2(152 * Units.YardsToMetres, -15 * Units.YardsToMetres)));
+        Assert.Equal(Lie.Water, h2.LieAt(new P2(85 * Units.YardsToWorld, 0)));       // middle of the pond
+        Assert.Equal(Lie.Bunker, h2.LieAt(new P2(152 * Units.YardsToWorld, -15 * Units.YardsToWorld)));
         Assert.Equal(Lie.DeepRough, h2.LieAt(new P2(20, 30)));   // well away from tee, fairway and green
         Assert.Equal(Lie.Fairway, Hole(1).LieAt(new P2(150, 0)));
-        Assert.Equal(Lie.Water, Hole(3).LieAt(new P2(365 * Units.YardsToMetres, -100 * Units.YardsToMetres))); // creek
+        Assert.Equal(Lie.Water, Hole(3).LieAt(new P2(365 * Units.YardsToWorld, -100 * Units.YardsToWorld))); // creek
     }
 
     [Fact]
@@ -307,7 +307,7 @@ public class CourseTests
         double d = round.DistanceToPin;
 
         // Firm enough to reach, slow enough to drop: v = sqrt(2 a (d + 0.2)).
-        double mph = Math.Sqrt(2 * 0.55 * (d + 0.2)) * Units.MsToMph;
+        double mph = Math.Sqrt(2 * 0.55 * (d + 0.2)) * Units.WorldSpeedToMph;
         var o = round.Play(new RangeShot(mph, 1, 0, 0, 0, null, null), putt: true, round.DefaultAimHeading());
         Assert.True(o.Holed, o.Message);
         Assert.Equal(2, round.Strokes);
@@ -321,24 +321,24 @@ public class CourseTests
         round.StartHole(1);
         round.Play(new RangeShot(112, 18, 0, 7600, 0, null, null), false, round.DefaultAimHeading());
         double d = round.DistanceToPin;
-        var fast = round.Play(new RangeShot(Math.Sqrt(2 * 0.55 * (d + 4)) * Units.MsToMph, 1, 0, 0, 0, null, null), true, round.DefaultAimHeading());
+        var fast = round.Play(new RangeShot(Math.Sqrt(2 * 0.55 * (d + 4)) * Units.WorldSpeedToMph, 1, 0, 0, 0, null, null), true, round.DefaultAimHeading());
         Assert.False(fast.Holed);
         Assert.InRange(round.DistanceToPin, 1.5, 6);   // skips over the cup, which takes some pace off
-        // A putt that stops 0.3 m short is conceded.
+        // A putt that stops 0.3 wu short is conceded.
         double left = round.DistanceToPin;
-        var tap = round.Play(new RangeShot(Math.Sqrt(2 * 0.55 * (left - 0.3)) * Units.MsToMph, 1, 0, 0, 0, null, null), true, round.DefaultAimHeading());
+        var tap = round.Play(new RangeShot(Math.Sqrt(2 * 0.55 * (left - 0.3)) * Units.WorldSpeedToMph, 1, 0, 0, 0, null, null), true, round.DefaultAimHeading());
         Assert.True(tap.Holed);
         Assert.Equal(4, round.Strokes);   // tee shot, two putts, tap-in
     }
 
-    /// <summary>On the par-3 green, putts toward the pin missing the centre by <paramref name="miss"/> m, arriving at <paramref name="arrive"/> m/s.</summary>
+    /// <summary>On the par-3 green, putts toward the pin missing the center by <paramref name="miss"/> m, arriving at <paramref name="arrive"/> wu/s.</summary>
     private static (HoleRound Round, ShotOutcome Putt) PuttAtCup(double miss, double arrive)
     {
         var round = new HoleRound(TestCourse.Holes);
         round.StartHole(1);
         round.Play(new RangeShot(112, 18, 0, 7600, 0, null, null), false, round.DefaultAimHeading());
         double d = round.DistanceToPin;
-        double mph = Math.Sqrt(arrive * arrive + 2 * 0.55 * d) * Units.MsToMph;
+        double mph = Math.Sqrt(arrive * arrive + 2 * 0.55 * d) * Units.WorldSpeedToMph;
         double dir = Math.Asin(miss / d) * 180 / Math.PI;
         return (round, round.Play(new RangeShot(mph, 1, dir, 0, 0, null, null), true, round.DefaultAimHeading()));
     }
@@ -355,10 +355,10 @@ public class CourseTests
     [Fact]
     public void FirmPuttCatchingTheEdgeLipsOutAndTurns()
     {
-        var (round, o) = PuttAtCup(0.06, 1.3);   // 1.3 m/s is too quick to drop that far off centre
+        var (round, o) = PuttAtCup(0.06, 1.3);   // 1.3 wu/s is too quick to drop that far off center
         Assert.False(o.Holed, o.Message);
         Assert.Contains(o.Flight.Points, p => p.Y < 0);          // dips onto the rim
-        // A straight miss would pass 6 cm from the pin and roll ~1.5 m on; the lip-out turns it and kills its pace.
+        // A straight miss would pass 2.4 in from the pin and roll ~1.5 wu on; the lip-out turns it and kills its pace.
         var start = o.Start;
         var straightEnd = start + new P2(Math.Cos(round.DefaultAimHeading()), Math.Sin(round.DefaultAimHeading())) * (start.DistanceTo(round.Hole.Pin) + 1.5);
         Assert.True(o.Rest.DistanceTo(straightEnd) > 0.3);
@@ -428,12 +428,12 @@ public class LieTests
     {
         var h = Hole1;   // fairway 35 yd wide along Z = 0; green at (362, 10) yd, 17 × 14 yd
         Assert.Equal(Lie.Fairway, h.LieAt(new P2(150, 0)));
-        Assert.Equal(Lie.Rough, h.LieAt(new P2(150, 16 + 4)));       // just off the fairway (half-width 16 m)
+        Assert.Equal(Lie.Rough, h.LieAt(new P2(150, 16 + 4)));       // just off the fairway (half-width 16 wu)
         Assert.Equal(Lie.DeepRough, h.LieAt(new P2(150, 16 + 15)));
-        var greenEdge = (362 + 17) * Units.YardsToMetres;
-        Assert.Equal(Lie.Green, h.LieAt(new P2(greenEdge - 0.5, 10 * Units.YardsToMetres)));
-        Assert.Equal(Lie.Fringe, h.LieAt(new P2(greenEdge + 1, 10 * Units.YardsToMetres)));
-        Assert.Equal(Lie.Rough, h.LieAt(new P2(greenEdge + 5, 10 * Units.YardsToMetres)));
+        var greenEdge = (362 + 17) * Units.YardsToWorld;
+        Assert.Equal(Lie.Green, h.LieAt(new P2(greenEdge - 0.5, 10 * Units.YardsToWorld)));
+        Assert.Equal(Lie.Fringe, h.LieAt(new P2(greenEdge + 1, 10 * Units.YardsToWorld)));
+        Assert.Equal(Lie.Rough, h.LieAt(new P2(greenEdge + 5, 10 * Units.YardsToWorld)));
     }
 
     [Fact]
@@ -473,7 +473,7 @@ public class LieTests
     public void PondsLieLevelBelowTheirLowestBank()
     {
         var area = new Bounds(new P2(-60, -60), new P2(60, 60));
-        var terrain = new Terrain(area, 1.0, p => p.X * 0.03);   // 0.6 m fall across the pond
+        var terrain = new Terrain(area, 1.0, p => p.X * 0.03);   // 0.6 wu fall across the pond
         var pond = new Polygon(new[] { new P2(-10, -10), new P2(10, -10), new P2(10, 10), new P2(-10, 10) });
         var creek = new Strip(new[] { new P2(-40, 30), new P2(40, 30) }, 3);
         terrain.Sculpt(Array.Empty<Shape>(), Array.Empty<Shape>(), new Shape[] { pond, creek });
@@ -696,7 +696,7 @@ public class OsmCourseTests
         var c = DeerRunWithGround.Value;
         var t = c.Terrain!;
         Assert.NotNull(t);
-        Assert.InRange(t.Datum, 150, 350);                         // Moulton is ~200 m above sea level
+        Assert.InRange(t.Datum, 150, 350);                         // Moulton is ~200 wu (about 650 ft) above sea level
 
         // Ponds are flattened in lidar elevation models: inside the mapped outline the ground should be level
         // (if the grid were shifted against the map, the banks would show up as spread). Checked before the
@@ -705,10 +705,10 @@ public class OsmCourseTests
         foreach (var pond in raw.Holes[0].Water.OfType<Polygon>())
         {
             var inside = Inside(pond).Select(raw.Terrain!.HeightAt).ToList();
-            Assert.True(StdDev(inside) < 0.35, $"pond spread {StdDev(inside):0.00} m");
+            Assert.True(StdDev(inside) < 0.35, $"pond spread {StdDev(inside):0.00} wu");
             Assert.NotNull(t.WaterLevel(c.Holes[0].Water.First(w => w is Polygon q && q.Box == pond.Box)));   // and they're given a level surface
         }
-        // Greens are gentler than the land around them (1 m data is a little noisy, so allow some slope).
+        // Greens are gentler than the land around them (1 wu lidar data is a little noisy, so allow some slope).
         var greenSlopes = c.Holes[0].Greens.OfType<Polygon>().Select(g => Inside(g, 12).Average(p => t.Gradient(p).Length)).ToList();
         Assert.All(greenSlopes, s => Assert.True(s < 0.05, $"green slope {s:P1}"));
     }
@@ -723,7 +723,7 @@ public class OsmCourseTests
         Assert.Contains(trees, t => t.Kind == TreeKind.Single);
         Assert.Contains(trees, t => t.Kind == TreeKind.Group);
         Assert.Contains(trees, t => t.Kind == TreeKind.Dense);
-        Assert.All(trees, t => Assert.InRange(t.Height, 3, 50));   // (tops are found on a smoothed canopy, so a little under the 4 m cut-off)
+        Assert.All(trees, t => Assert.InRange(t.Height, 3, 50));   // (tops are found on a smoothed canopy, so a little under the 4 wu cut-off)
         Assert.True(trees.Average(t => t.Height) is > 8 and < 35);
 
         // If the survey were shifted against the map, trees would turn up on greens and down the middle of fairways.
@@ -790,7 +790,7 @@ public class TerrainPhysicsTests
         Assert.Equal(105, r.PlaysLike(target), 1);
     }
 
-    /// <summary>Puts the ball on the test par 3's green, 6 m short of the pin.</summary>
+    /// <summary>Puts the ball on the test par 3's green, 6 wu short of the pin.</summary>
     private static HoleRound OnGreen(Func<P2, double> height)
     {
         var r = On(height, hole: 1);
@@ -808,14 +808,14 @@ public class TerrainPhysicsTests
         // Ground falls to the right (+Z) at 2%.
         var r = OnGreen(p => -p.Z * 0.02);
         double straight = HoleRound.Heading(r.Ball, r.Hole.Pin), d = r.DistanceToPin;
-        double mph = Math.Sqrt(2 * 0.55 * (d + 0.4)) * Units.MsToMph;
+        double mph = Math.Sqrt(2 * 0.55 * (d + 0.4)) * Units.WorldSpeedToMph;
         var start = r.Ball;
         var o = r.Play(new RangeShot(mph, 1, 0, 0, 0, null, null), true, straight);
         // Downhill is +Z whichever way the putt runs: the path bends to the side of the start line that faces +Z.
         var side = new P2(-Math.Sin(straight), Math.Cos(straight));
         if (side.Z < 0) side = side * -1;
         double bend = o.Flight.Points.Max(p => (p.X - start.X) * side.X + (p.Z - start.Z) * side.Z);
-        Assert.True(bend > 0.05 * Math.Min(d, 6), $"should break downhill: {bend:0.00} m over a {d:0.0} m putt");
+        Assert.True(bend > 0.05 * Math.Min(d, 6), $"should break downhill: {bend:0.00} wu over a {d:0.0} wu putt");
     }
 
     [Fact]
@@ -825,8 +825,8 @@ public class TerrainPhysicsTests
         var (heading, speed) = r.ReadPutt();
         // Aimed at a point on the high side (-Z) of the hole.
         var aimPoint = r.Ball + new P2(Math.Cos(heading), Math.Sin(heading)) * r.DistanceToPin;
-        Assert.True(aimPoint.Z < r.Hole.Pin.Z - 0.05, $"should aim above the hole, aimed {aimPoint.Z - r.Hole.Pin.Z:0.00} m");
-        var o = r.Play(new RangeShot(speed * Units.MsToMph, 1, 0, 0, 0, null, null), true, heading);
+        Assert.True(aimPoint.Z < r.Hole.Pin.Z - 0.05, $"should aim above the hole, aimed {aimPoint.Z - r.Hole.Pin.Z:0.00} wu");
+        var o = r.Play(new RangeShot(speed * Units.WorldSpeedToMph, 1, 0, 0, 0, null, null), true, heading);
         Assert.True(o.Holed && o.Flight.Points[^1].Y < r.GroundAt(r.Hole.Pin) - 0.05, o.Message);
     }
 
@@ -844,14 +844,14 @@ public class TerrainPhysicsTests
         var steep = On(p => -p.Z * 0.12, hole: 1);
         var o = steep.Play(new RangeShot(112, 18, 0, 7600, 0, null, null), false, steep.DefaultAimHeading());
         var landed = o.Flight.Points[o.Flight.LandingIndex];
-        Assert.True(o.Rest.Z - landed.Z > 1, $"rolled {o.Rest.Z - landed.Z:0.00} m downhill");
+        Assert.True(o.Rest.Z - landed.Z > 1, $"rolled {o.Rest.Z - landed.Z:0.00} wu downhill");
     }
 
     [Fact]
     public void DemoPuttUsesTheGivenPace()
     {
         var s = Caddie.DemoPutt(2.0, new Random(1));
-        Assert.InRange(s.BallMph / Units.MsToMph, 1.85, 2.15);
+        Assert.InRange(s.BallMph / Units.WorldSpeedToMph, 1.85, 2.15);
         Assert.InRange(s.DirectionDeg, -1.0, 1.0);
     }
 }
@@ -885,7 +885,7 @@ public class OsmImporterTests
         var c = OsmCourse.Load(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(osm)));
         Assert.Equal(2, c.Holes.Count);
         Assert.Equal(Lie.Green, c.Holes[0].LieAt(c.Holes[0].Pin));
-        Assert.Equal(3, c.Holes[1].Par);                          // guessed from ~155 m
+        Assert.Equal(3, c.Holes[1].Par);                          // guessed from ~155 wu
         Assert.True(c.Holes[1].Tee.X > c.Holes[1].Pin.X);         // reversed: tees off from the north end
         Assert.Contains(c.Notes, n => n.Contains("no number"));
     }
@@ -893,7 +893,7 @@ public class OsmImporterTests
 
 public class CartPathTests
 {
-    /// <summary>A straight par 4 down +X with a 2.5 m path across it at 150 m, and a wide concrete apron at 145-160 m on <paramref name="apron"/>.</summary>
+    /// <summary>A straight par 4 down +X with a 2.5 wu path across it at 150 wu, and a wide concrete apron at 145-160 wu on <paramref name="apron"/>.</summary>
     private static Hole Hole(bool apron = false)
     {
         var path = new Strip(new[] { new P2(150, -60), new P2(150, 60) }, 2.5);
@@ -935,7 +935,7 @@ public class CartPathTests
     {
         var round = new HoleRound(new[] { Hole(apron: true) });
         round.Restore(new HoleRound.State(0, new P2(140, 0), Lie.Fairway, 1, false, null));
-        // Rolls onto the concrete and stops on it (it runs easily on concrete, so anywhere on the 15 m slab).
+        // Rolls onto the concrete and stops on it (it runs easily on concrete, so anywhere on the 15 wu slab).
         var o = round.Play(new RangeShot(9, 1, 0, 0, 0, null, null), putt: true, 0);
         Assert.Equal(Lie.CartPath, o.RestLie);
         Assert.Contains("free relief", o.Message);
@@ -952,7 +952,7 @@ public class CartPathTests
         var concrete = CourseGround.SurfaceFor(Lie.CartPath).Effective();
         var fairway = CourseGround.SurfaceFor(Lie.Fairway).Effective();
         foreach (double v in new[] { 3.0, 8.0, 15.0, 25.0 })
-            Assert.True(concrete.RestitutionAt(v) > fairway.RestitutionAt(v) + 0.1, $"at {v} m/s");
+            Assert.True(concrete.RestitutionAt(v) > fairway.RestitutionAt(v) + 0.1, $"at {v} wu/s");
         Assert.True(concrete.RollingResistance < fairway.RollingResistance / 2);
         Assert.Contains(PhysicsTuning.Parameters, p => p.Key == "ground.cartPath.bounce");
     }

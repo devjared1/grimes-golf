@@ -14,7 +14,7 @@
 param(
     [Parameter(Mandatory)][string]$Name,
     [int]$Limit = 10,
-    [double]$Margin = 0.004                     # degrees around the outline (about 400 m)
+    [double]$Margin = 0.004                     # degrees around the outline (about 440 yd)
 )
 $ErrorActionPreference = "Stop"
 

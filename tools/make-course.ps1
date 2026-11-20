@@ -52,7 +52,7 @@ try {
     if (-not $NoTrees) { & "$PSScriptRoot/fetch-canopy.ps1" -Bbox $Bbox -Out "$work/trees.csv.gz" -Cache $lidar }
 
     if ($PublicName) {
-        dotnet run --project "$PSScriptRoot/../src/GrimesGolf.CourseTool" -v q -- anonymise "$work/map.osm" $Name $PublicName
+        dotnet run --project "$PSScriptRoot/../src/GrimesGolf.CourseTool" -v q -- anonymize "$work/map.osm" $Name $PublicName
         if ($LASTEXITCODE -ne 0) { throw "Couldn't rename the course in its map, so $folder hasn't been changed." }
     }
 

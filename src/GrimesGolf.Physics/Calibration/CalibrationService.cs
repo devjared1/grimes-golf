@@ -19,7 +19,7 @@ public sealed record CalibrationErrors(int Shots, double? CarryRmsYards, double?
 /// <summary>
 /// Compares the simulation with reference shots and fits a <see cref="CalibrationProfile"/>.
 /// <para>
-/// Fit: bounded Nelder-Mead over (drag scale, lift scale, spin-moment scale, drag Reynolds slope) minimising
+/// Fit: bounded Nelder-Mead over (drag scale, lift scale, spin-moment scale, drag Reynolds slope) minimizing
 /// Σ ((sim − measured)/σ)² over carry (σ = 3 yd), total (5 yd), apex (2 yd), flight time (0.25 s) and landing angle
 /// (2°), plus a prior ((deviation from no adjustment / 0.25)²) that resists moving coefficients further than the data supports. Scales are
 /// held within <see cref="CalibrationProfile"/>'s bounds, and the fitted model must still give coefficients in the
@@ -121,7 +121,7 @@ public sealed class CalibrationService
     private static double Sq(double? v) => v is { } x ? x * x : 0;
 
     /// <summary>
-    /// Nelder-Mead simplex minimisation within [lo, hi]. The bounds are handled by searching over z with
+    /// Nelder-Mead simplex minimization within [lo, hi]. The bounds are handled by searching over z with
     /// x = lo + (hi − lo)(1 + sin z)/2, so every trial point is inside the bounds and the simplex can't collapse onto
     /// a bound (as it does when points are simply clamped). Deterministic.
     /// </summary>

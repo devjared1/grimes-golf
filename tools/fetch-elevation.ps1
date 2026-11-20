@@ -3,8 +3,8 @@
   Downloads ground elevation for a golf course from the USGS 3D Elevation Program (3DEP) and saves it compactly.
 
 .DESCRIPTION
-  Asks the USGS 3DEP elevation service (best available resolution: 1 m from lidar where flown) to export a GeoTIFF of
-  just the bounding box, then converts it to the app's .dem format: a gzipped grid of heights in centimetres
+  Asks the USGS 3DEP elevation service (best available resolution: about 3 ft from lidar where flown) to export a GeoTIFF of
+  just the bounding box, then converts it to the app's .dem format: a gzipped grid of heights in hundredths of a world unit
   (delta-encoded along each row), with the grid's latitude/longitude edges. Rows run north to south.
 
   3DEP data is public domain (U.S. Geological Survey).
@@ -16,15 +16,16 @@
 param(
     [string]$Bbox = "-87.335,34.415,-87.298,34.442",   # west,south,east,north (same box as fetch-osm-course.ps1)
     [string]$Out = "$PSScriptRoot/../src/GrimesGolf.Godot/courses/deer-run/ground.dem",
-    [double]$Metres = 1.0                              # target cell size
+    [double]$CellSize = 1.0                            # target cell size, world units
 )
 $ErrorActionPreference = "Stop"
 
 $w, $s, $e, $n = $Bbox.Split(',') | ForEach-Object { [double]::Parse($_, [Globalization.CultureInfo]::InvariantCulture) }
 $midLat = ($s + $n) / 2 * [Math]::PI / 180
-$width = [int][Math]::Ceiling(($e - $w) * 111320 * [Math]::Cos($midLat) / $Metres)
-$height = [int][Math]::Ceiling(($n - $s) * 110950 / $Metres)
-if ($width -gt 8000 -or $height -gt 8000) { throw "Area too large for one request ($width x $height cells); use a smaller box or larger -Metres." }
+# 111320 and 110950: world units per degree of longitude (at the equator) and of latitude.
+$width = [int][Math]::Ceiling(($e - $w) * 111320 * [Math]::Cos($midLat) / $CellSize)
+$height = [int][Math]::Ceiling(($n - $s) * 110950 / $CellSize)
+if ($width -gt 8000 -or $height -gt 8000) { throw "Area too large for one request ($width x $height cells); use a smaller box or larger -CellSize." }
 
 $service = "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage"
 $query = "bbox=$Bbox&bboxSR=4326&imageSR=4326&size=$width,$height&format=tiff&pixelType=F32" +
@@ -99,7 +100,7 @@ public static class DemConverter
                 for (int k = 0; k < rowsPerStrip * width && s * rowsPerStrip * width + k < z.Length; k++)
                     z[s * rowsPerStrip * width + k] = BitConverter.ToSingle(b, (int)offsets[s] + 4 * k);
 
-        // Fill no-data (very large/small values) from the left neighbour, then the row above.
+        // Fill no-data (very large/small values) from the left neighbor, then the row above.
         float min = float.MaxValue, max = float.MinValue; int holes = 0;
         for (int i = 0; i < z.Length; i++)
         {
@@ -107,7 +108,7 @@ public static class DemConverter
             if (!float.IsNaN(z[i])) { min = Math.Min(min, z[i]); max = Math.Max(max, z[i]); }
         }
         for (int i = 0; i < z.Length; i++) if (float.IsNaN(z[i])) z[i] = min;
-        if (max - min > 650) throw new InvalidDataException("Elevation range too large for centimetre storage.");
+        if (max - min > 650) throw new InvalidDataException("Elevation range too large for hundredth-unit storage.");
 
         double west = tie[3], north = tie[4], east = west + scale[0] * width, south = north - scale[1] * height;
         using (var file = File.Create(outPath))
@@ -123,13 +124,13 @@ public static class DemConverter
                 int prev = 0;
                 for (int x = 0; x < width; x++)
                 {
-                    int cm = (int)Math.Round((z[y * width + x] - min) * 100);
-                    w.Write((short)(cm - prev));
-                    prev = cm;
+                    int hundredths = (int)Math.Round((z[y * width + x] - min) * 100);
+                    w.Write((short)(hundredths - prev));
+                    prev = hundredths;
                 }
             }
         }
-        return string.Format("{0} x {1} cells, {2:0.0} to {3:0.0} m, {4} no-data cells filled", width, height, min, max, holes);
+        return string.Format("{0} x {1} cells, {2:0} to {3:0} ft, {4} no-data cells filled", width, height, min * 3.28084, max * 3.28084, holes);
     }
 }
 "@

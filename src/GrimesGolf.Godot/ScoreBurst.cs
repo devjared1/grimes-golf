@@ -66,7 +66,7 @@ public partial class ScoreBurst : Control
         float fade = t < outStart ? 1 : 1 - (t - outStart) / (float)Out;
         float rise = t < outStart ? 0 : (t - outStart) / (float)Out * 60;
         // In the upper third: the ball (and the cup it just went into) is in the middle of the view.
-        var centre = new Vector2(Size.X / 2, Size.Y * 0.3f - rise);
+        var center = new Vector2(Size.X / 2, Size.Y * 0.3f - rise);
         int size = _text.Length > 10 ? 76 : 96;
 
         if (_sparks)
@@ -74,7 +74,7 @@ public partial class ScoreBurst : Control
             float k = Mathf.Clamp(t / 1.1f, 0, 1);
             foreach (var (angle, speed, dot) in _sparkSeeds)
             {
-                var p = centre + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle) * 0.6f) * speed * (1 - (1 - k) * (1 - k));
+                var p = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle) * 0.6f) * speed * (1 - (1 - k) * (1 - k));
                 DrawCircle(p, dot * (1 - k * 0.6f), new Color(_color.Lerp(Colors.White, 0.4f), (1 - k) * fade));
             }
         }
@@ -82,12 +82,12 @@ public partial class ScoreBurst : Control
         // A soft dark band behind the text so it reads over the sky or the grass.
         float textWidth = font.GetStringSize(_text, HorizontalAlignment.Left, -1, size).X;
         float band = Mathf.Clamp(t / 0.25f, 0, 1) * fade;
-        var bandRect = new Rect2(centre.X - textWidth / 2 - 60, centre.Y - size * 0.95f, textWidth + 120, size * (_sub.Length > 0 ? 2.3f : 1.75f));
+        var bandRect = new Rect2(center.X - textWidth / 2 - 60, center.Y - size * 0.95f, textWidth + 120, size * (_sub.Length > 0 ? 2.3f : 1.75f));
         DrawStyleBox(UiTheme.Box(new Color(0.03f, 0.04f, 0.05f, 0.55f * band), 24, 0, 0), bandRect);
 
         // Letters drop in one by one with a bounce.
-        float x = centre.X - textWidth / 2;
-        float baseline = centre.Y + font.GetAscent(size) / 2 - size * 0.12f;
+        float x = center.X - textWidth / 2;
+        float baseline = center.Y + font.GetAscent(size) / 2 - size * 0.12f;
         for (int i = 0; i < _text.Length; i++)
         {
             string ch = _text[i].ToString();
@@ -100,9 +100,9 @@ public partial class ScoreBurst : Control
                 float scale = 0.4f + 0.6f * pop;
                 var at = new Vector2(x + w / 2, baseline + drop);
                 DrawSetTransform(at, 0, new Vector2(scale, scale));
-                var colour = new Color(_color, Mathf.Min(1, local * 2) * fade);
-                DrawStringOutline(font, new Vector2(-w / 2, 0), ch, HorizontalAlignment.Left, -1, size, 14, new Color(0, 0, 0, 0.7f * colour.A));
-                DrawString(font, new Vector2(-w / 2, 0), ch, HorizontalAlignment.Left, -1, size, colour);
+                var color = new Color(_color, Mathf.Min(1, local * 2) * fade);
+                DrawStringOutline(font, new Vector2(-w / 2, 0), ch, HorizontalAlignment.Left, -1, size, 14, new Color(0, 0, 0, 0.7f * color.A));
+                DrawString(font, new Vector2(-w / 2, 0), ch, HorizontalAlignment.Left, -1, size, color);
                 DrawSetTransform(Vector2.Zero, 0, Vector2.One);
             }
             x += w;
@@ -113,7 +113,7 @@ public partial class ScoreBurst : Control
             float subIn = Mathf.Clamp((t - (float)(In + Stagger * _text.Length) * 0.7f) / 0.3f, 0, 1) * fade;
             const int subSize = 28;
             float sw = font.GetStringSize(_sub, HorizontalAlignment.Left, -1, subSize).X;
-            var at = new Vector2(centre.X - sw / 2, baseline + size * 0.55f);
+            var at = new Vector2(center.X - sw / 2, baseline + size * 0.55f);
             DrawStringOutline(font, at, _sub, HorizontalAlignment.Left, -1, subSize, 8, new Color(0, 0, 0, 0.7f * subIn));
             DrawString(font, at, _sub, HorizontalAlignment.Left, -1, subSize, new Color(UiTheme.Ink, subIn));
         }

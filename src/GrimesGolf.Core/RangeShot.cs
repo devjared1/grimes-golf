@@ -49,8 +49,8 @@ public sealed record RangeShot(
 
     public static RangeShot FromSquare(BallMetricsEvent ball, ClubMetricsEvent? club)
     {
-        double mph = ball.BallSpeedMs * Units.MsToMph;
-        double? clubMph = club?.ClubSpeedMs * Units.MsToMph;
+        double mph = ball.BallSpeedWps * Units.WorldSpeedToMph;
+        double? clubMph = club?.ClubSpeedWps * Units.WorldSpeedToMph;
         double? smash = club?.Smash ?? (clubMph > 0 ? mph / clubMph : null);
         // Square reports spin axis negative = curves right; flip to the display convention.
         return new RangeShot(mph, ball.LaunchDeg, ball.DirectionDeg, ball.TotalSpinRpm, -ball.SpinAxisDeg, clubMph, smash) { Source = ShotSource.Monitor };

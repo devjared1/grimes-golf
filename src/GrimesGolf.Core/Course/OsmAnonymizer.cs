@@ -8,7 +8,7 @@ namespace GrimesGolf.Core.Course;
 /// website and phone number, hole and pond names), so this keeps only the tags <see cref="OsmCourse"/> plays from, then
 /// gives the course's outline the new name. Nothing about how the course plays changes: its fingerprint stays the same.
 /// </summary>
-public static class OsmAnonymiser
+public static class OsmAnonymizer
 {
     /// <summary>Every tag the importer reads, apart from names. New tags it starts to read need adding here.</summary>
     private static readonly HashSet<string> Used = new()

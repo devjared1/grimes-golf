@@ -1,8 +1,9 @@
-// The connection sequence follows gsp-r10-adapter's direct Bluetooth mode (Copyright (c) 2022 mholow, MIT licence;
+// The connection sequence follows gsp-r10-adapter's direct Bluetooth mode (Copyright (c) 2022 mholow, MIT license;
 // see NOTICE): MultiLink registration, acknowledging every GFDI message, then wake-up, status, tilt and the alert
 // subscription. See docs/garmin-r10-protocol.md.
 using System.Collections.Concurrent;
 using System.Threading.Channels;
+using GrimesGolf.Core.Course;
 using GrimesGolf.Core.Monitors;
 
 namespace GrimesGolf.Core.Garmin;
@@ -271,7 +272,7 @@ public sealed class R10Session : ILaunchMonitorSession
                 break;
             case R10ShotEvent shot:
                 var m = shot.Metrics;
-                // It sends a shot again if it doesn't hear the acknowledgement in time.
+                // It sends a shot again if it doesn't hear the acknowledgment in time.
                 if (m.ShotId is { } sid && !_shotIds.Add(sid)) { _log($"Shot {sid} repeated: ignored"); return; }
                 _log(Describe(m));
                 Shot?.Invoke(R10Shots.ToMonitorShot(m, _leftHanded));
@@ -317,9 +318,9 @@ public sealed class R10Session : ILaunchMonitorSession
     {
         var b = m.Ball;
         var c = m.Club;
-        return $"R10 shot {m.ShotId?.ToString() ?? "?"} ({(m.ShotType == 1 ? "normal" : "practice")}): ball {b?.BallSpeed:0.00} m/s, " +
+        return $"R10 shot {m.ShotId?.ToString() ?? "?"} ({(m.ShotType == 1 ? "normal" : "practice")}): ball {b?.BallSpeed * Units.WorldSpeedToMph:0.0} mph, " +
                $"launch {b?.LaunchAngle:0.00}°, direction {b?.LaunchDirection:0.00}°, spin {b?.TotalSpin:0} rpm, axis {b?.SpinAxis:0.00}° (+ = left), " +
-               $"spin {b?.SpinSource?.ToString() ?? "?"}; club {c?.HeadSpeed:0.00} m/s, face {c?.Face:0.00}°, path {c?.Path:0.00}°, attack {c?.AttackAngle:0.00}°";
+               $"spin {b?.SpinSource?.ToString() ?? "?"}; club {c?.HeadSpeed * Units.WorldSpeedToMph:0.0} mph, face {c?.Face:0.00}°, path {c?.Path:0.00}°, attack {c?.AttackAngle:0.00}°";
     }
 
     // ---- outgoing ----------------------------------------------------------------------------

@@ -75,7 +75,7 @@ public partial class Main
     {
         if (_courseMode) return;
         var dir = RangeDirection(_rangeAim);
-        double length = AimDistance(null);
+        double length = PinAimLength() ?? AimDistance(null);
         bool resting = !_player.IsPlaying && _rangeResult == null;
         _camera.SetHome(Vector3.Zero, dir, putting: false, snap, (float)length);
         if (resting) AimLandingView(dir * (float)length, dir); else EndLandingView();
@@ -89,7 +89,7 @@ public partial class Main
             var at = RangePoint(flag.Value);
             target = $"{RangeWorld.TargetYards[_rangeTarget]} yd flag";
             double off = Math.IEEERemainder(_rangeAim - HoleRound.Heading(new P2(0, 0), at), 2 * Math.PI);
-            double yd = Math.Sin(off) * at.Length * Units.MetresToYards;
+            double yd = Math.Sin(off) * at.Length * Units.WorldToYards;
             note = Math.Abs(yd) < 1 ? "At the flag" : $"{Math.Abs(yd):0} yd {(yd > 0 ? "right" : "left")} of the flag";
         }
         else
@@ -101,11 +101,11 @@ public partial class Main
         if (!resting) { _hud.HideMapMarkers(); return; }
         _hud.SetMapMarkers(_mapCamera.UnprojectPosition(Vector3.Zero), _mapCamera.UnprojectPosition(dir * (float)length),
             flag is { } f ? _mapCamera.UnprojectPosition(f) : null,
-            $"{length * Units.MetresToYards:0} yd", flag != null ? target.Replace(" flag", "") : "", UiTheme.PlayerColor(_rangePlayer));
+            $"{length * Units.WorldToYards:0} yd", flag != null ? target.Replace(" flag", "") : "", UiTheme.PlayerColor(_rangePlayer));
     }
 
     /// <summary>
-    /// How far the shot set up goes (m): the power's share of the club's carry from <paramref name="stance"/>, or of
+    /// How far the shot set up goes (wu): the power's share of the club's carry from <paramref name="stance"/>, or of
     /// the putt's roll. With a launch monitor the swing sets the power, so a full shot's aim is the club's carry (the
     /// player's own distances, or the game's), moved up or down the line with ↑ / ↓ (<see cref="_aimNudge"/>).
     /// </summary>
@@ -113,23 +113,73 @@ public partial class Main
     {
         if (Putter) return _hud.Shot.Power * _puttScale;
         double carry = Caddie.CarryFrom(_hud.ClubCode, stance, KnownYards);
-        return _monitorLive ? Math.Clamp(carry + _aimNudge, MinAimMetres, Math.Max(carry * 1.5, MinAimMetres)) : _hud.Shot.Power * carry;
+        return _monitorLive ? Math.Clamp(carry + _aimNudge, MinAimUnits, Math.Max(carry * 1.5, MinAimUnits)) : _hud.Shot.Power * carry;
     }
 
-    /// <summary>With a launch monitor: how far (m) ↑ / ↓ have moved a full shot's aim from the club's carry (back to 0 for each shot and club).</summary>
+    /// <summary>With a launch monitor: how far (wu) ↑ / ↓ have moved a full shot's aim from the club's carry (back to 0 for each shot and club).</summary>
     private double _aimNudge;
-    private const double MinAimMetres = 5 * Units.YardsToMetres;
+    private const double MinAimUnits = 5 * Units.YardsToWorld;
+
+    /// <summary>
+    /// Whether the aim's length is still the club's own (true for each shot and club until ↑ / ↓ move it). While it is, and
+    /// the aim is straight at a pin or flag within the club's carry, the line ends on it (<see cref="PinAimLength"/>).
+    /// </summary>
+    private bool _pinAim = true;
+
+    /// <summary>
+    /// The pin (a course's flag; the range's chosen flag) when the selected club's carry from here reaches it (not for a
+    /// putt, nor a tee shot that is aimed at a landing area instead of the pin): the heading to it and its distance (wu).
+    /// </summary>
+    private (double Heading, double Distance)? PinInReach()
+    {
+        if (Putter) return null;
+        P2 from, pin;
+        LieCondition? stance = null;
+        if (_courseMode)
+        {
+            if (_round is not { Holed: false } r || _outcome != null) return null;
+            pin = r.Hole.Pin;
+            if (r.DefaultTarget.DistanceTo(pin) > 0.01) return null;
+            from = r.Ball;
+            stance = r.StanceAt(from, HoleRound.Heading(from, pin), _hud.LeftHanded);
+        }
+        else
+        {
+            if (_rangeTarget < 0) return null;
+            from = new P2(0, 0);
+            pin = RangePoint(RangeWorld.TargetPosition(_rangeTarget));
+        }
+        double units = from.DistanceTo(pin);
+        return units <= Caddie.CarryFrom(_hud.ClubCode, stance, KnownYards) ? (HoleRound.Heading(from, pin), units) : null;
+    }
+
+    /// <summary>The distance to the pin (wu) when the aim is straight at it and the club reaches it, so the aim line lands on the hole; else null.</summary>
+    private double? PinAimLength()
+    {
+        if (!_pinAim || PinInReach() is not { } p) return null;
+        double aim = _courseMode ? _aimHeading : _rangeAim;
+        return Math.Abs(Math.IEEERemainder(aim - p.Heading, 2 * Math.PI)) < 1e-4 ? p.Distance : null;
+    }
+
+    /// <summary>A new club on a course: aim at the pin if the club reaches it (else the aim stays where it was).</summary>
+    private void AimAtPinIfInReach()
+    {
+        if (!_courseMode || _online is { IsLocalTurn: false }) return;   // (a friend's PC is aiming the shot)
+        if (PinInReach() is { } p) _aimHeading = p.Heading;
+    }
 
     /// <summary>↑ / ↓ (Shift: 5 at a time): power by the percent on screen; with a monitor, the aim along the line by the yard.</summary>
     private void NudgeAim(int step)
     {
+        double? onPin = PinAimLength();
+        _pinAim = false;
         if (!_monitorLive) { _hud.Shot.NudgePower(step); return; }
         if (Putter) { _hud.Shot.NudgePower(step); return; }   // the putt's line: how far it rolls
         if (_courseMode && (_round is not { Holed: false } || _outcome != null)) return;
-        // From where the aim is now (it may be held at its limits), a yard at a time.
+        // From where the aim is now (it may be held at its limits, or on the pin), a yard at a time.
         var stance = _courseMode && _round is { } r ? r.StanceAt(r.Ball, _aimHeading, _hud.LeftHanded) : null;
         double carry = Caddie.CarryFrom(_hud.ClubCode, stance, KnownYards);
-        _aimNudge = AimDistance(stance) - carry + step * Units.YardsToMetres;
+        _aimNudge = (onPin ?? AimDistance(stance)) - carry + step * Units.YardsToWorld;
         if (_courseMode) UpdateAim(); else UpdateRangeAim();
     }
 
@@ -168,8 +218,8 @@ public partial class Main
 
     // ---- hitting from the screen -------------------------------------------------------------
 
-    /// <summary>The putter's full scale (m of flat roll) for the putt coming up: 100% power rolls this far.</summary>
-    private double _puttScale = Caddie.PuttScaleMetres(6);
+    /// <summary>The putter's full scale (world units of flat roll) for the putt coming up: 100% power rolls this far.</summary>
+    private double _puttScale = Caddie.PuttScaleUnits(6);
 
     /// <summary>Space / HIT SHOT: the shot with the power, shape and spin on screen; next hole once holed out.</summary>
     private void HitPress()
@@ -200,22 +250,23 @@ public partial class Main
     /// <summary>
     /// Sets the power for the shot coming up: on a course, what carries the ball to the target from this lie (putts:
     /// what rolls it to the hole, with a putt scale that puts that at about 70%); on the range, the power is left as
-    /// the player set it (putts there are scaled for 6 m). With a launch monitor a full shot is aimed at the club's
+    /// the player set it (putts there are scaled for 6 yd). With a launch monitor a full shot is aimed at the club's
     /// carry instead (<see cref="AimDistance"/>).
     /// </summary>
     private void SuggestPower()
     {
         if (_outcome != null) return;   // the next shot is set up once this one has finished
         _aimNudge = 0;
+        _pinAim = true;
         var round = _courseMode ? _round : null;
         _hud.Shot.SetPutting(Putter);
         if (Putter)
         {
             var lie = round?.Lie ?? Lie.Green;
             double need = round == null ? 6
-                        : lie == Lie.Green ? Caddie.PuttRollMetres(round.ReadPutt().Speed, lie)
+                        : lie == Lie.Green ? Caddie.PuttRollUnits(round.ReadPutt().Speed, lie)
                         : round.DistanceToPin + 0.25;
-            _puttScale = Caddie.PuttScaleMetres(need);
+            _puttScale = Caddie.PuttScaleUnits(need);
             if (round != null) _hud.Shot.SetPower(need / _puttScale);
         }
         else if (round != null && !round.Holed)
@@ -229,9 +280,9 @@ public partial class Main
     /// <summary>What a power means for the club in hand: "118 yd carry", or "12 ft roll" for a putt.</summary>
     private string DescribePower(double power)
     {
-        if (Putter) return $"{power * _puttScale * Units.MetresToYards * 3:0} ft roll";
+        if (Putter) return $"{power * _puttScale * Units.WorldToYards * 3:0} ft roll";
         var stance = _courseMode && _round is { Holed: false } r ? r.StanceAt(r.Ball, _aimHeading, _hud.LeftHanded) : null;
-        return $"{power * Caddie.CarryFrom(_hud.ClubCode, stance, KnownYards) * Units.MetresToYards:0} yd carry";
+        return $"{power * Caddie.CarryFrom(_hud.ClubCode, stance, KnownYards) * Units.WorldToYards:0} yd carry";
     }
 
     /// <summary>Every shot (from the monitor, the screen, a demo or a replay) comes through here.</summary>
@@ -258,7 +309,8 @@ public partial class Main
         CountShot(s, f, replay);
         RaiseShotFinished(new ShotFinished(DateTime.Now, RangeGolfer, _hud.ClubCode, s, f, replay));
         string label = _shotCount + (replay ? "R" : s.IsDemo ? "*" : "");
-        // The numbers wait until the ball has stopped.
+        // The monitor's numbers show straight away; the flight's (carry, total, ...) and the history row wait until the ball has stopped.
+        _hud.ShowRangeLaunch(s);
         _rangeResult = (label, _hud.ClubCode, s, f);
         UpdateRangeAim();
         Remember(new LastShot(s, _hud.ClubCode, null, 0, null, 0), label, f);

@@ -9,9 +9,9 @@ How it works
 1. Asks The National Map which lidar surveys cover the box and takes the newest one that is published as an Entwine
    point tile (EPT) set in the public AWS bucket ``usgs-lidar-public`` (``--project`` picks one by name).
 2. Reads the EPT octree's index (point counts per node, no point data) and downloads only the nodes over the box, down
-   to the depth that gives about ``--density`` points per square metre. Downloads are cached, so runs with other
+   to the depth that gives about ``--density`` points per square world unit. Downloads are cached, so runs with other
    settings are quick.
-3. Grids the points at ``--metres`` cells: the highest return per cell (the top of whatever is there) and the mean
+3. Grids the points at ``--cell-size`` cells: the highest return per cell (the top of whatever is there) and the mean
    height of the ground returns. Canopy height = top - ground. Buildings, bridges, wires, towers and noise are left out.
 4. Tree tops are local maxima of the (lightly smoothed) canopy height, in a window that grows with the tree's height
    (tall trees have wide crowns), ignoring anything under ``--min-height``. Each canopy cell is then given to the
@@ -143,7 +143,7 @@ def overlapping_nodes(survey, meta, box):
 
 
 def choose_depth(nodes, area_m2, density):
-    """The shallowest depth whose points (with all shallower ones) give density points per square metre in the box."""
+    """The shallowest depth whose points (with all shallower ones) give density points per square world unit in the box."""
     by_depth = {}
     for _, d, count, share in nodes:
         by_depth[d] = by_depth.get(d, 0) + count * share
@@ -183,13 +183,13 @@ def download_nodes(survey, nodes, cache, workers=8):
 # ---- the canopy height grid ------------------------------------------------------------------
 
 class Grid:
-    """Cells of `metres` over the box in local metres east / north of its south-west corner (row 0 = south)."""
+    """Cells of `cell_size` over the box in local world units east / north of its south-west corner (row 0 = south)."""
 
-    def __init__(self, box, lat0, metres):
-        self.box, self.metres = box, metres
-        self.k = math.cos(math.radians(lat0))   # Mercator metres to true metres at this latitude
-        self.cols = int(math.ceil((box[2] - box[0]) * self.k / metres))
-        self.rows = int(math.ceil((box[3] - box[1]) * self.k / metres))
+    def __init__(self, box, lat0, cell_size):
+        self.box, self.cell_size = box, cell_size
+        self.k = math.cos(math.radians(lat0))   # Web Mercator stretches distances by 1 / cos(lat); this scales them back to true ground distance
+        self.cols = int(math.ceil((box[2] - box[0]) * self.k / cell_size))
+        self.rows = int(math.ceil((box[3] - box[1]) * self.k / cell_size))
         n = self.rows * self.cols
         self.top = np.full(n, -np.inf, np.float32)
         self.ground_sum = np.zeros(n, np.float64)
@@ -205,8 +205,8 @@ class Grid:
         if not inside.any():
             return
         x, y, z, cls = x[inside], y[inside], z[inside], cls[inside]
-        col = np.minimum(((x - b[0]) * self.k / self.metres).astype(np.int64), self.cols - 1)
-        row = np.minimum(((y - b[1]) * self.k / self.metres).astype(np.int64), self.rows - 1)
+        col = np.minimum(((x - b[0]) * self.k / self.cell_size).astype(np.int64), self.cols - 1)
+        row = np.minimum(((y - b[1]) * self.k / self.cell_size).astype(np.int64), self.rows - 1)
         cell = row * self.cols + col
         canopy = ~np.isin(cls, NOT_CANOPY)
         np.maximum.at(self.top, cell[canopy], z[canopy])
@@ -215,7 +215,7 @@ class Grid:
         self.ground_count += np.bincount(cell[ground], minlength=self.top.size).astype(np.int32)
 
     def canopy_height(self):
-        """Top minus ground, metres (2D, row 0 south). Ground under thick cover is filled in from round about."""
+        """Top minus ground, world units (2D, row 0 south). Ground under thick cover is filled in from the cells around it."""
         shape = (self.rows, self.cols)
         ground = np.where(self.ground_count > 0, self.ground_sum / np.maximum(self.ground_count, 1), np.nan).reshape(shape)
         holes = np.isnan(ground)
@@ -235,7 +235,7 @@ def shifted(a, dy, dx, fill):
 
 
 def fill_holes(a, rounds=500):
-    """Fills NaN cells with the mean of their filled neighbours, growing in from the edges of each hole."""
+    """Fills NaN cells with the mean of their filled neighbors, growing in from the edges of each hole."""
     a = a.copy()
     for _ in range(rounds):
         holes = np.isnan(a)
@@ -279,11 +279,11 @@ def max_filter(a, radius):
 # ---- trees -----------------------------------------------------------------------------------
 
 def window_radius(height):
-    """How far (m) a tree of this height must be the highest to count as a top: wider crowns on taller trees."""
+    """How far (world units) a tree of this height must be the highest to count as a top: wider crowns on taller trees."""
     return np.clip(1.0 + 0.11 * height, 1.5, 6.0)
 
 
-def find_tops(chm, metres, min_height, max_height):
+def find_tops(chm, cell_size, min_height, max_height):
     """(row, col, height) of tree tops: local maxima of the smoothed canopy, taller than min_height."""
     s = smooth(chm)
     candidate = (s >= min_height) & (s >= max_filter(s, 1))
@@ -292,20 +292,20 @@ def find_tops(chm, metres, min_height, max_height):
     keep = heights <= max_height   # higher than any tree: birds, cranes, missed noise
     rows, cols, heights = rows[keep], cols[keep], heights[keep]
     smoothed = s[rows, cols]
-    radius = np.maximum(1, np.round(window_radius(smoothed) / metres).astype(int))
+    radius = np.maximum(1, np.round(window_radius(smoothed) / cell_size).astype(int))
     is_top = np.zeros(rows.size, bool)
     for r in np.unique(radius):
         m = radius == r
         is_top[m] = smoothed[m] >= max_filter(s, int(r))[rows[m], cols[m]]
     rows, cols, heights = rows[is_top], cols[is_top], heights[is_top]
 
-    # A flat top can give a few neighbouring maxima: keep the tallest within half a window of each other.
+    # A flat top can give a few neighboring maxima: keep the tallest within half a window of each other.
     order = np.argsort(-heights)
     rows, cols, heights = rows[order], cols[order], heights[order]
-    cell = 4.0 / metres
+    cell = 4.0 / cell_size
     taken, keep = {}, []
     for i in range(rows.size):
-        sep = 0.5 * window_radius(heights[i]) / metres
+        sep = 0.5 * window_radius(heights[i]) / cell_size
         gy, gx = int(rows[i] // cell), int(cols[i] // cell)
         clash = False
         for oy in (-1, 0, 1):
@@ -321,13 +321,13 @@ def find_tops(chm, metres, min_height, max_height):
     return rows[keep], cols[keep], heights[keep]
 
 
-def crown_radii(chm, rows, cols, heights, metres):
-    """Each tree's crown radius (m): canopy cells round it go to the nearest top they could belong to."""
+def crown_radii(chm, rows, cols, heights, cell_size):
+    """Each tree's crown radius (world units): canopy cells around it go to the nearest top they could belong to."""
     best = np.full(chm.shape, np.inf, np.float32)
     owner = np.full(chm.shape, -1, np.int32)
     for i in range(rows.size):
         h = heights[i]
-        reach = int(math.ceil(min(12.0, 2.5 + 0.35 * h) / metres))
+        reach = int(math.ceil(min(12.0, 2.5 + 0.35 * h) / cell_size))
         r0, r1 = max(rows[i] - reach, 0), min(rows[i] + reach + 1, chm.shape[0])
         c0, c1 = max(cols[i] - reach, 0), min(cols[i] + reach + 1, chm.shape[1])
         yy, xx = np.mgrid[r0:r1, c0:c1]
@@ -336,12 +336,12 @@ def crown_radii(chm, rows, cols, heights, metres):
         mine = (d2 <= reach * reach) & (window >= max(2.0, 0.4 * h)) & (window <= h + 0.5) & (d2 < best[r0:r1, c0:c1])
         best[r0:r1, c0:c1][mine] = d2[mine]
         owner[r0:r1, c0:c1][mine] = i
-    area = np.bincount(owner[owner >= 0], minlength=rows.size) * metres * metres
-    return np.maximum(np.sqrt(area / math.pi), metres)
+    area = np.bincount(owner[owner >= 0], minlength=rows.size) * cell_size * cell_size
+    return np.maximum(np.sqrt(area / math.pi), cell_size)
 
 
-def clusters(rows, cols, radii, metres, gap=1.0):
-    """Cluster number of each tree: trees whose crowns come within `gap` metres of each other are in one."""
+def clusters(rows, cols, radii, cell_size, gap=1.0):
+    """Cluster number of each tree: trees whose crowns come within `gap` world units of each other are in one."""
     parent = np.arange(rows.size)
 
     def root(i):
@@ -350,7 +350,7 @@ def clusters(rows, cols, radii, metres, gap=1.0):
             i = parent[i]
         return i
 
-    e, n = cols * metres, rows * metres
+    e, n = cols * cell_size, rows * cell_size
     cell = 2 * float(radii.max(initial=1)) + gap
     buckets = {}
     for i in range(rows.size):
@@ -373,31 +373,31 @@ def kind_of(size):
 # ---- output ----------------------------------------------------------------------------------
 
 def write_csv(path, survey, grid, rows, cols, heights, radii, number, size, args):
-    e = (cols + 0.5) * grid.metres
-    n = (rows + 0.5) * grid.metres
+    e = (cols + 0.5) * grid.cell_size
+    n = (rows + 0.5) * grid.cell_size
     lon, lat = from_mercator(grid.box[0] + e / grid.k, grid.box[1] + n / grid.k)
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     with gzip.open(path, "wt", encoding="utf-8", newline="\n") as f:
         f.write(f"# Trees from USGS 3DEP lidar, survey {survey} (public domain, U.S. Geological Survey).\n")
-        f.write(f"# Made by tools/fetch-canopy.py: box {args.bbox}, {grid.metres} m cells, {args.density} points/m², "
-                f"trees from {args.min_height} m.\n")
+        f.write(f"# Made by tools/fetch-canopy.py: box {args.bbox}, {grid.cell_size} world-unit cells, {args.density} points per square world unit, "
+                f"trees from {args.min_height * 3.28084:.0f} ft.\n")
         f.write("# crown_m = crown radius; trees with the same cluster touch; kind: single, group (2-5), dense (6+).\n")
         f.write("lat,lon,height_m,crown_m,cluster,kind\n")
         for i in np.argsort(number, kind="stable"):
             f.write(f"{lat[i]:.7f},{lon[i]:.7f},{heights[i]:.1f},{radii[i]:.1f},{number[i]},{kind_of(size[i])}\n")
 
 
-def write_preview(path, chm, rows, cols, radii, size, metres):
+def write_preview(path, chm, rows, cols, radii, size, cell_size):
     from PIL import Image, ImageDraw
     shade = np.clip(chm / 30.0, 0, 1)
     rgb = np.stack([30 + 20 * shade, 40 + 160 * shade, 30 + 40 * shade], axis=-1).astype(np.uint8)[::-1]   # north up
     image = Image.fromarray(rgb)
     draw = ImageDraw.Draw(image)
-    colours = {"single": (80, 255, 80), "group": (255, 220, 60), "dense": (255, 70, 60)}
+    colors = {"single": (80, 255, 80), "group": (255, 220, 60), "dense": (255, 70, 60)}
     h = chm.shape[0]
     for i in range(rows.size):
-        x, y, r = cols[i], h - 1 - rows[i], max(1.0, radii[i] / metres)
-        draw.ellipse([x - r, y - r, x + r, y + r], outline=colours[kind_of(size[i])])
+        x, y, r = cols[i], h - 1 - rows[i], max(1.0, radii[i] / cell_size)
+        draw.ellipse([x - r, y - r, x + r, y + r], outline=colors[kind_of(size[i])])
     image.save(path)
 
 
@@ -406,10 +406,10 @@ def main():
     p.add_argument("--bbox", default="-87.335,34.415,-87.298,34.442", help="west,south,east,north (degrees)")
     p.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "..", "src", "GrimesGolf.Godot", "courses", "deer-run", "trees.csv.gz"))
     p.add_argument("--project", default="", help="EPT survey name (default: the newest over the box)")
-    p.add_argument("--metres", type=float, default=1.0, help="canopy grid cell size")
-    p.add_argument("--density", type=float, default=6.0, help="lidar points per square metre to download")
-    p.add_argument("--min-height", type=float, default=4.0, help="shortest tree counted (m)")
-    p.add_argument("--max-height", type=float, default=50.0, help="tallest believable tree (m)")
+    p.add_argument("--cell-size", type=float, default=1.0, help="canopy grid cell size")
+    p.add_argument("--density", type=float, default=6.0, help="lidar points per square world unit to download")
+    p.add_argument("--min-height", type=float, default=4.0, help="shortest tree counted (world units)")
+    p.add_argument("--max-height", type=float, default=50.0, help="tallest believable tree (world units)")
     p.add_argument("--cache", default=os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "SquareRange", "ept-cache"))
     p.add_argument("--preview", action="store_true", help="also write a PNG of the canopy and trees next to --out")
     args = p.parse_args()
@@ -434,8 +434,8 @@ def main():
         f"{sum(c for _, _, c, _ in nodes) * 12 / 1e6:.0f} MB (cached in {args.cache})")
     paths = download_nodes(survey, nodes, os.path.join(args.cache, survey))
 
-    grid = Grid(box, lat0, args.metres)
-    log(f"Gridding into {grid.cols} x {grid.rows} cells of {args.metres} m")
+    grid = Grid(box, lat0, args.cell_size)
+    log(f"Gridding into {grid.cols} x {grid.rows} cells of {args.cell_size} world units")
     for i, path in enumerate(paths):
         grid.add(path)
         if (i + 1) % 100 == 0:
@@ -443,19 +443,19 @@ def main():
     chm, _ = grid.canopy_height()
 
     log("Finding the trees")
-    rows, cols, heights = find_tops(chm, args.metres, args.min_height, args.max_height)
-    radii = crown_radii(chm, rows, cols, heights, args.metres)
-    number, size = clusters(rows, cols, radii, args.metres)
+    rows, cols, heights = find_tops(chm, args.cell_size, args.min_height, args.max_height)
+    radii = crown_radii(chm, rows, cols, heights, args.cell_size)
+    number, size = clusters(rows, cols, radii, args.cell_size)
     write_csv(args.out, survey, grid, rows, cols, heights, radii, number, size, args)
     kinds = {kd: int(sum(1 for c in size if kind_of(c) == kd)) for kd in ("single", "group", "dense")}
     log(f"{rows.size:,} trees: {kinds['single']:,} single, {kinds['group']:,} in groups of 2-5, {kinds['dense']:,} in dense woods; "
-        f"heights {np.percentile(heights, 10):.0f}-{np.percentile(heights, 90):.0f} m (10th-90th percentile)")
+        f"heights {np.percentile(heights, 10) * 3.28084:.0f}-{np.percentile(heights, 90) * 3.28084:.0f} ft (10th-90th percentile)")
     log(f"-> {os.path.abspath(args.out)} ({os.path.getsize(args.out) / 1e6:.1f} MB)")
     if args.preview:
         # Beside the cached lidar, not the output: it's big, and only for checking by eye.
         name = os.path.basename(re.sub(r"(\.csv)?(\.gz)?$", "", args.out))
         png = os.path.join(args.cache, f"{name}-preview.png")
-        write_preview(png, chm, rows, cols, radii, size, args.metres)
+        write_preview(png, chm, rows, cols, radii, size, args.cell_size)
         log(f"-> {os.path.abspath(png)}")
 
 

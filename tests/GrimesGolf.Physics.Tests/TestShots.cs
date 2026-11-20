@@ -23,6 +23,6 @@ internal static class TestShots
     public static EnvironmentConditions WithAir(double tempC = 15, double altitude = 0, double humidity = 0) =>
         EnvironmentConditions.Standard with
         {
-            Atmosphere = new AtmosphericConditions { TemperatureCelsius = tempC, AltitudeMetres = altitude, RelativeHumidityPercent = humidity },
+            Atmosphere = new AtmosphericConditions { TemperatureCelsius = tempC, AltitudeUnits = altitude, RelativeHumidityPercent = humidity },
         };
 }

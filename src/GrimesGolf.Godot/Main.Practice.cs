@@ -17,7 +17,7 @@ namespace GrimesGolf.Game;
 /// </summary>
 public partial class Main
 {
-    /// <summary>The practice green being played (null: not practising).</summary>
+    /// <summary>The practice green being played (null: not practicing).</summary>
     private PracticeState? _practice;
 
     /// <summary>The round that was loaded when practice began, put back when it ends (its save on disk is untouched).</summary>
@@ -35,8 +35,8 @@ public partial class Main
         public string SpotName = "";
         /// <summary>Where the ball in play was put down, how far that was from the hole, and how far the first stroke left it (null until then).</summary>
         public P2 Start;
-        public double StartMetres;
-        public double? LeaveMetres;
+        public double StartUnits;
+        public double? LeaveUnits;
         /// <summary>The ball holed last is in <see cref="Stats"/> already (so taking its last stroke back must take it out again).</summary>
         public bool Recorded;
         public AfterHoleOut After = AfterHoleOut.NextSpot;
@@ -63,7 +63,7 @@ public partial class Main
         _lastRecord = null;
         _roundStarted = DateTime.Now;
 
-        const int spot = 1;   // the front centre of the putting green, a short fairway chip on the other
+        const int spot = 1;   // the front center of the putting green, a short fairway chip on the other
         var state = new PracticeState(green) { Spot = spot, SpotName = green.Spots[spot].Name };
         var ball = green.Spots[spot].At;
         // The hole nearest straight ahead of the ball.
@@ -104,8 +104,8 @@ public partial class Main
     {
         var p = _practice!;
         p.Start = at;
-        p.StartMetres = _match!.Current.DistanceToPin;
-        p.LeaveMetres = null;
+        p.StartUnits = _match!.Current.DistanceToPin;
+        p.LeaveUnits = null;
         p.Recorded = false;
     }
 
@@ -251,7 +251,7 @@ public partial class Main
         if (round.BeforeLast is not { } before) { _hud.Toast("Nothing to take back yet", UiTheme.Ink); return; }
         if (round.Holed && p.Recorded) { p.Stats.UndoLast(); p.Recorded = false; }
         round.Restore(before);
-        if (round.Strokes == 0) p.LeaveMetres = null;
+        if (round.Strokes == 0) p.LeaveUnits = null;
         FreshBall();
     }
 
@@ -311,12 +311,12 @@ public partial class Main
         bool putting = green.Kind == PracticeKind.Putting;
         string noun = o.Strokes == 1 ? (putting ? "putt" : "stroke") : (putting ? "putts" : "strokes");
         string headline, note = "";
-        if (p.LeaveMetres == null) p.LeaveMetres = o.Holed ? 0 : round.DistanceToPin;
+        if (p.LeaveUnits == null) p.LeaveUnits = o.Holed ? 0 : round.DistanceToPin;
         if (o.Holed)
         {
-            p.Stats.Record(new PracticeAttempt(p.StartMetres, round.Strokes, p.LeaveMetres ?? 0));
+            p.Stats.Record(new PracticeAttempt(p.StartUnits, round.Strokes, p.LeaveUnits ?? 0));
             p.Recorded = true;
-            string from = PinDistance(p.StartMetres, putting || p.StartMetres * Units.MetresToYards < 20);
+            string from = PinDistance(p.StartUnits, putting || p.StartUnits * Units.WorldToYards < 20);
             headline = round.Strokes == 1 ? (putting ? $"Holed! One putt from {from}" : $"Chipped in from {from}!") : $"Holed in {round.Strokes} {noun} from {from}";
             Sound(round.Strokes == 1 ? SoundEffect.Cheer : SoundEffect.Applause, round.Strokes == 1 ? 0 : -4);
             if (p.After != AfterHoleOut.Wait)
@@ -348,9 +348,9 @@ public partial class Main
         var ahead = new P2(line.X / length, line.Z / length);
         var off = rest - pin;
         double past = off.X * ahead.X + off.Z * ahead.Z, right = off.X * -ahead.Z + off.Z * ahead.X;
-        string Ft(double m) => $"{Math.Abs(m) * Units.MetresToYards * 3:0} ft";
-        string along = Math.Abs(past) * Units.MetresToYards * 3 < 1 ? "" : $"{Ft(past)} {(past > 0 ? "past" : "short")}";
-        string across = Math.Abs(right) * Units.MetresToYards * 3 < 1 ? "" : $"{Ft(right)} {(right > 0 ? "right" : "left")}";
+        string Ft(double m) => $"{Math.Abs(m) * Units.WorldToYards * 3:0} ft";
+        string along = Math.Abs(past) * Units.WorldToYards * 3 < 1 ? "" : $"{Ft(past)} {(past > 0 ? "past" : "short")}";
+        string across = Math.Abs(right) * Units.WorldToYards * 3 < 1 ? "" : $"{Ft(right)} {(right > 0 ? "right" : "left")}";
         string both = string.Join(", ", new[] { along, across }.Where(s => s.Length > 0));
         return both.Length == 0 ? "Right at the hole" : $"{both} of the hole";
     }
@@ -372,7 +372,7 @@ public partial class Main
 
     /// <summary>
     /// --practice-spot=N and --practice-hole=N (from 1): the ball on that spot, aimed at that hole; --practice-ball=X,Z: the ball
-    /// at that point (metres from the green's centre, X toward the back). To check how it looks.
+    /// at that point (feet from the green's center, X toward the back). To check how it looks.
     /// </summary>
     private void PracticeDevSetup(string[] args)
     {
@@ -382,7 +382,7 @@ public partial class Main
         if (int.TryParse(Arg("--practice-hole"), out int hole) && hole >= 1 && hole <= green.Holes.Count) SelectPracticeHole(hole - 1);
         if (Arg("--practice-ball")?.Split(',') is { Length: 2 } xz && double.TryParse(xz[0], System.Globalization.CultureInfo.InvariantCulture, out double x)
             && double.TryParse(xz[1], System.Globalization.CultureInfo.InvariantCulture, out double z))
-            PlacePracticeBall(new P2(x, z), "Your spot");
+            PlacePracticeBall(new P2(x * Units.FeetToWorld, z * Units.FeetToWorld), "Your spot");
     }
 
     // ---- the screen -----------------------------------------------------------------------------

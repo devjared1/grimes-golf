@@ -10,7 +10,7 @@ public static class SquareShots
     public const string Device = "Square Golf";
 
     /// <summary>
-    /// A Square shot: m/s to mph, and the spin axis and sidespin flipped from the device's sign (negative = curves
+    /// A Square shot: wu/s to mph, and the spin axis and sidespin flipped from the device's sign (negative = curves
     /// right) to the input's (positive = curves right). Converted back by <see cref="RangeShot.FromLaunchMonitor"/>,
     /// it is the same shot <see cref="RangeShot.FromSquare"/> makes.
     /// </summary>
@@ -23,14 +23,14 @@ public static class SquareShots
         new LaunchMonitorInput
         {
             Device = device,
-            BallSpeedMph = ball.BallSpeedMs * Units.MsToMph,
+            BallSpeedMph = ball.BallSpeedWps * Units.WorldSpeedToMph,
             LaunchAngleDegrees = ball.LaunchDeg,
             LaunchDirectionDegrees = ball.DirectionDeg,
             TotalSpinRpm = ball.TotalSpinRpm,
             SpinAxisDegrees = -ball.SpinAxisDeg,
             BackspinRpm = ball.BackSpinRpm,
             SidespinRpm = -ball.SideSpinRpm,
-            ClubSpeedMph = club?.ClubSpeedMs * Units.MsToMph,
+            ClubSpeedMph = club?.ClubSpeedWps * Units.WorldSpeedToMph,
             ClubPathDegrees = club?.PathDeg,
             FaceAngleDegrees = club?.FaceDeg,
             AttackAngleDegrees = club?.AttackDeg,

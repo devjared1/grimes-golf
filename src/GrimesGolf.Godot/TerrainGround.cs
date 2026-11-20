@@ -5,9 +5,9 @@ namespace GrimesGolf.Game;
 
 /// <summary>
 /// The ground of a course with real heights: one mesh following the <see cref="Terrain"/> grid (in chunks, so
-/// off-screen parts are culled), with an apron running out flat to the horizon, coloured by a coverage texture of
-/// the playing areas (fairway and tees, greens, bunkers, water). Coverage is anti-aliased when it's rasterised, so
-/// edges stay smooth even though the texture is about a metre per texel.
+/// off-screen parts are culled), with an apron running out flat to the horizon, colored by a coverage texture of
+/// the playing areas (fairway and tees, greens, bunkers, water). Coverage is anti-aliased when it's rasterized, so
+/// edges stay smooth even though the texture is about a world unit per texel.
 /// </summary>
 public static class TerrainGround
 {
@@ -18,7 +18,7 @@ public static class TerrainGround
         uniform sampler2D cut : filter_linear_mipmap, repeat_disable;   // first cut of rough (R; deep rough elsewhere), ponds with a level surface (G), cart paths (B), bridges (A)
         uniform vec3 deep_a : source_color; uniform vec3 deep_b : source_color;
         uniform vec2 mask_origin;   // course coords (X north, Z east) of the texture's corner
-        uniform vec2 mask_size;     // metres covered along X and Z
+        uniform vec2 mask_size;     // world units covered along X and Z
         uniform vec3 rough_a : source_color; uniform vec3 rough_b : source_color;
         uniform vec3 fair_a : source_color;  uniform vec3 fair_b : source_color;
         uniform vec3 green_a : source_color; uniform vec3 green_b : source_color;
@@ -26,7 +26,7 @@ public static class TerrainGround
         uniform vec3 concrete : source_color;
         uniform vec3 water : source_color;  // water that follows the ground (creeks, ditches)
         uniform vec3 pond_bed : source_color;   // under a pond's own water surface
-        // Photo detail per area: tile size (m), colour variation, bumpiness (see Scenery.TurfLook).
+        // Photo detail per area: tile size (wu), color variation, bumpiness (see Scenery.TurfLook).
         uniform vec3 rough_look; uniform vec3 fair_look; uniform vec3 green_look;
         uniform float sand_tile = 3.5;
         global uniform vec4 cup_hole;
@@ -51,7 +51,7 @@ public static class TerrainGround
         }
         float edge(float coverage) { float w = max(fwidth(coverage), 0.02); return smoothstep(0.5 - w, 0.5 + w, coverage); }
         // Coverage for the edges. Near the camera: the full-resolution texture through a cubic B-spline (four bilinear
-        // taps), so an edge follows a smooth curve instead of kinking at every 1 m texel. Further off: the mip level for
+        // taps), so an edge follows a smooth curve instead of kinking at every one-unit texel. Further off: the mip level for
         // the screen direction that shows the most detail (the usual choice, the coarser one, smears a band of soft
         // edge across the ground seen at a low angle, ending in a straight seam where the level changes).
         vec4 coverage(sampler2D t, vec2 uv) {
@@ -79,12 +79,12 @@ public static class TerrainGround
             float n = noise(world_pos.xz * 0.12) * 0.6 + noise(world_pos.xz * 0.6) * 0.4;
             vec2 p = world_pos.xz;
             float f = edge(m.r), g = edge(m.g), s = edge(m.b), w = edge(m.a);
-            vec4 cm = coverage(cut, uv);
-            float pond = edge(cm.g), bridge = edge(cm.a), path = max(edge(cm.b), bridge);
-            // Blurred coverage (a few metres) for what happens just outside sand and water.
+            vec4 cutm = coverage(cut, uv);
+            float pond = edge(cutm.g), bridge = edge(cutm.a), path = max(edge(cutm.b), bridge);
+            // Blurred coverage (a few world units) for what happens just outside sand and water.
             vec4 near = textureLod(mask, uv, 2.0);
-            // Each area's colour times its photo detail; the rough's look also serves the deep rough.
-            vec3 rough_c = mix(mix(deep_a, deep_b, n), mix(rough_a, rough_b, n), edge(cm.r))
+            // Each area's color times its photo detail; the rough's look also serves the deep rough.
+            vec3 rough_c = mix(mix(deep_a, deep_b, n), mix(rough_a, rough_b, n), edge(cutm.r))
                            * photo_detail(grass_albedo, p, rough_look.x, rough_look.y);
             vec3 look = normalize(world_pos - CAMERA_POSITION_WORLD);
             vec3 c = rough_c;
@@ -122,8 +122,8 @@ public static class TerrainGround
         """;
 
     private const int Chunk = 128;          // cells per mesh chunk side
-    private const double Texel = 1.0;       // metres per coverage texel
-    private const float Apron = 4000;       // flat ground beyond the modelled area
+    private const double Texel = 1.0;       // world units per coverage texel
+    private const float Apron = 4000;       // flat ground beyond the modeled area
 
     /// <summary>Adds the ground meshes and ponds; returns the ground material (its coverage textures serve <see cref="GrassField"/>).</summary>
     public static ShaderMaterial Build(Node3D parent, Course course, Terrain terrain)
@@ -223,7 +223,7 @@ public static class TerrainGround
         return Surface(verts, normals, indices);
     }
 
-    /// <summary>A ring from the edge of the modelled ground out to the horizon, level with the edge.</summary>
+    /// <summary>A ring from the edge of the modeled ground out to the horizon, level with the edge.</summary>
     private static ArrayMesh BuildApron(Terrain t)
     {
         // Walk the grid's edge once around.
@@ -233,14 +233,14 @@ public static class TerrainGround
         for (int j = t.CountZ - 1; j > 0; j--) edge.Add((t.CountX - 1, j));
         for (int i = t.CountX - 1; i > 0; i--) edge.Add((i, 0));
 
-        var centre = t.Area.Center;
+        var center = t.Area.Center;
         var verts = new Vector3[edge.Count * 2];
         var normals = new Vector3[verts.Length];
         for (int e = 0; e < edge.Count; e++)
         {
             var p = t.Point(edge[e].I, edge[e].J);
             float h = t.HeightAt(edge[e].I, edge[e].J);
-            var outward = p - centre;
+            var outward = p - center;
             outward *= Apron / outward.Length;
             verts[2 * e] = Scenery.ToGodot(p, h);
             verts[2 * e + 1] = Scenery.ToGodot(p + outward, h);
@@ -283,7 +283,7 @@ public static class TerrainGround
         var hole = course.Holes[0];   // a mapped course's holes share their feature lists
         void Paint(byte[] into, IEnumerable<Shape> shapes, int channel)
         {
-            foreach (var s in shapes) Rasterise(s, area, w, h, into, channel);
+            foreach (var s in shapes) Rasterize(s, area, w, h, into, channel);
         }
         Paint(data, hole.Fairways.Concat(hole.Tees), 0);
         Paint(data, hole.Greens.Select(g => Scenery.Grown(g, Hole.FringeWidth)), 0);   // fringe
@@ -306,7 +306,7 @@ public static class TerrainGround
     }
 
     /// <summary>Adds a shape's coverage (0-255, anti-aliased) to one channel, keeping the larger value.</summary>
-    private static void Rasterise(Shape shape, Bounds area, int w, int h, byte[] data, int channel)
+    private static void Rasterize(Shape shape, Bounds area, int w, int h, byte[] data, int channel)
     {
         var box = shape.Box;
         int r0 = Math.Max(0, (int)((box.Min.X - area.Min.X) / Texel) - 1), r1 = Math.Min(h - 1, (int)((box.Max.X - area.Min.X) / Texel) + 1);

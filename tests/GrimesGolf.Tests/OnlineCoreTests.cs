@@ -25,7 +25,7 @@ public class OnlineCoreTests
 
     private static RangeShot NextShot(Match m) =>
         PuttNext(m)
-            ? new RangeShot(Math.Sqrt(2 * 0.55 * Math.Max(0.1, m.Current.DistanceToPin - 0.3)) * Units.MsToMph, 1, 0, 0, 0, null, null)
+            ? new RangeShot(Math.Sqrt(2 * 0.55 * Math.Max(0.1, m.Current.DistanceToPin - 0.3)) * Units.WorldSpeedToMph, 1, 0, 0, 0, null, null)
             : m.Current.DistanceToPin > 180 ? Drive : GoodIron;
 
     [Fact]

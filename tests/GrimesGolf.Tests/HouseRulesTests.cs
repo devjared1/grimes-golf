@@ -20,8 +20,8 @@ public class HouseRulesTests
 
     private static ShotOutcome Hit(HoleRound r, RangeShot s, bool putt = false) => r.Play(s, putt, r.DefaultAimHeading());
 
-    private static RangeShot PuttStopping(double metresShort, HoleRound r) =>
-        new(Math.Sqrt(2 * 0.55 * (r.DistanceToPin - metresShort)) * Units.MsToMph, 1, 0, 0, 0, null, null);
+    private static RangeShot PuttStopping(double unitsShort, HoleRound r) =>
+        new(Math.Sqrt(2 * 0.55 * (r.DistanceToPin - unitsShort)) * Units.WorldSpeedToMph, 1, 0, 0, 0, null, null);
 
     [Fact]
     public void PicksUpAtDoublePar()
@@ -98,26 +98,26 @@ public class HouseRulesTests
     [Fact]
     public void GimmeDistanceIsAHouseRule()
     {
-        var holeOut = OnParThree(new HouseRules(GimmeMetres: 0));
+        var holeOut = OnParThree(new HouseRules(GimmeUnits: 0));
         Hit(holeOut, GoodIron);
         Hit(holeOut, PuttStopping(0.3, holeOut), putt: true);
         Assert.False(holeOut.Holed);
 
-        var generous = OnParThree(new HouseRules(GimmeMetres: 1.5));
+        var generous = OnParThree(new HouseRules(GimmeUnits: 1.5));
         Hit(generous, GoodIron);
         var o = Hit(generous, PuttStopping(1.0, generous), putt: true);
         Assert.True(o.Holed, o.Message);
         Assert.Equal(3, generous.Strokes);
     }
 
-    private const double SixFeet = 6 * Units.FeetToMetres;
+    private const double SixFeet = 6 * Units.FeetToWorld;
 
     [Fact]
     public void AutoPuttsComeFromTheCircles()
     {
-        var rules = new HouseRules(GimmeMetres: SixFeet, AutoPutt: true);
+        var rules = new HouseRules(GimmeUnits: SixFeet, AutoPutt: true);
         var random = new Random(1);
-        Assert.Equal(2 * SixFeet, rules.SecondCircleMetres);
+        Assert.Equal(2 * SixFeet, rules.SecondCircleUnits);
         Assert.Equal(1, rules.AutoPutts(1.5, random));     // inside 6 ft
         Assert.Equal(2, rules.AutoPutts(3.0, random));     // between 6 and 12 ft
         var far = Enumerable.Range(0, 200).Select(_ => rules.AutoPutts(10, random)).ToList();
@@ -129,7 +129,7 @@ public class HouseRulesTests
     [Fact]
     public void AutoPuttingFinishesTheHoleWhenTheBallStopsOnTheGreen()
     {
-        var rules = new HouseRules(GimmeMetres: SixFeet, AutoPutt: true);
+        var rules = new HouseRules(GimmeUnits: SixFeet, AutoPutt: true);
         var round = OnParThree(rules);
         var o = Hit(round, GoodIron);
         Assert.Equal(Lie.Green, o.RestLie);
@@ -151,7 +151,7 @@ public class HouseRulesTests
     public void AutoPuttingStillPicksUpAtDoublePar()
     {
         // A tiny gimme circle, so the iron onto the green needs 2 or 3 putts: 4 + 1 + 2 is past double par (6).
-        var round = OnParThree(new HouseRules(GimmeMetres: 0.05, PickUpAtDoublePar: true, AutoPutt: true));
+        var round = OnParThree(new HouseRules(GimmeUnits: 0.05, PickUpAtDoublePar: true, AutoPutt: true));
         Hit(round, Topped);
         Hit(round, Topped);
         var o = Hit(round, GoodIron);
@@ -162,10 +162,10 @@ public class HouseRulesTests
     [Fact]
     public void SettingsFromBeforeTheGimmeCircleGetTheNewDefault()
     {
-        var old = AppSettings.Defaults with { HouseRules = new HouseRules(Mulligans: 1, GimmeMetres: HouseRules.DefaultGimmeMetres) };
+        var old = AppSettings.Defaults with { HouseRules = new HouseRules(Mulligans: 1, GimmeUnits: HouseRules.DefaultGimmeUnits) };
         Assert.Equal(6.0, old.Upgraded().Rules.GimmeFeet, 6);
         Assert.Equal(1, old.Upgraded().Rules.Mulligans);
-        var chosen = AppSettings.Defaults with { HouseRules = new HouseRules(GimmeMetres: 10 * Units.FeetToMetres) };
+        var chosen = AppSettings.Defaults with { HouseRules = new HouseRules(GimmeUnits: 10 * Units.FeetToWorld) };
         Assert.Equal(chosen, chosen.Upgraded());
         Assert.Equal(HouseRules.DefaultGimmeFeet, AppSettings.GarageRules.GimmeFeet, 6);
     }
@@ -308,8 +308,21 @@ public class MatchTests
         return o;
     }
 
-    private static RangeShot Putt(Match m, double metresShort) =>
-        new(Math.Sqrt(2 * 0.55 * (m.Current.DistanceToPin - metresShort)) * Units.MsToMph, 1, 0, 0, 0, null, null);
+    private static RangeShot Putt(Match m, double unitsShort) =>
+        new(Math.Sqrt(2 * 0.55 * (m.Current.DistanceToPin - unitsShort)) * Units.WorldSpeedToMph, 1, 0, 0, 0, null, null);
+
+    [Fact]
+    public void SavedRoundsKeepTheirOlderFieldNames()
+    {
+        // Rounds and settings already written use "Honour" (match snapshots) and "GimmeMetres" (house rules, in world units).
+        var m = new Match(TestCourse.Holes, null, Three);
+        m.StartHole(1);
+        string json = m.Capture().ToJson();
+        Assert.Contains("\"Honour\"", json);
+        Assert.DoesNotContain("\"Honor\"", json);
+        Assert.True(m.Capture().SameAs(MatchSnapshot.FromJson(json)));
+        Assert.Contains("\"GimmeMetres\"", System.Text.Json.JsonSerializer.Serialize(new HouseRules(), GolfData.Json));
+    }
 
     [Fact]
     public void EveryoneTeesOffThenFarthestPlays()
@@ -325,7 +338,7 @@ public class MatchTests
         Hit(m, Topped);                   // Cat in the water: back on the tee, 2 strokes
         Assert.Equal(2, m.Turn);          // farthest away: plays again
         Hit(m, Short);
-        // Ann is farthest of the three on the green (Cat's ball is exactly where Bob's is: honour order breaks the tie).
+        // Ann is farthest of the three on the green (Cat's ball is exactly where Bob's is: honor order breaks the tie).
         var far = Enumerable.Range(0, 3).OrderByDescending(p => Math.Round(m.Rounds[p].DistanceToPin, 2)).First();
         Assert.Equal(far, m.Turn);
         Assert.Equal(m.Rounds[1].Ball, m.Rounds[2].Ball);
@@ -360,7 +373,7 @@ public class MatchTests
     }
 
     [Fact]
-    public void HonourGoesToTheLowestScoreOnTheLastHole()
+    public void HonorGoesToTheLowestScoreOnTheLastHole()
     {
         var m = new Match(TestCourse.Holes, null, Three, new HouseRules(PickUpAtDoublePar: true));
         m.StartHole(1);

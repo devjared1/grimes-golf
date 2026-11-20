@@ -57,7 +57,7 @@ public sealed record LieAdjustment(
 ///   <see cref="SidehillStartFactor"/> × δ (the start line mostly follows the face) and the spin axis by
 ///   −<see cref="SidehillAxisFactor"/> × δ (a closed face to the path draws).</item>
 /// </list>
-/// PROVISIONAL game model: the factors are judgement, comparable to what golf simulators apply, not measurements.
+/// PROVISIONAL game model: the factors are judgment, comparable to what golf simulators apply, not measurements.
 /// Putts should not be adjusted.
 /// </summary>
 public sealed class LieModel

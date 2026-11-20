@@ -1,7 +1,7 @@
 namespace GrimesGolf.Physics;
 
 /// <summary>
-/// The ball's rigid-body state: centre position (m), velocity (m/s) and angular velocity (rad/s, right-hand rule).
+/// The ball's rigid-body state: center position (wu), velocity (wu/s) and angular velocity (rad/s, right-hand rule).
 /// Also used for the time derivative of the state (velocity, acceleration, angular acceleration) by the integrator.
 /// </summary>
 public readonly record struct BallState(Vector3D Position, Vector3D Velocity, Vector3D AngularVelocity)

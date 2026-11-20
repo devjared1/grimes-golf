@@ -10,11 +10,11 @@ namespace GrimesGolf.Game;
 /// </summary>
 public partial class AimGuide : Node3D
 {
-    /// <summary>Where the line starts, this far (m) past the ball: clear of the ball for a full shot, just in front of it for a putt.</summary>
+    /// <summary>Where the line starts, this far (wu) past the ball: clear of the ball for a full shot, just in front of it for a putt.</summary>
     private const double LineStart = 1.0, PuttLineStart = 0.08;
-    /// <summary>The line's half width: this much per metre from the camera keeps it about the same width on screen, within these limits (m).</summary>
-    private const double WidthPerMetre = 0.0011, MinHalfWidth = 0.016, MaxHalfWidth = 0.3;
-    /// <summary>Behind the ball, the camera sits about this far (m) back.</summary>
+    /// <summary>The line's half width: this much per world unit from the camera keeps it about the same width on screen, within these limits (wu).</summary>
+    private const double WidthPerUnit = 0.0011, MinHalfWidth = 0.016, MaxHalfWidth = 0.3;
+    /// <summary>Behind the ball, the camera sits about this far (wu) back.</summary>
     private const double CameraBack = 8;
     /// <summary>The ring's band, as a share of its radius.</summary>
     private const double RingBand = 0.15;
@@ -43,8 +43,8 @@ public partial class AimGuide : Node3D
     }
 
     /// <summary>
-    /// Draws the line from <paramref name="ball"/> along <paramref name="heading"/> for <paramref name="length"/> metres,
-    /// ending at a ring of <paramref name="ringRadius"/> metres (0: no ring). <paramref name="on"/> gives the point to
+    /// Draws the line from <paramref name="ball"/> along <paramref name="heading"/> for <paramref name="length"/> world units,
+    /// ending at a ring of <paramref name="ringRadius"/> world units (0: no ring). <paramref name="on"/> gives the point to
     /// draw at for a spot on the ground. <paramref name="landingView"/>: the camera is up near the landing spot
     /// (<see cref="CameraRig.SetLandingView"/>), not behind the ball, which sets how wide the line needs to be.
     /// <paramref name="putt"/>: the line starts just in front of the ball.
@@ -68,7 +68,7 @@ public partial class AimGuide : Node3D
         for (int i = 0; i <= steps; i++)
         {
             double s = start + (end - start) * i / steps;
-            double half = Math.Clamp(Math.Sqrt((s - cameraAt) * (s - cameraAt) + cameraUp * cameraUp) * WidthPerMetre, MinHalfWidth, MaxHalfWidth);
+            double half = Math.Clamp(Math.Sqrt((s - cameraAt) * (s - cameraAt) + cameraUp * cameraUp) * WidthPerUnit, MinHalfWidth, MaxHalfWidth);
             mesh.SurfaceAddVertex(on(ball + dir * s + across * half));
             mesh.SurfaceAddVertex(on(ball + dir * s - across * half));
         }

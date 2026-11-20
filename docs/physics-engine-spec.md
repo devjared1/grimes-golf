@@ -119,14 +119,16 @@ The structure is illustrative. Adapt it to the existing repository and technolog
 
 Use standard golf ball specifications as the default model.
 
+Lengths are world units (wu): 1 wu is 1.0936 yd, 3.2808 ft or 39.37 in, and speeds are wu/s.
+
 | Property | Default |
 |---|---:|
 | Ball mass | 0.04593 kg |
-| Ball diameter | 0.04267 m |
-| Ball radius | 0.021335 m |
+| Ball diameter | 0.04267 wu (1.680 in) |
+| Ball radius | 0.021335 wu (0.840 in) |
 | Cross-sectional area | π × radius² |
-| Gravity | 9.80665 m/s² |
-| Standard air density | 1.225 kg/m³ |
+| Gravity | 9.80665 wu/s² (32.174 ft/s²) |
+| Standard air density | 1.225 kg/wu³ (0.0765 lb/ft³) |
 | Standard temperature | 15°C |
 | Standard atmospheric pressure | 101325 Pa |
 | Moment of inertia | 2/5 × mass × radius² (solid-sphere approximation) |
@@ -149,7 +151,7 @@ This is the preferred mode when a launch monitor provides actual ball measuremen
 
 Inputs:
 
-- Ball speed (mph or m/s).
+- Ball speed (mph).
 - Horizontal launch angle.
 - Vertical launch angle.
 - Backspin (RPM).
@@ -682,7 +684,7 @@ Example:
   "temperatureCelsius": 20,
   "pressureHpa": 1013.25,
   "relativeHumidity": 50,
-  "altitudeMeters": 150,
+  "altitudeFeet": 500,
   "wind": {
     "speedMph": 10,
     "directionDegrees": 270,
@@ -874,7 +876,7 @@ Example simulation request:
   },
   "environment": {
     "temperatureCelsius": 20,
-    "altitudeMeters": 150,
+    "altitudeFeet": 500,
     "relativeHumidity": 50,
     "windSpeedMph": 0,
     "windDirectionDegrees": 0
@@ -1062,7 +1064,7 @@ Deliverable: A calibrated physics engine with measurable accuracy.
 
 Follow these implementation rules throughout the project.
 
-1. Use SI units internally. Convert mph, feet, yards, inches, and RPM at system boundaries.
+1. Use world units (wu; 1 wu = 1.0936 yd) and kg, s and rad internally. Convert mph, feet, yards, inches, and RPM at system boundaries.
 2. Use double precision for physics calculations.
 3. Keep physics independent of rendering and UI.
 4. Use dependency injection where appropriate.

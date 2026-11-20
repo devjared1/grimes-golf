@@ -14,7 +14,7 @@ namespace GrimesGolf.Core.Course;
 /// </para>
 /// </summary>
 public sealed record MatchSnapshot(
-    int Turn, int? LastToPlay, int[] Honour, MatchSnapshot.Player[] Players, MatchSnapshot.WindState Wind, MatchSnapshot.Pick? LastPick)
+    int Turn, int? LastToPlay, [property: JsonPropertyName("Honour")] int[] Honor, MatchSnapshot.Player[] Players, MatchSnapshot.WindState Wind, MatchSnapshot.Pick? LastPick)
 {
     /// <summary>Where one player's round stands on the current hole (see <see cref="HoleRound.State"/>).</summary>
     public sealed record Position(int HoleIndex, double BallX, double BallZ, Lie Lie, int Strokes, bool Holed, int? Score, bool PickedUp)

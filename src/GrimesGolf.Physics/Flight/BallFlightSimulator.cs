@@ -37,11 +37,11 @@ public static class BallFlightSimulator
         var o = options;
         var air = AtmosphericModel.Evaluate(environment.Atmosphere);
         double heading = o.AimHeadingDegrees * UnitConversion.DegreesToRadians;
-        double r = ball.RadiusMetres;
+        double r = ball.RadiusUnits;
 
         double groundZ = terrain.GetElevation(o.StartX, o.StartY);
         var n0 = terrain.GetSurfaceNormal(o.StartX, o.StartY);
-        var start = new Vector3D(o.StartX, o.StartY, groundZ + r / n0.Z + o.TeeHeightMetres);
+        var start = new Vector3D(o.StartX, o.StartY, groundZ + r / n0.Z + o.TeeHeightUnits);
         var direction = launch.Direction.RotateHeading(heading);
         var state = new BallState(start, direction * launch.BallSpeed, launch.SpinVector.RotateHeading(heading));
 

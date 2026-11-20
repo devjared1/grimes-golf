@@ -5,7 +5,7 @@ namespace GrimesGolf.Game;
 /// <summary>
 /// A flagstick: a thin pole with a flag, standing at its origin. The pole is drawn at its real thickness up close and
 /// widened with distance so it never thins to nothing; the flag grows a little with distance so far pins stay
-/// readable. <see cref="LayDown"/> puts it on the ground beside the hole (pulled for putting).
+/// readable. <see cref="Pull"/> hides it (pulled for putting).
 /// </summary>
 public partial class Flagstick : Node3D
 {
@@ -78,14 +78,9 @@ public partial class Flagstick : Node3D
     {
         Basis = Basis.Identity;
         Position = _standAt;
+        Visible = true;
     }
 
-    /// <summary>Lying on the ground, base at <paramref name="baseAt"/>, pointing along <paramref name="along"/> (may follow a slope).</summary>
-    public void LayDown(Vector3 baseAt, Vector3 along)
-    {
-        along = along.Normalized();
-        var side = along.Cross(Vector3.Up).Normalized();
-        Basis = new Basis(side, along, side.Cross(along).Normalized());
-        Position = baseAt + new Vector3(0, PoleRadius, 0);
-    }
+    /// <summary>Pulled out of the hole and out of sight, pole and flag both (a putt has no flagstick in view).</summary>
+    public void Pull() => Visible = false;
 }

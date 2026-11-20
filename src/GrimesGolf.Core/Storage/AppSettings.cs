@@ -70,7 +70,7 @@ public sealed record AppSettings(
     public const string FileName = "settings.json";
 
     /// <summary>Two mulligans a round, a 6 ft gimme circle, pick up at double par.</summary>
-    public static readonly HouseRules GarageRules = new(Mulligans: 2, GimmeMetres: Core.Course.HouseRules.DefaultGimmeFeet * Units.FeetToMetres, PickUpAtDoublePar: true);
+    public static readonly HouseRules GarageRules = new(Mulligans: 2, GimmeUnits: Core.Course.HouseRules.DefaultGimmeFeet * Units.FeetToWorld, PickUpAtDoublePar: true);
 
     [JsonIgnore] public HouseRules Rules => HouseRules ?? GarageRules;
     [JsonIgnore] public GameSetup Setup => Game ?? GameSetup.Default;
@@ -164,8 +164,8 @@ public sealed record AppSettings(
     /// circle choices no longer offer, so a gimme left at that default becomes the new one (6 ft).
     /// </summary>
     public AppSettings Upgraded() =>
-        HouseRules is { } r && Math.Abs(r.GimmeMetres - Core.Course.HouseRules.DefaultGimmeMetres) < 1e-9
-            ? this with { HouseRules = r with { GimmeMetres = GarageRules.GimmeMetres } }
+        HouseRules is { } r && Math.Abs(r.GimmeUnits - Core.Course.HouseRules.DefaultGimmeUnits) < 1e-9
+            ? this with { HouseRules = r with { GimmeUnits = GarageRules.GimmeUnits } }
             : this;
 
     public void Save(string folder, Action<string>? error = null)

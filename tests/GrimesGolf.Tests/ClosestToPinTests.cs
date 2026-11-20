@@ -9,13 +9,13 @@ public class ClosestToPinTests
 {
     private static readonly Golfer[] Three = { new("Ann"), new("Bob"), new("Cat") };
 
-    private static PinShot Shot(double metres) => new(metres, true, metres == 0, "");
+    private static PinShot Shot(double units) => new(units, true, units == 0, "");
     private static readonly PinShot Wet = new(null, false, false, "In the water");
 
-    private static ClosestToPinGame Play(ShotOrder order, int shots, params double?[] metres)
+    private static ClosestToPinGame Play(ShotOrder order, int shots, params double?[] units)
     {
         var game = new ClosestToPinGame(Three, shots, order);
-        foreach (var m in metres) game.Record(m is { } d ? Shot(d) : Wet);
+        foreach (var m in units) game.Record(m is { } d ? Shot(d) : Wet);
         return game;
     }
 
@@ -57,20 +57,20 @@ public class ClosestToPinTests
     [Fact]
     public void TheClosestShotWinsWhateverTheOrder()
     {
-        // Ann 9 and 4 m, Bob 12 and 2 m, Cat 7 and 8 m.
+        // Ann 9 and 4 wu, Bob 12 and 2 wu, Cat 7 and 8 wu.
         var game = Play(ShotOrder.TakeTurns, 2, 9, 12, 7, 4, 2, 8);
         Assert.True(game.Complete);
         Assert.Equal(new[] { 1 }, game.Winners);
         var s = game.Standings();
         Assert.Equal(new[] { 1, 0, 2 }, s.Select(x => x.Player));
         Assert.Equal(new[] { 1, 2, 3 }, s.Select(x => x.Place));
-        Assert.Equal(2, s[0].Best!.Metres);
+        Assert.Equal(2, s[0].Best!.Distance);
     }
 
     [Fact]
     public void ATieOnTheBestShotGoesToTheNextBest()
     {
-        // Ann and Bob both have a 3 m shot; Bob's other shot is closer, so he wins.
+        // Ann and Bob both have a 3 wu shot; Bob's other shot is closer, so he wins.
         var game = Play(ShotOrder.AllInARow, 2, 3, 10, 3, 6, 20, 20);
         Assert.Equal(new[] { 1 }, game.Winners);
         Assert.Equal(new[] { 1, 0, 2 }, game.Standings().Select(x => x.Player));
@@ -94,7 +94,7 @@ public class ClosestToPinTests
         Assert.Equal(new[] { 2 }, game.Winners);
         // A second shot that stays dry beats nothing at all.
         var again = Play(ShotOrder.TakeTurns, 2, null, 30, 15, 50, null, null);
-        Assert.Equal(50, again.BestOf(0)!.Metres);
+        Assert.Equal(50, again.BestOf(0)!.Distance);
         Assert.Equal(new[] { 2, 1, 0 }, again.Standings().Select(x => x.Player));
     }
 
@@ -169,7 +169,7 @@ public class ClosestToPinTests
     [InlineData(18.3, "20 yd")]        // just past 20 yd it is yards
     [InlineData(18.2, "59 ft 9 in")]   // and just short of it feet
     [InlineData(55, "60 yd")]
-    public void DistancesAreReadTheWayAPinIsMeasured(double metres, string text) => Assert.Equal(text, PinShot.Format(metres));
+    public void DistancesAreReadTheWayAPinIsMeasured(double units, string text) => Assert.Equal(text, PinShot.Format(units));
 
     [Fact]
     public void AShotTellsHowItFinished()
@@ -183,7 +183,7 @@ public class ClosestToPinTests
     // ---- shots on a real hole: the hand-made par 3 over the water ----
 
     private static readonly Hole Par3 = TestCourse.Holes[1];
-    private static readonly HouseRules Strict = new(Mulligans: 0, GimmeMetres: 0);
+    private static readonly HouseRules Strict = new(Mulligans: 0, GimmeUnits: 0);
 
     private static ShotOutcome HitFromTee(RangeShot shot)
     {
@@ -197,8 +197,8 @@ public class ClosestToPinTests
     {
         var o = HitFromTee(new RangeShot(112, 18, 0, 7600, 0, null, null));
         var shot = PinShot.From(o, Par3);
-        Assert.NotNull(shot.Metres);
-        Assert.Equal(o.NextBall.DistanceTo(Par3.Pin), shot.Metres!.Value, 6);
+        Assert.NotNull(shot.Distance);
+        Assert.Equal(o.NextBall.DistanceTo(Par3.Pin), shot.Distance!.Value, 6);
         Assert.Equal(o.RestLie == Lie.Green, shot.OnGreen);
         Assert.False(shot.Holed);
     }
@@ -207,7 +207,7 @@ public class ClosestToPinTests
     public void AShotInTheWaterHasNoDistance()
     {
         var shot = PinShot.From(HitFromTee(new RangeShot(70, 12, 0, 4000, 0, null, null)), Par3);
-        Assert.Null(shot.Metres);
+        Assert.Null(shot.Distance);
         Assert.Equal("In the water", shot.Note);
     }
 
@@ -220,7 +220,7 @@ public class ClosestToPinTests
         match.Current.Place(Par3.Pin + new P2(0, 0.5));
         var o = match.Play(new RangeShot(2, 0, 0, 0, 0, null, null), putt: true, HoleRound.Heading(match.Current.Ball, Par3.Pin));
         var shot = PinShot.From(o, Par3);
-        Assert.False(o.Holed && shot.Metres > 0);
+        Assert.False(o.Holed && shot.Distance > 0);
     }
 
     // ---- tee boxes ----
@@ -236,7 +236,7 @@ public class ClosestToPinTests
         var tees = TeeBoxes.For(Par3);
         Assert.Equal("Tee", tees.Single().Name);
         Assert.Equal(Par3.Tee, tees[0].At);
-        Assert.Equal(Par3.Tee.DistanceTo(Par3.Pin) * Units.MetresToYards, tees[0].Yards, 6);
+        Assert.Equal(Par3.Tee.DistanceTo(Par3.Pin) * Units.WorldToYards, tees[0].Yards, 6);
     }
 
     [Fact]

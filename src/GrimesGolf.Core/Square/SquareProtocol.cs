@@ -47,14 +47,14 @@ public sealed record SquareDeviceInfo(string? Serial, string? HardwareVersion, s
 
 public enum SquareDeviceState : byte
 {
-    None = 0, Idle = 1, Initialising = 2, Detecting = 3, Ready = 4, Shot = 5, Done = 6,
+    None = 0, Idle = 1, Initializing = 2, Detecting = 3, Ready = 4, Shot = 5, Done = 6,
 }
 
 // ---- Decoded notifications -------------------------------------------------
 
 public abstract record SquareEvent;
 
-/// <summary>Where the monitor sees the ball, in millimetres (X along the target line, Y across it, Z height).</summary>
+/// <summary>Where the monitor sees the ball, in inches (X along the target line, Y across it, Z height).</summary>
 public readonly record struct BallPosition(double X, double Y, double Z);
 
 /// <param name="Position">Null when the monitor has no ball in view.</param>
@@ -63,21 +63,21 @@ public sealed record SensorEvent(bool BallReady, bool BallDetected, BallPosition
 /// <summary>What the monitor makes of the alignment stick while it's looking for one.</summary>
 public enum StickStatus { Unstable = 0, Stable = 1, Finished = 2 }
 
-/// <summary>An alignment stick reading: its angle in degrees (negative = pointing left) and where it lies, in millimetres.</summary>
+/// <summary>An alignment stick reading: its angle in degrees (negative = pointing left) and where it lies, in inches.</summary>
 public sealed record StickEvent(StickStatus Status, double AngleDeg, double X, double Y, double Z) : SquareEvent;
 
-/// <summary>Raw device values: m/s, degrees, rpm. Spin axis / side spin use the DEVICE sign convention (negative = curves right).</summary>
+/// <summary>Raw device values: wu/s, degrees, rpm. Spin axis / side spin use the DEVICE sign convention (negative = curves right).</summary>
 public sealed record BallMetricsEvent(
-    double BallSpeedMs, double LaunchDeg, double DirectionDeg,
+    double BallSpeedWps, double LaunchDeg, double DirectionDeg,
     int TotalSpinRpm, double SpinAxisDeg, int BackSpinRpm, int SideSpinRpm) : SquareEvent;
 
 public sealed record ClubMetricsEvent(
     byte Mask,
     double? PathDeg, double? FaceDeg, double? AttackDeg, double? DynamicLoftDeg,
-    double? ImpactHorizontalMm, double? ImpactVerticalMm,
-    double? ClubSpeedMs, double? Smash) : SquareEvent
+    double? ImpactHorizontalInches, double? ImpactVerticalInches,
+    double? ClubSpeedWps, double? Smash) : SquareEvent
 {
-    public bool HasAnyData => Mask != 0 && (PathDeg ?? FaceDeg ?? AttackDeg ?? DynamicLoftDeg ?? ClubSpeedMs) != null;
+    public bool HasAnyData => Mask != 0 && (PathDeg ?? FaceDeg ?? AttackDeg ?? DynamicLoftDeg ?? ClubSpeedWps) != null;
 }
 
 public sealed record HeartbeatAckEvent(SquareDeviceState State) : SquareEvent;
@@ -102,6 +102,11 @@ public static class SquarePacketParser
     /// <summary>A little-endian 32-bit field in hundredths.</summary>
     private static double Hundredths(byte[] d, int offset) => BitConverter.ToInt32(d, offset) / 100.0;
 
+    /// <summary>The device sends lengths in hundredths of its own metric unit, 25.4 to the inch; they are kept in inches.</summary>
+    private const double DeviceUnitsPerInch = 25.4;
+    private static double Inches(byte[] d, int offset) => Hundredths(d, offset) / DeviceUnitsPerInch;
+    private static double? Inches(double? hundredths) => hundredths / DeviceUnitsPerInch;
+
     public static SquareEvent Parse(byte[] d)
     {
         if (d.Length == 0) return new DisconnectedEvent();
@@ -119,11 +124,11 @@ public static class SquarePacketParser
                 case 0x01 when d.Length >= 5:
                     return new SensorEvent(BallReady: d[3] == 0x01 || d[3] == 0x02, BallDetected: d[4] == 0x01,
                         d.Length >= 17 && d[3] != NoSensorData && d[4] == 0x01
-                            ? new BallPosition(Hundredths(d, 5), Hundredths(d, 9), Hundredths(d, 13)) : null);
+                            ? new BallPosition(Inches(d, 5), Inches(d, 9), Inches(d, 13)) : null);
 
                 case 0x02 when d.Length >= 17:
                     return new BallMetricsEvent(
-                        BallSpeedMs: I16(d, 3) / 100.0,
+                        BallSpeedWps: I16(d, 3) / 100.0,
                         LaunchDeg: I16(d, 5) / 100.0,
                         DirectionDeg: I16(d, 7) / 100.0,
                         TotalSpinRpm: I16(d, 9),
@@ -135,13 +140,13 @@ public static class SquarePacketParser
                     return new HeartbeatAckEvent((SquareDeviceState)d[3]);
 
                 case 0x04 when d.Length >= 21:
-                    return new StickEvent((StickStatus)d[3], Hundredths(d, 5), Hundredths(d, 9), Hundredths(d, 13), Hundredths(d, 17));
+                    return new StickEvent((StickStatus)d[3], Hundredths(d, 5), Inches(d, 9), Inches(d, 13), Inches(d, 17));
 
                 case 0x07 when d.Length >= 11: // hardware 1.5 sends only the first four fields
                     byte mask = d[2];
                     return new ClubMetricsEvent(mask,
                         Field(d, mask, 0, 3), Field(d, mask, 1, 5), Field(d, mask, 2, 7), Field(d, mask, 3, 9),
-                        Field(d, mask, 4, 11), Field(d, mask, 5, 13), Field(d, mask, 6, 15), Field(d, mask, 7, 17));
+                        Inches(Field(d, mask, 4, 11)), Inches(Field(d, mask, 5, 13)), Field(d, mask, 6, 15), Field(d, mask, 7, 17));
             }
         }
         return new UnknownEvent(d);

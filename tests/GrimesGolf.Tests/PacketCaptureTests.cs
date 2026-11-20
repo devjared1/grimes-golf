@@ -7,7 +7,7 @@ public class PacketCaptureTests
 {
     private static readonly DateTimeOffset T0 = new(2026, 11, 9, 19, 30, 0, TimeSpan.FromHours(-6));
 
-    /// <summary>A ball-data notification: speed m/s, launch, direction, spin axis in hundredths; spins in rpm.</summary>
+    /// <summary>A ball-data notification: speed wu/s, launch, direction, spin axis in hundredths; spins in rpm.</summary>
     private static byte[] Ball(byte seq, double ms, double launch, double dir, short spin, double axis)
     {
         var d = new byte[17];
@@ -66,7 +66,7 @@ public class PacketCaptureTests
 
         Assert.Equal(2, shots.Count);
         Assert.Equal((1, "I7"), (shots[0].Number, shots[0].ClubCode));
-        Assert.Equal(50, shots[0].Ball.BallSpeedMs, 2);
+        Assert.Equal(50, shots[0].Ball.BallSpeedWps, 2);
         Assert.Equal(18, shots[0].Ball.LaunchDeg, 2);
         Assert.Equal(6500, shots[0].Ball.TotalSpinRpm);
         Assert.Equal((2, "DR"), (shots[1].Number, shots[1].ClubCode));

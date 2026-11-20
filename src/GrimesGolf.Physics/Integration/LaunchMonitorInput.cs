@@ -4,7 +4,7 @@ namespace GrimesGolf.Physics;
 /// What a launch monitor reported, in the units monitors usually use. Null = not measured. Device adapters fill
 /// this in, converting to these sign conventions: launch direction, club path and face angle positive = right;
 /// spin axis and sidespin positive = ball curves right; attack angle positive = up; impact offsets toward the toe
-/// and above the face centre positive.
+/// and above the face center positive.
 /// </summary>
 public sealed record LaunchMonitorInput
 {
@@ -23,8 +23,8 @@ public sealed record LaunchMonitorInput
     public double? FaceAngleDegrees { get; init; }
     public double? AttackAngleDegrees { get; init; }
     public double? DynamicLoftDegrees { get; init; }
-    public double? ImpactToeMillimetres { get; init; }
-    public double? ImpactHeightMillimetres { get; init; }
+    public double? ImpactToeInches { get; init; }
+    public double? ImpactHeightInches { get; init; }
     public bool LeftHanded { get; init; }
 
     public bool HasBallLaunch => BallSpeedMph is not null && LaunchAngleDegrees is not null &&
@@ -43,7 +43,7 @@ public sealed record LaunchNormalization
 }
 
 /// <summary>
-/// Validates and normalises <see cref="LaunchMonitorInput"/> to SI. Measured values are never replaced: when the
+/// Validates and normalizes <see cref="LaunchMonitorInput"/> to SI. Measured values are never replaced: when the
 /// spin is over-specified (total + axis and backspin + sidespin), total + axis are used and any disagreement is
 /// reported. Values that have to be assumed are marked <see cref="ValueSource.Estimated"/> and reported as warnings.
 /// </summary>
@@ -113,7 +113,7 @@ public static class LaunchMonitorAdapter
         src[LaunchParameter.BallSpeed] = src[LaunchParameter.LaunchAngle] = ValueSource.Measured;
         var launch = new LaunchConditions
         {
-            BallSpeed = input.BallSpeedMph!.Value * UnitConversion.MphToMetresPerSecond,
+            BallSpeed = input.BallSpeedMph!.Value * UnitConversion.MphToWorldSpeed,
             LaunchAngle = input.LaunchAngleDegrees!.Value * UnitConversion.DegreesToRadians,
             LaunchDirection = hla * UnitConversion.DegreesToRadians,
             TotalSpin = total * UnitConversion.RpmToRadiansPerSecond,
@@ -138,15 +138,15 @@ public static class LaunchMonitorAdapter
         }
         double path = Or0(input.ClubPathDegrees, "Club path"), face = Or0(input.FaceAngleDegrees, "Face angle"),
                attack = Or0(input.AttackAngleDegrees, "Attack angle");
-        if (input.ImpactToeMillimetres is null && input.ImpactHeightMillimetres is null) warnings.Add("Impact location not measured; assumed the face centre.");
+        if (input.ImpactToeInches is null && input.ImpactHeightInches is null) warnings.Add("Impact location not measured; assumed the face center.");
         if (errors.Count > 0) return new LaunchNormalization { Original = input, Errors = errors, Warnings = warnings };
 
         var club = new ClubDelivery
         {
-            ClubSpeed = input.ClubSpeedMph!.Value * UnitConversion.MphToMetresPerSecond,
+            ClubSpeed = input.ClubSpeedMph!.Value * UnitConversion.MphToWorldSpeed,
             PathDegrees = path, FaceAngleDegrees = face, AttackAngleDegrees = attack,
             DynamicLoftDegrees = input.DynamicLoftDegrees,
-            ImpactToeMetres = (input.ImpactToeMillimetres ?? 0) / 1000, ImpactHeightMetres = (input.ImpactHeightMillimetres ?? 0) / 1000,
+            ImpactToeUnits = (input.ImpactToeInches ?? 0) * UnitConversion.InchesToWorld, ImpactHeightUnits = (input.ImpactHeightInches ?? 0) * UnitConversion.InchesToWorld,
             LeftHanded = input.LeftHanded,
         };
         errors.AddRange(club.Validate());
@@ -163,7 +163,7 @@ public static class LaunchMonitorAdapter
             ("Launch direction", i.LaunchDirectionDegrees), ("Backspin", i.BackspinRpm), ("Sidespin", i.SidespinRpm),
             ("Total spin", i.TotalSpinRpm), ("Spin axis", i.SpinAxisDegrees), ("Club path", i.ClubPathDegrees),
             ("Face angle", i.FaceAngleDegrees), ("Attack angle", i.AttackAngleDegrees), ("Dynamic loft", i.DynamicLoftDegrees),
-            ("Impact toe offset", i.ImpactToeMillimetres), ("Impact height offset", i.ImpactHeightMillimetres),
+            ("Impact toe offset", i.ImpactToeInches), ("Impact height offset", i.ImpactHeightInches),
         })
             if (v is { } x && !double.IsFinite(x)) errors.Add($"{name} is not a number.");
         if (i.TotalSpinRpm < 0) errors.Add("Total spin cannot be negative.");

@@ -172,7 +172,7 @@ public sealed class FakeGame : IOnlineGame
     {
         var r = Match!.Current;
         bool putt = r.DistanceToPin < 40;
-        var shot = putt ? new RangeShot(Math.Sqrt(2 * 0.55 * Math.Max(0.1, r.DistanceToPin - 0.3)) * Units.MsToMph, 1, 0, 0, 0, null, null)
+        var shot = putt ? new RangeShot(Math.Sqrt(2 * 0.55 * Math.Max(0.1, r.DistanceToPin - 0.3)) * Units.WorldSpeedToMph, 1, 0, 0, 0, null, null)
                  : r.DistanceToPin > 180 ? Drive : Iron;
         Session.MonitorShot(shot, putt ? "PT" : r.DistanceToPin > 180 ? "DR" : "I7", r.DefaultAimHeading(), putt);
     }

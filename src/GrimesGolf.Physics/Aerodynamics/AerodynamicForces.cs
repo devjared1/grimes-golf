@@ -23,12 +23,12 @@ public static class AerodynamicForces
 
         var vHat = relativeVelocity / v;
         var spinPerp = angularVelocity - vHat * Vector3D.Dot(angularVelocity, vHat);
-        double r = ball.RadiusMetres;
-        double reynolds = air.Density * v * ball.DiameterMetres / air.DynamicViscosity;
+        double r = ball.RadiusUnits;
+        double reynolds = air.Density * v * ball.DiameterUnits / air.DynamicViscosity;
         double s = r * spinPerp.Length / v;
         var c = ball.Aerodynamics.Evaluate(reynolds, s);
 
-        double qa = 0.5 * air.Density * v * v * ball.CrossSectionAreaSquareMetres;   // dynamic pressure × area
+        double qa = 0.5 * air.Density * v * v * ball.CrossSectionAreaSquareUnits;   // dynamic pressure × area
         double invMass = 1 / ball.MassKg;
         var drag = vHat * (-qa * c.Drag * invMass);
         var liftDir = Vector3D.Cross(spinPerp, vHat).Normalized();

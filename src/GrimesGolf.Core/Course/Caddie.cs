@@ -17,20 +17,20 @@ public sealed record Swing(double Power, ShotShape Shape = ShotShape.Straight, S
 /// <summary>Club suggestions and demo shots for course play.</summary>
 public static class Caddie
 {
-    private static readonly ConcurrentDictionary<string, double> CarryMetres = new();
+    private static readonly ConcurrentDictionary<string, double> CarryUnits = new();
     private static readonly ConcurrentDictionary<(string, LieKind, int, int, bool), double> LieCarries = new();
     private static int _physicsVersion;
 
-    /// <summary>Typical carry of a club in metres from a clean, level lie in still air (0 for the putter).</summary>
+    /// <summary>Typical carry of a club in world units from a clean, level lie in still air (0 for the putter).</summary>
     public static double Carry(string code)
     {
         Refresh();
         if (code == "PT" || ClubPresets.Find(code) is not { } preset) return 0;
-        return CarryMetres.GetOrAdd(code, _ => FlyCarry(Launch(preset)));
+        return CarryUnits.GetOrAdd(code, _ => FlyCarry(Launch(preset)));
     }
 
     /// <summary>
-    /// Typical carry of a club in metres from <paramref name="lie"/>: the club's typical launch adjusted by
+    /// Typical carry of a club in world units from <paramref name="lie"/>: the club's typical launch adjusted by
     /// <see cref="LieModel"/> (rough and sand cost distance; uphill lies launch higher). Slopes are rounded to half a degree.
     /// </summary>
     public static double CarryFrom(string code, LieCondition? lie)
@@ -47,7 +47,7 @@ public static class Caddie
     }
 
     /// <summary>
-    /// A player's carry with a club in metres, from the carries they know (<paramref name="known"/>, yards by club code).
+    /// A player's carry with a club in world units, from the carries they know (<paramref name="known"/>, yards by club code).
     /// A club they haven't given is estimated: its typical carry, scaled by how the clubs either side of it compare
     /// with theirs. With nothing known it's the typical carry (0 for the putter either way).
     /// </summary>
@@ -57,7 +57,7 @@ public static class Caddie
         if (known is not { Count: > 0 } || typical <= 0) return typical;
         double Scale(int i) =>
             known.TryGetValue(ClubPresets.All[i].Code, out int yards) && yards > 0 && Carry(ClubPresets.All[i].Code) is > 0 and var carry
-                ? yards * Units.YardsToMetres / carry : 0;
+                ? yards * Units.YardsToWorld / carry : 0;
 
         int at = ClubPresets.IndexOf(code);
         if (Scale(at) is > 0 and var own) return own * typical;
@@ -84,7 +84,7 @@ public static class Caddie
     {
         int v = ActivePhysics.Version;
         if (v == _physicsVersion) return;
-        CarryMetres.Clear();
+        CarryUnits.Clear();
         LieCarries.Clear();
         PartialFactors.Clear();
         _physicsVersion = v;
@@ -101,20 +101,20 @@ public static class Caddie
     /// off the deck. <paramref name="stance"/> (if given) makes carries account for the lie and slope, and
     /// <paramref name="known"/> (if given) are the carries the player has set.
     /// </summary>
-    public static string Suggest(double distanceMetres, Lie lie, LieCondition? stance = null, IReadOnlyDictionary<string, int>? known = null)
+    public static string Suggest(double distanceUnits, Lie lie, LieCondition? stance = null, IReadOnlyDictionary<string, int>? known = null)
     {
-        if (lie == Lie.Green || (lie == Lie.Fringe && distanceMetres < 20) || (lie is Lie.Fairway && distanceMetres < 12)) return "PT";
+        if (lie == Lie.Green || (lie == Lie.Fringe && distanceUnits < 20) || (lie is Lie.Fairway && distanceUnits < 12)) return "PT";
         // Long tee shots: driver, unless the target is well inside fairway-wood range.
-        if (lie == Lie.Tee && distanceMetres > Carry("W3", known) * 0.85) return "DR";
+        if (lie == Lie.Tee && distanceUnits > Carry("W3", known) * 0.85) return "DR";
         var usable = ClubPresets.All.Where(c => c.Code != "PT" && (lie == Lie.Tee || c.Code != "DR")).ToList();
-        var fits = usable.Where(c => CarryFrom(c.Code, stance, known) >= distanceMetres * 0.97).OrderBy(c => CarryFrom(c.Code, stance, known)).FirstOrDefault();
+        var fits = usable.Where(c => CarryFrom(c.Code, stance, known) >= distanceUnits * 0.97).OrderBy(c => CarryFrom(c.Code, stance, known)).FirstOrDefault();
         return (fits ?? usable.OrderByDescending(c => CarryFrom(c.Code, stance, known)).First()).Code;
     }
 
-    /// <summary>A made-up putt struck at about <paramref name="speedMs"/> (e.g. from a putt read), slightly off line and pace.</summary>
-    public static RangeShot DemoPutt(double speedMs, Random rng)
+    /// <summary>A made-up putt struck at about <paramref name="speedWps"/> (e.g. from a putt read), slightly off line and pace.</summary>
+    public static RangeShot DemoPutt(double speedWps, Random rng)
     {
-        double mph = speedMs * (1 + (rng.NextDouble() * 2 - 1) * 0.06) * Units.MsToMph;
+        double mph = speedWps * (1 + (rng.NextDouble() * 2 - 1) * 0.06) * Units.WorldSpeedToMph;
         return new RangeShot(mph, 1, (rng.NextDouble() * 2 - 1) * 0.8, 0, 0, mph, 1.0, IsDemo: true);
     }
 
@@ -124,22 +124,22 @@ public static class Caddie
     /// lie and slope the shot is struck from: the swing is sized for what the club carries from there (as
     /// <see cref="Suggest"/> chose it), since <see cref="LieModel"/> takes its toll after the strike.
     /// </summary>
-    public static RangeShot DemoShot(ClubPreset club, double targetMetres, Lie lie, Random rng, LieCondition? stance = null)
+    public static RangeShot DemoShot(ClubPreset club, double targetUnits, Lie lie, Random rng, LieCondition? stance = null)
     {
         if (club.Code == "PT")
         {
             double decel = HoleRound.RollDecel(lie);
-            double v = Math.Sqrt(2 * decel * (targetMetres + 0.25)) * (1 + (rng.NextDouble() * 2 - 1) * 0.06);
-            double mph = v * Units.MsToMph;
+            double v = Math.Sqrt(2 * decel * (targetUnits + 0.25)) * (1 + (rng.NextDouble() * 2 - 1) * 0.06);
+            double mph = v * Units.WorldSpeedToMph;
             return new RangeShot(mph, 1, (rng.NextDouble() * 2 - 1) * 1.2, 0, 0, mph, 1.0, IsDemo: true);
         }
 
         var s = RangeShot.Demo(club, rng);
         double clean = Carry(club.Code), fromLie = CarryFrom(club.Code, stance);
-        if (targetMetres >= fromLie * 0.95 || fromLie <= 0) return s;
+        if (targetUnits >= fromLie * 0.95 || fromLie <= 0) return s;
         // A partial swing keeps the strike's random quality but is a slower swing with the spin and launch that go
         // with it. It's sized as if from a clean lie, for the distance the lie's losses will bring back to the target.
-        double f = PartialSwingFactor(club, targetMetres * clean / fromLie);
+        double f = PartialSwingFactor(club, targetUnits * clean / fromLie);
         var p = PartialLaunch(club, f);
         double quality = s.BallMph / club.BallMph;
         return s with
@@ -178,34 +178,34 @@ public static class Caddie
     }
 
     /// <summary>
-    /// A putt hit from the screen. <see cref="Swing.Power"/> 1 rolls <paramref name="fullScaleMetres"/> on flat ground of
+    /// A putt hit from the screen. <see cref="Swing.Power"/> 1 rolls <paramref name="fullScaleUnits"/> on flat ground of
     /// <paramref name="lie"/>, straight along the aim. Shape and spin don't apply.
     /// </summary>
-    public static RangeShot SwingPutt(Swing swing, double fullScaleMetres, Lie lie)
+    public static RangeShot SwingPutt(Swing swing, double fullScaleUnits, Lie lie)
     {
-        double distance = Math.Clamp(swing.Power, 0, 1) * fullScaleMetres;
-        double mph = Math.Sqrt(2 * HoleRound.RollDecel(lie) * distance) * Units.MsToMph;
+        double distance = Math.Clamp(swing.Power, 0, 1) * fullScaleUnits;
+        double mph = Math.Sqrt(2 * HoleRound.RollDecel(lie) * distance) * Units.WorldSpeedToMph;
         return new RangeShot(mph, 1, 0, 0, 0, mph, 1.0, IsDemo: true);
     }
 
     /// <summary>
-    /// The power (0.01-1) that carries <paramref name="targetMetres"/> with <paramref name="club"/> from
+    /// The power (0.01-1) that carries <paramref name="targetUnits"/> with <paramref name="club"/> from
     /// <paramref name="stance"/> (the inverse of <see cref="SwingShot"/>'s sizing; 1 if it's out of reach).
     /// </summary>
-    public static double PowerFor(string club, double targetMetres, LieCondition? stance = null, IReadOnlyDictionary<string, int>? known = null)
+    public static double PowerFor(string club, double targetUnits, LieCondition? stance = null, IReadOnlyDictionary<string, int>? known = null)
     {
         double full = CarryFrom(club, stance, known);
-        return full <= 0 ? 1 : Math.Clamp(targetMetres / full, 0.01, 1);
+        return full <= 0 ? 1 : Math.Clamp(targetUnits / full, 0.01, 1);
     }
 
-    /// <summary>How far (m) a putt struck at <paramref name="speedMs"/> rolls on flat ground of <paramref name="lie"/>.</summary>
-    public static double PuttRollMetres(double speedMs, Lie lie) => speedMs * speedMs / (2 * HoleRound.RollDecel(lie));
+    /// <summary>How far (wu) a putt struck at <paramref name="speedWps"/> rolls on flat ground of <paramref name="lie"/>.</summary>
+    public static double PuttRollUnits(double speedWps, Lie lie) => speedWps * speedWps / (2 * HoleRound.RollDecel(lie));
 
-    /// <summary>The putter meter's full scale for a putt that needs to roll <paramref name="metres"/> on the flat: a round number of feet with the putt at about 70%.</summary>
-    public static double PuttScaleMetres(double metres)
+    /// <summary>The putter meter's full scale for a putt that needs to roll <paramref name="units"/> on the flat: a round number of feet with the putt at about 70%.</summary>
+    public static double PuttScaleUnits(double units)
     {
-        double feet = Math.Max(10, Math.Ceiling(metres / 0.7 * Units.MetresToYards * 3 / 5) * 5);
-        return feet / 3 * Units.YardsToMetres;
+        double feet = Math.Max(10, Math.Ceiling(units / 0.7 * Units.WorldToYards * 3 / 5) * 5);
+        return feet / 3 * Units.YardsToWorld;
     }
 
     /// <summary>Swings at or above this power are full swings.</summary>
@@ -227,25 +227,25 @@ public static class Caddie
 
     private static readonly ConcurrentDictionary<(string, int), double> PartialFactors = new();
 
-    /// <summary>Targets up to this far (m) are chipped and pitched to finish there (carry and roll on a green)...</summary>
-    private const double ShortGameMetres = 30;
+    /// <summary>Targets up to this far (wu) are chipped and pitched to finish there (carry and roll on a green)...</summary>
+    private const double ShortGameUnits = 30;
     /// <summary>...and from this far on, flown there (carry), since the ball won't be landing on a green; in between, a blend.</summary>
-    private const double ApproachMetres = 60;
+    private const double ApproachUnits = 60;
 
     /// <summary>
-    /// The partial-swing factor for a shot to <paramref name="targetMetres"/> on flat ground: a chip or pitch finishes
+    /// The partial-swing factor for a shot to <paramref name="targetUnits"/> on flat ground: a chip or pitch finishes
     /// there after rolling out on a green; a longer partial swing carries there (rolling out on a fast green would make
     /// it a much smaller swing, a long way short). A target past the club's typical carry (a player who hits it further)
     /// is a factor above 1.
     /// </summary>
-    private static double PartialSwingFactor(ClubPreset club, double targetMetres)
+    private static double PartialSwingFactor(ClubPreset club, double targetUnits)
     {
         Refresh();
-        int key = (int)Math.Round(targetMetres * 2);
+        int key = (int)Math.Round(targetUnits * 2);
         return PartialFactors.GetOrAdd((club.Code, key), _ =>
         {
             double target = key / 2.0;
-            double rollShare = Math.Clamp((ApproachMetres - target) / (ApproachMetres - ShortGameMetres), 0, 1);
+            double rollShare = Math.Clamp((ApproachUnits - target) / (ApproachUnits - ShortGameUnits), 0, 1);
             var terrain = new FlatTerrain(ActivePhysics.SurfaceFor(Lie.Green));
             var options = SimulationOptions.Default with { TrajectorySampleIntervalSeconds = 1, EnableRoll = rollShare > 0, EnableBounce = rollShare > 0 };
             double lo = 0.08, hi = target > Carry(club.Code) ? 3 : 1;

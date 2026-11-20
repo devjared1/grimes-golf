@@ -23,7 +23,7 @@ public partial class Main
     private const double PinNextSeconds = 5;
 
     /// <summary>Every shot is hit once, with nothing taken back, and nothing is tapped in.</summary>
-    private static readonly HouseRules PinRules = new(Mulligans: 0, GimmeMetres: 0);
+    private static readonly HouseRules PinRules = new(Mulligans: 0, GimmeUnits: 0);
 
     private sealed class PinState(ClosestToPinSetup setup, Course course, Hole hole, ClosestToPinGame game, Match[] matches, int previousCourse)
     {
@@ -168,7 +168,7 @@ public partial class Main
         var standings = game.Standings();
         var leader = standings[0];
 
-        string headline = shot.Metres == null ? $"{(game.Players.Count > 1 ? name + ": " : "")}{o.Message.Split('.')[0]}"
+        string headline = shot.Distance == null ? $"{(game.Players.Count > 1 ? name + ": " : "")}{o.Message.Split('.')[0]}"
                         : shot.Holed ? $"{(game.Players.Count > 1 ? name + ": " : "")}Holed it!"
                         : $"{(game.Players.Count > 1 ? name + ": " : "")}{shot.Text} from the pin";
         string note = "";
@@ -193,11 +193,11 @@ public partial class Main
             _hud.CelebrateScore("HOLE IN ONE!", $"{name} holed it from {pin.Hole.LengthYards:0} yd", new Color(1.0f, 0.82f, 0.25f), sparks: true);
             Sound(SoundEffect.Cheer);
         }
-        else if (shot.Metres != null && game.Players.Count > 1 && leader.Player == player && standings.Count(s => s.Place == 1) == 1 && before.Best != null && before.Player != player) Sound(SoundEffect.Applause, -4);
+        else if (shot.Distance != null && game.Players.Count > 1 && leader.Player == player && standings.Count(s => s.Place == 1) == 1 && before.Best != null && before.Player != player) Sound(SoundEffect.Applause, -4);
 
         _hud.ShowResult(headline, note);
         _hud.ShowShotNumbers(_shotLaunch, ShotResultStats(o.Flight));
-        Log($"{name}: {shot.Text}{(shot.Metres != null && !shot.Holed ? $" from the pin ({shot.Note.ToLowerInvariant()})" : "")}. {note}");
+        Log($"{name}: {shot.Text}{(shot.Distance != null && !shot.Holed ? $" from the pin ({shot.Note.ToLowerInvariant()})" : "")}. {note}");
         UpdatePinHud();
         RefreshPlan();
         if (!game.Complete) return;

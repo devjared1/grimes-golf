@@ -14,7 +14,7 @@ public static class BallLook
         Code = """
         shader_type spatial;
         uniform vec3 tint : source_color = vec3(0.93, 0.93, 0.9);
-        uniform float glow_near = 0.0;   // how much it glows up close (fraction of its colour)
+        uniform float glow_near = 0.0;   // how much it glows up close (fraction of its color)
         uniform float glow_far = 0.25;   // and from far away, so it can still be found against the grass and sky
         const float DIMPLES = 336.0;
         const float DIMPLE_RADIUS = 0.092;   // on the unit sphere: just short of touching, leaving a thin land between
@@ -53,7 +53,7 @@ public static class BallLook
             float pixel = length(fwidth(p));   // the size of this pixel on the unit sphere
             float show = 1.0 - smoothstep(DIMPLE_RADIUS * 0.3, DIMPLE_RADIUS * 1.1, pixel);
 
-            // A dimple is a shallow bowl: its wall tilts the surface toward its centre, more toward the rim.
+            // A dimple is a shallow bowl: its wall tilts the surface toward its center, more toward the rim.
             vec3 away = p - nearest_dimple(p);
             float w = length(away) / DIMPLE_RADIUS;
             float inside = 1.0 - smoothstep(0.82, 1.0, w);

@@ -41,10 +41,10 @@ public class UnitConversionTests
     [Fact]
     public void Conversions()
     {
-        Assert.Equal(44.704, 100 * UnitConversion.MphToMetresPerSecond, 10);
+        Assert.Equal(44.704, 100 * UnitConversion.MphToWorldSpeed, 10);
         Assert.Equal(2 * Math.PI, 60 * UnitConversion.RpmToRadiansPerSecond, 12);
-        Assert.Equal(91.44, 100 * UnitConversion.YardsToMetres, 10);
-        Assert.Equal(1, UnitConversion.MetresToYards * UnitConversion.YardsToMetres, 12);
+        Assert.Equal(91.44, 100 * UnitConversion.YardsToWorld, 10);
+        Assert.Equal(1, UnitConversion.WorldToYards * UnitConversion.YardsToWorld, 12);
         Assert.Equal(100, UnitConversion.FahrenheitToCelsius(212), 10);
         Assert.Equal(Math.PI, 180 * UnitConversion.DegreesToRadians, 12);
     }

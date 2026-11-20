@@ -124,7 +124,7 @@ public sealed class MonitorSession
     public async Task EndAlignmentAsync(bool confirm, double angleDeg, string club, bool leftHanded)
     {
         await WriteAsync(_cmd.StickResult(confirm, angleDeg), _cts.Token);
-        _log(confirm ? $"Alignment set: {angleDeg:0.00} degrees" : "Alignment cancelled");
+        _log(confirm ? $"Alignment set: {angleDeg:0.00} degrees" : "Alignment canceled");
         await Task.Delay(500, _cts.Token);
         _aligning = false;
         await SelectClubAsync(club, leftHanded);

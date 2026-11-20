@@ -6,7 +6,7 @@ namespace GrimesGolf.Core.Course;
 public enum WindStrength { Calm, Light, Breezy, Windy }
 
 /// <summary>
-/// The wind on a hole: its speed (measured 10 m up, like a weather report), the course heading it blows from
+/// The wind on a hole: its speed (measured 33 ft up, like a weather report), the course heading it blows from
 /// (radians, as <see cref="HoleRound.Heading"/>: 0 = +X, positive = right) and how much it gusts on top.
 /// <para>
 /// A round has one prevailing wind (from its seed) that shifts a little from hole to hole, so the same round always
@@ -45,9 +45,9 @@ public readonly record struct CourseWind(double SpeedMph, double FromHeading, do
     public IWindField Field()
     {
         if (IsCalm) return Wind.Calm;
-        double ms = SpeedMph * UnitConversion.MphToMetresPerSecond, fromDeg = FromHeading * 180 / Math.PI;
+        double ms = SpeedMph * UnitConversion.MphToWorldSpeed, fromDeg = FromHeading * 180 / Math.PI;
         IWindField wind = new PowerLawWindProfile(ms, fromDeg);
-        return GustMph > 0 ? new GustingWind(wind, ms, ms + GustMph * UnitConversion.MphToMetresPerSecond, fromDeg) : wind;
+        return GustMph > 0 ? new GustingWind(wind, ms, ms + GustMph * UnitConversion.MphToWorldSpeed, fromDeg) : wind;
     }
 
     /// <summary>Wind against a shot along <paramref name="heading"/> (mph): positive into it, negative helping.</summary>

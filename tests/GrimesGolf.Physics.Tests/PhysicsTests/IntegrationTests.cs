@@ -17,7 +17,7 @@ public class LaunchMonitorAdapterTests
         Assert.Equal(Math.Atan2(500, 3000) * UnitConversion.RadiansToDegrees, l.SpinAxisDegrees, 6);
         Assert.Equal(ValueSource.Derived, l.Sources[LaunchParameter.TotalSpin]);
         Assert.Equal(ValueSource.Measured, l.Sources[LaunchParameter.BallSpeed]);
-        Assert.Equal(150 * UnitConversion.MphToMetresPerSecond, l.BallSpeed, 12);
+        Assert.Equal(150 * UnitConversion.MphToWorldSpeed, l.BallSpeed, 12);
     }
 
     [Fact]
@@ -58,12 +58,12 @@ public class LaunchMonitorAdapterTests
     }
 
     [Fact]
-    public void ClubDeliveryNormalisation()
+    public void ClubDeliveryNormalization()
     {
-        var n = LaunchMonitorAdapter.NormalizeClubDelivery(new LaunchMonitorInput { ClubSpeedMph = 100, FaceAngleDegrees = 2, ImpactToeMillimetres = 5 });
+        var n = LaunchMonitorAdapter.NormalizeClubDelivery(new LaunchMonitorInput { ClubSpeedMph = 100, FaceAngleDegrees = 2, ImpactToeInches = 0.2 });
         Assert.True(n.IsValid);
-        Assert.Equal(100 * UnitConversion.MphToMetresPerSecond, n.Club!.ClubSpeed, 12);
-        Assert.Equal(0.005, n.Club.ImpactToeMetres, 12);
+        Assert.Equal(100 * UnitConversion.MphToWorldSpeed, n.Club!.ClubSpeed, 12);
+        Assert.Equal(0.2 * UnitConversion.InchesToWorld, n.Club.ImpactToeUnits, 12);
         Assert.Contains(n.Warnings, w => w.Contains("Club path"));
         Assert.False(LaunchMonitorAdapter.NormalizeClubDelivery(new LaunchMonitorInput { FaceAngleDegrees = 2 }).IsValid);
     }
@@ -109,7 +109,7 @@ public class EngineTests
         var r = new GolfPhysicsEngine().SimulateShot(new SimulationRequest
         {
             Club = ClubProperties.Driver,
-            Input = new LaunchMonitorInput { ClubSpeedMph = 105, AttackAngleDegrees = 2, DynamicLoftDegrees = 14, ClubPathDegrees = 0, FaceAngleDegrees = 0, ImpactToeMillimetres = 0 },
+            Input = new LaunchMonitorInput { ClubSpeedMph = 105, AttackAngleDegrees = 2, DynamicLoftDegrees = 14, ClubPathDegrees = 0, FaceAngleDegrees = 0, ImpactToeInches = 0 },
         });
         Assert.NotNull(r.Impact);
     }

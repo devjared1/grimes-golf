@@ -8,20 +8,20 @@ namespace GrimesGolf.Tests;
 /// <summary>A ball reaching a bunker runs into the sand as far as its pace takes it, but can't roll out again.</summary>
 public class SandTests
 {
-    private static double Yd(double yards) => yards * Units.YardsToMetres;
+    private static double Yd(double yards) => yards * Units.YardsToWorld;
 
     /// <summary>On the par 3's green, just above its front-left bunker (at 152, −15 yd), rolled toward it.</summary>
-    private static ShotOutcome RollTowardTheBunker(double metresPerSecond)
+    private static ShotOutcome RollTowardTheBunker(double unitsPerSecond)
     {
-        var round = new HoleRound(TestCourse.Holes, rules: HouseRules.Strict with { GimmeMetres = 0 });
+        var round = new HoleRound(TestCourse.Holes, rules: HouseRules.Strict with { GimmeUnits = 0 });
         round.StartHole(1);
         var from = new P2(Yd(152), Yd(-6));
         Assert.Equal(Lie.Green, round.Hole.LieAt(from));
         round.Restore(new HoleRound.State(1, from, Lie.Green, 1, false, null));
-        return round.Play(new RangeShot(metresPerSecond * Units.MsToMph, 1, 0, 0, 0, null, null), putt: true, headingRad: -Math.PI / 2);
+        return round.Play(new RangeShot(unitsPerSecond * Units.WorldSpeedToMph, 1, 0, 0, 0, null, null), putt: true, headingRad: -Math.PI / 2);
     }
 
-    /// <summary>How far the ball went on from where it first reached the sand (m).</summary>
+    /// <summary>How far the ball went on from where it first reached the sand (wu).</summary>
     private static double IntoTheSand(ShotOutcome o, Hole hole)
     {
         var entry = o.Flight.Points.First(p => hole.LieAt(new P2(p.X, p.Z)) == Lie.Bunker);
@@ -35,11 +35,11 @@ public class SandTests
         Assert.Equal(Lie.Bunker, o.RestLie);
         var hole = TestCourse.Holes[1];
         double gentle = IntoTheSand(o, hole);
-        Assert.True(gentle > 0.1, $"stopped {gentle:0.00} m into the sand");
+        Assert.True(gentle > 0.1, $"stopped {gentle:0.00} wu into the sand");
 
         // Faster in, further in.
         double firmer = IntoTheSand(RollTowardTheBunker(6.5), hole);
-        Assert.True(firmer > gentle, $"{firmer:0.00} m vs {gentle:0.00} m");
+        Assert.True(firmer > gentle, $"{firmer:0.00} wu vs {gentle:0.00} wu");
     }
 
     [Fact]

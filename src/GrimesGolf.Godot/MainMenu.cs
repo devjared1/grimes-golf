@@ -528,7 +528,7 @@ public partial class MainMenu : Control
     /// <summary>Which monitor is connected ("Garmin Approach R10"), over its status (null: none).</summary>
     public void SetMonitorName(string? name) => _monitorCaption.Text = name == null ? "Launch monitor" : $"Launch monitor  ·  {name}";
 
-    /// <summary>Monitor status as in the top bar ("Ready — hit!", "Not connected", ...) with its colour (the dot beside it).</summary>
+    /// <summary>Monitor status as in the top bar ("Ready — hit!", "Not connected", ...) with its color (the dot beside it).</summary>
     public void SetMonitorStatus(string text, Color accent)
     {
         _monitorText.Text = text;

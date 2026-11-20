@@ -52,7 +52,7 @@ public static class CourseFingerprint
         {
             sb.Append($"T|{terrain.CountX}|{terrain.CountZ}|{F(terrain.Cell)}|{F(terrain.Datum)}|{P(terrain.Origin)}\n");
             Flush();
-            // Every height, to the centimetre (as whole numbers: this is the bulk of it, and a big course has millions).
+            // Every height, to the hundredth of a world unit (as whole numbers: this is the bulk of it, and a big course has millions).
             var row = new int[terrain.CountZ];
             for (int i = 0; i < terrain.CountX; i++)
             {

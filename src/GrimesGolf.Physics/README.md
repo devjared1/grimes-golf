@@ -21,8 +21,8 @@ FlightResults shot = engine.SimulateShot(new SimulationRequest
                                      BackspinRpm = 2600, SpinAxisDegrees = 0 },
     Environment = new EnvironmentConditions
     {
-        Atmosphere = new AtmosphericConditions { TemperatureCelsius = 20, AltitudeMetres = 150, RelativeHumidityPercent = 50 },
-        Wind = Wind.Uniform(10 * UnitConversion.MphToMetresPerSecond, fromDegrees: 270),
+        Atmosphere = new AtmosphericConditions { TemperatureCelsius = 20, AltitudeUnits = 500 * UnitConversion.FeetToWorld, RelativeHumidityPercent = 50 },
+        Wind = Wind.Uniform(10 * UnitConversion.MphToWorldSpeed, fromDegrees: 270),
     },
     Terrain = new FlatTerrain(Surfaces.Fairway),
 });
@@ -48,13 +48,13 @@ inconsistent inputs) and diagnostics are returned in `FlightResults.Diagnostics`
 
 | | |
 |---|---|
-| Units | SI inside (m, s, kg, rad, rad/s). Convert at the boundary with `UnitConversion`; `LaunchMonitorInput` takes mph/degrees/rpm. |
+| Units | World units (wu) for lengths and wu/s for speeds, with kg, s, rad and rad/s: 1 wu is 1.0936 yd (see the Units note in docs/development.md).  Convert at the boundary with `UnitConversion`; `LaunchMonitorInput` takes mph/degrees/rpm. |
 | World frame | X right, Y forward, Z up. Terrain and wind are in this frame. |
 | Aim | `SimulationOptions.AimHeadingDegrees`: clockwise from +Y. Launch direction is relative to it. |
-| Signs | Launch direction, club path, face angle: + = right. Spin axis and sidespin: + = ball curves right. Attack: + = up. Impact location: + = toward the toe / above face centre. |
+| Signs | Launch direction, club path, face angle: + = right. Spin axis and sidespin: + = ball curves right. Attack: + = up. Impact location: + = toward the toe / above face center. |
 | Spin vector | Backspin for a ball going +Y points along +X (lift = ω × v is upward). |
 | Wind | Direction the wind blows *from*, clockwise from +Y: 0° headwind, 180° tailwind, 90° from the right. |
-| Ball position | Ball centre. It rests one radius above the ground along the normal. |
+| Ball position | Ball center. It rests one radius above the ground along the normal. |
 | Precision | `double` throughout. Deterministic: same inputs give bit-identical results, including in batches. |
 
 ## Layout
@@ -106,7 +106,7 @@ The step where the ball reaches the ground is bisected to find the contact time.
 * Spin decay: τ = −½ρ C_M A v² r ω̂ with C_M = k·S.
 
 **Atmosphere.** Station pressure from sea-level pressure and altitude (ISA barometric formula) unless given.
-Moist-air density ρ = (p − e)/(R_d T) + e/(R_v T) with Buck (1981) saturation vapour pressure. Sutherland
+Moist-air density ρ = (p − e)/(R_d T) + e/(R_v T) with Buck (1981) saturation vapor pressure. Sutherland
 viscosity. Altitude acts only through density.
 
 **Wind.** `UniformWind`, `PowerLawWindProfile` (v ∝ h^α), `TabulatedWindProfile` (layers), and `GustingWind`
@@ -124,8 +124,8 @@ Two turf effects shape the first, hard landing on clean lies (`ImpactSkidSpeed`,
   spin doesn't count. A fast landing skids through the impact, keeping much of its backspin, and the turf grips on
   the next, slower touch. Full shots hop forward 1-2 times, then check, spin back or release, depending on spin.
   Without it (v_skid = 0) a green grabs a full iron or wedge on its first touch and throws it straight back.
-* **Turf drag.** The ball loses a share of its speed along the ground, pushed back through its centre so its spin is
-  unchanged: the full share when it lands at least 12 m/s into the ground, proportionally less on gentler bounces.
+* **Turf drag.** The ball loses a share of its speed along the ground, pushed back through its center so its spin is
+  unchanged: the full share when it lands at least 12 wu/s into the ground, proportionally less on gentler bounces.
   Low, spinning wedges skip, then stop, because they reach the next touch slow enough for their backspin to win.
 
 Check and spin-back come mostly from the crater, helped by turf drag. A deeper crater (a softer, more receptive
@@ -150,12 +150,12 @@ a = (g_t + a_air)/(1 + k) − μ_r(v) g cosθ v̂ (+ grain). With μ_r = 0 this 
 ball rests when it's slow and the slope can't overcome rolling resistance. Air drag applies during the roll.
 
 **Impact.** 3D impulse between a free rigid club head (mass, CG depth/height, MOIs) and the ball. Linear and
-angular momentum are conserved. COR (with off-centre loss) on the normal, and Coulomb friction with tangential
-restitution on the face. Gear effect, off-centre speed loss and face-to-path start/curve follow from the solution:
+angular momentum are conserved. COR (with off-center loss) on the normal, and Coulomb friction with tangential
+restitution on the face. Gear effect, off-center speed loss and face-to-path start/curve follow from the solution:
 the start line is about 88 % face, 12 % path.
 
 **Putting.** The same roll model, started on the ground (optionally skidding). The green's rolling resistance is
-calibrated numerically so the engine's own roll of a Stimpmeter ball (1.83 m/s exit) covers the Stimp distance.
+calibrated numerically so the engine's own roll of a Stimpmeter ball (1.83 wu/s exit) covers the Stimp distance.
 Variable green speed comes from the terrain's surface map.
 
 ## Provisional coefficients (calibrate before relying on them)
@@ -164,15 +164,15 @@ Variable green speed comes from the terrain's surface map.
 |---|---|---|
 | C_D, C_L tables (Re × S) | `DefaultAerodynamics` | Smooth fits that follow published trends (Bearman & Harvey 1976; Smits & Smith 1994). Lift shape chosen against tour averages. |
 | Spin-decay slope k = 0.012 | `DefaultAerodynamics` | Gives a few % spin loss per second (order commonly reported). Not fitted to measured decay. |
-| Surface presets other than the green | `Surfaces` | Judgement scalings of Penner's green, giving the expected ordering only. |
+| Surface presets other than the green | `Surfaces` | Judgment scalings of Penner's green, giving the expected ordering only. |
 | Green friction 0.5, tangential restitution 0.3, firmness 0.4 | `GreenModel` | Chosen so a tour PW spins back ~3 yd on a receptive green, a 7-iron stops and a low-spin chip releases. |
-| Fairway tangential restitution 0.1; hard ground restitution ×1.25 | `Surfaces` | Judgement. |
-| Skid 5 m/s (green, fringe), 7 m/s (fairway); turf drag 0.3 (green, fringe), full at 12 m/s | `GreenModel`, `Surfaces` | Judgement, against how full shots are seen to land: PW hops ~1-3 yd then checks, 7-iron hops and releases, high wedges pop up and spin back, low spinning wedges skip and stop. No turf drag on fairways (it cut drives' roll). |
-| Lie responses and slope factors | `LieModel.Default` | Judgement, comparable to what golf simulators apply; not measured. |
-| Firmness/moisture sensitivities | `SurfaceProperties` | Judgement. |
+| Fairway tangential restitution 0.1; hard ground restitution ×1.25 | `Surfaces` | Judgment. |
+| Skid 5 wu/s (green, fringe), 7 wu/s (fairway); turf drag 0.3 (green, fringe), full at 12 wu/s | `GreenModel`, `Surfaces` | Judgment, against how full shots are seen to land: PW hops ~1-3 yd then checks, 7-iron hops and releases, high wedges pop up and spin back, low spinning wedges skip and stop. No turf drag on fairways (it cut drives' roll). |
+| Lie responses and slope factors | `LieModel.Default` | Judgment, comparable to what golf simulators apply; not measured. |
+| Firmness/moisture sensitivities | `SurfaceProperties` | Judgment. |
 | Grain | `SurfaceProperties.GrainStrength` | Uncalibrated (default 0). |
-| Stimpmeter exit speed 1.83 m/s | `GreenModel` | Approximation of the ramp physics. |
-| Club presets (COR, friction, tangential restitution, effective mass) | `ClubProperties` | Tuned so tour-average delivery gives tour-average ball speed, launch and spin. The driver's negative e_t absorbs face bulge/roll, which isn't modelled. |
+| Stimpmeter exit speed 1.83 wu/s | `GreenModel` | Approximation of the ramp physics. |
+| Club presets (COR, friction, tangential restitution, effective mass) | `ClubProperties` | Tuned so tour-average delivery gives tour-average ball speed, launch and spin. The driver's negative e_t absorbs face bulge/roll, which isn't modeled. |
 
 ## Calibration and validation
 
@@ -197,12 +197,12 @@ weather), calibrate on a training subset, and report on the rest. Do the same fo
 and greens (Stimp vs. measured putts).
 
 `ReferenceShotTests.RegressionBaseline` pins carry, apex, landing, total and lateral for fixed shots. Update it
-only for intended behaviour changes.
+only for intended behavior changes.
 
 ## Known limitations
 
 * The ball stays in contact over crests during the roll (no ground-curvature lift-off). Spin about the surface
   normal is dropped once the ball is rolling.
-* The shaft and the face's bulge and roll are not modelled in the impact.
+* The shaft and the face's bulge and roll are not modeled in the impact.
 * Air density is uniform over the shot (density at launch altitude).
 * Heightmap normals come from central differences of the bilinear surface.

@@ -216,7 +216,7 @@ public partial class Hud : Control
     public bool LeftHanded => _leftHanded.ButtonPressed;
     public bool DrawerOpen => _drawer.Visible;
 
-    /// <summary>Screen area covered by UI in the current mode (left, top, right, bottom), for centring the 3D view.</summary>
+    /// <summary>Screen area covered by UI in the current mode (left, top, right, bottom), for centering the 3D view.</summary>
     public (float Left, float Top, float Right, float Bottom) ViewInsets =>
         _courseMode ? (0, TopInset, 0, ShotPanelHeight + 24) : (0, TopInset, RightColumnWidth + 24, RangeBarHeight);
 
@@ -329,7 +329,7 @@ public partial class Hud : Control
         _playerChip.Pressed += () => PlayerChipPressed?.Invoke();
         h.AddChild(_playerChip);
 
-        // Monitor status (state and battery, with a coloured accent for readiness). Opens the monitor drawer.
+        // Monitor status (state and battery, with a colored accent for readiness). Opens the monitor drawer.
         _monitorChip = new Button { TooltipText = "Launch monitor  [L]", CustomMinimumSize = new Vector2(250, 0), Alignment = HorizontalAlignment.Left };
         _monitorChip.Pressed += ToggleDrawer;
         h.AddChild(_monitorChip);
@@ -434,7 +434,7 @@ public partial class Hud : Control
 
     /// <summary>
     /// Online play's own line under the top bar (so it never fights the monitor's banner): whose turn it is, and in
-    /// a warning colour when something's wrong (a dropped player, the host gone). Null hides it.
+    /// a warning color when something's wrong (a dropped player, the host gone). Null hides it.
     /// </summary>
     public void SetOnlineLine(string? text, bool warning)
     {
@@ -639,7 +639,7 @@ public partial class Hud : Control
             Shot.Hit.Text = "HIT SHOT";
             Shot.Hit.Disabled = false;
         }
-        // A course has no top bar: the Ready light becomes a small pill at the bottom centre, and the drawer reaches the top.
+        // A course has no top bar: the Ready light becomes a small pill at the bottom center, and the drawer reaches the top.
         _topBar.Visible = !course && !_menuShown;
         Control readyParent = course ? _readySlot : _readyHome;
         if (_readyLight.GetParent() != readyParent)

@@ -24,10 +24,10 @@ public class PracticeGreenTests(ITestOutputHelper output)
         foreach (var hole in g.Holes)
         {
             Assert.Equal(Lie.Green, hole.LieAt(hole.Pin));
-            Assert.True(green.DistanceTo(hole.Pin) < -3, $"{hole.Name} is {-green.DistanceTo(hole.Pin):0.0} m inside the edge");
-            // A cup's neighbours are far enough off that a putt at one doesn't roll over another.
+            Assert.True(green.DistanceTo(hole.Pin) < -3, $"{hole.Name} is {-green.DistanceTo(hole.Pin):0.0} wu inside the edge");
+            // A cup's neighbors are far enough off that a putt at one doesn't roll over another.
             foreach (var other in g.Holes.Where(h => h != hole))
-                Assert.True(hole.Pin.DistanceTo(other.Pin) > 5, $"{hole.Name} and {other.Name} are {hole.Pin.DistanceTo(other.Pin):0.0} m apart");
+                Assert.True(hole.Pin.DistanceTo(other.Pin) > 5, $"{hole.Name} and {other.Name} are {hole.Pin.DistanceTo(other.Pin):0.0} wu apart");
             // The aim starts at the cup, not at a tee shot's landing area.
             Assert.Equal(hole.Pin, hole.TeeAim);
         }
@@ -128,7 +128,7 @@ public class PracticeGreenTests(ITestOutputHelper output)
         var terrain = g.Course.Terrain!;
         foreach (var bunker in g.Holes[0].Bunkers.Cast<Ellipse>())
             Assert.True(terrain.HeightAt(bunker.Center) < terrain.HeightAt(bunker.Center + new P2(bunker.RadiusX + 2.5, 0)) - 0.25,
-                "the sand floor should lie below the grass round it");
+                "the sand floor should lie below the grass around it");
     }
 
     [Theory, MemberData(nameof(Kinds))]
@@ -150,7 +150,7 @@ public class PracticeGreenTests(ITestOutputHelper output)
         var g = PracticeGreen.Of(PracticeKind.Putting);
         var round = new HoleRound(g.Holes, g.Course.Terrain, PracticeGreen.Rules);
         round.Place(round.Hole.Pin + new P2(-0.04, 0));   // a ball resting an inch from the cup falls in at the first touch
-        var o = round.Play(new RangeShot(1.5 * Units.MsToMph, 0, 0, 0, 0, null, null), putt: true, HoleRound.Heading(round.Ball, round.Hole.Pin));
+        var o = round.Play(new RangeShot(1.5 * Units.WorldSpeedToMph, 0, 0, 0, 0, null, null), putt: true, HoleRound.Heading(round.Ball, round.Hole.Pin));
         Assert.True(o.Holed);
         Assert.True(round.Holed);
         round.Place(g.Spots[0].At);
@@ -165,8 +165,8 @@ public class PracticeGreenTests(ITestOutputHelper output)
         var g = PracticeGreen.Of(PracticeKind.Putting);
         var round = new HoleRound(g.Holes, g.Course.Terrain, PracticeGreen.Rules);
         round.Place(round.Hole.Pin + new P2(-0.45, 0));
-        // A putt that stops half a metre short isn't tapped in: practice holes everything out.
-        var o = round.Play(new RangeShot(Math.Sqrt(2 * 0.55 * 0.3) * Units.MsToMph, 0, 0, 0, 0, null, null), putt: true, HoleRound.Heading(round.Ball, round.Hole.Pin));
+        // A putt that stops half a world unit short isn't tapped in: practice holes everything out.
+        var o = round.Play(new RangeShot(Math.Sqrt(2 * 0.55 * 0.3) * Units.WorldSpeedToMph, 0, 0, 0, 0, null, null), putt: true, HoleRound.Heading(round.Ball, round.Hole.Pin));
         Assert.False(o.Holed);
         Assert.False(round.Holed);
     }
@@ -186,7 +186,7 @@ public class PracticeGreenTests(ITestOutputHelper output)
     public void NextHoleGoesLeftToRightAndRoundAgain()
     {
         var g = PracticeGreen.Of(PracticeKind.Putting);
-        // From the front centre the holes read left to right by their cross-green position; going right six times is a full circle.
+        // From the front center the holes read left to right by their cross-green position; going right six times is a full circle.
         var ball = new P2(-14.5, 0.5);
         int hole = 0;
         var seen = new List<int>();
@@ -242,7 +242,7 @@ public class PracticeGreenTests(ITestOutputHelper output)
         round.Place(spot);
         var far = round.ReadPutt();
         Assert.True(round.DistanceToPin > 2 * g.Holes[0].Pin.DistanceTo(spot) * 0.9);
-        Assert.True(far.Speed > near.Speed * 1.4, $"read at the far hole: {far.Speed:0.0} m/s, near: {near.Speed:0.0} m/s");
+        Assert.True(far.Speed > near.Speed * 1.4, $"read at the far hole: {far.Speed:0.0} wu/s, near: {near.Speed:0.0} wu/s");
     }
 
     [Fact]
@@ -262,7 +262,7 @@ public class PracticeGreenTests(ITestOutputHelper output)
                 var read = round.ReadPutt();
                 if (Math.Abs(Math.Sin(read.Heading - HoleRound.Heading(round.Ball, hole.Pin)) * d) > 0.15) broken++;
             }
-        output.WriteLine($"{broken} of the putts between 3 and 12 m play more than 15 cm of break");
+        output.WriteLine($"{broken} of the putts between 3 and 12 wu play more than 6 in of break");
         Assert.True(broken >= 4, $"only {broken}");
     }
 }
@@ -270,7 +270,7 @@ public class PracticeGreenTests(ITestOutputHelper output)
 public class PracticeStatsTests
 {
     private static PracticeAttempt Ball(double feet, int strokes, double leaveFeet = 0) =>
-        new(feet * Units.FeetToMetres, strokes, leaveFeet * Units.FeetToMetres);
+        new(feet * Units.FeetToWorld, strokes, leaveFeet * Units.FeetToWorld);
 
     [Fact]
     public void AnEmptySessionHasNothingToReport()
@@ -278,7 +278,7 @@ public class PracticeStatsTests
         var stats = new PracticeStats();
         Assert.Equal(0, stats.Balls);
         Assert.Equal(0, stats.AverageStrokes);
-        Assert.Null(stats.AverageLeaveMetres);
+        Assert.Null(stats.AverageLeaveUnits);
         var lines = stats.Lines(PracticeKind.Putting).ToDictionary(l => l.Caption, l => l.Value);
         Assert.Equal("0", lines["Holed out"]);
         Assert.Equal("–", lines["1-putts"]);
@@ -300,9 +300,9 @@ public class PracticeStatsTests
         Assert.Equal(1, stats.ThreeOrMore);
         Assert.Equal(3, stats.TwoOrFewer);
         Assert.Equal(1.75, stats.AverageStrokes, 3);
-        Assert.Equal(15 * Units.FeetToMetres, stats.LongestFirstStrokeMetres, 3);
+        Assert.Equal(15 * Units.FeetToWorld, stats.LongestFirstStrokeUnits, 3);
         // The leave is averaged over the balls the first stroke didn't hole.
-        Assert.Equal(6 * Units.FeetToMetres, stats.AverageLeaveMetres!.Value, 3);
+        Assert.Equal(6 * Units.FeetToWorld, stats.AverageLeaveUnits!.Value, 3);
         var lines = stats.Lines(PracticeKind.Putting).ToDictionary(l => l.Caption, l => l.Value);
         Assert.Equal("4", lines["Holed out"]);
         Assert.Equal("2  ·  50%", lines["1-putts"]);

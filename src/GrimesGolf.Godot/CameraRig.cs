@@ -4,7 +4,7 @@ namespace GrimesGolf.Game;
 
 /// <summary>
 /// Main camera. Rests at a "home" pose behind the ball looking along the aim line; in Follow mode it chases the
-/// ball, holds on it after it stops, then glides back home. Before a shot, <see cref="SetLandingView"/> takes it
+/// ball (after letting it go for a second or two), holds on it after it stops, then glides back home. Before a shot, <see cref="SetLandingView"/> takes it
 /// down the aim line to look at where the ball will land. <see cref="Flyover"/> flies down a hole from behind the
 /// tee to the green.
 /// </summary>
@@ -12,9 +12,9 @@ public partial class CameraRig : Camera3D
 {
     private const double HoldSeconds = 2.5;
     private const float FovDegrees = 55;
-    /// <summary>Landing view: how far short of the landing spot (m) and how high above it the camera sits.</summary>
+    /// <summary>Landing view: how far short of the landing spot (wu) and how high above it the camera sits.</summary>
     public const float LandingBack = 38, LandingUp = 20;
-    /// <summary>Flyover: height above the ground (m), how far ahead it looks (m), speed (m/s) and how long it holds over the green (s).</summary>
+    /// <summary>Flyover: height above the ground (wu), how far ahead it looks (wu), speed (wu/s) and how long it holds over the green (s).</summary>
     private const float FlyHeight = 30, FlyLookAhead = 90, FlySpeed = 55;
     private const double FlyHold = 1.2;
 
@@ -75,7 +75,7 @@ public partial class CameraRig : Camera3D
 
     private static Vector3 Flat(Vector3 v) => new(v.X, 0, v.Z);
 
-    /// <summary>The point <paramref name="s"/> metres along the flyover route (before its start: back behind the tee).</summary>
+    /// <summary>The point <paramref name="s"/> world units along the flyover route (before its start: back behind the tee).</summary>
     private Vector3 Along(float s)
     {
         var p = _fly!;
@@ -106,7 +106,7 @@ public partial class CameraRig : Camera3D
 
     private float Ground(Vector3 at) => GroundAt?.Invoke(at) ?? 0f;
 
-    /// <summary>Screen units covered by UI on each side; the view is centred on the remaining area.</summary>
+    /// <summary>Screen units covered by UI on each side; the view is centered on the remaining area.</summary>
     public (float Left, float Top, float Right, float Bottom) Insets { get; set; }
 
     public void Init(ShotPlayer player)
@@ -123,14 +123,14 @@ public partial class CameraRig : Camera3D
     }
 
     /// <summary>
-    /// How near the camera sits for a shot of <paramref name="metres"/>: 0 for a short one (a pitch or a chip, framed
+    /// How near the camera sits for a shot of <paramref name="units"/>: 0 for a short one (a pitch or a chip, framed
     /// close), 1 for a long one (a full iron or more).
     /// </summary>
-    private static float Reach(float metres) => Mathf.Clamp((metres - 20f) / 160f, 0f, 1f);
+    private static float Reach(float units) => Mathf.Clamp((units - 20f) / 160f, 0f, 1f);
 
     /// <summary>
     /// Home pose behind <paramref name="ball"/> looking along <paramref name="aim"/> (horizontal unit vector), for a
-    /// shot of about <paramref name="shotLength"/> metres: nearer the ball and looking less far ahead for a short one.
+    /// shot of about <paramref name="shotLength"/> world units: nearer the ball and looking less far ahead for a short one.
     /// </summary>
     public void SetHome(Vector3 ball, Vector3 aim, bool putting, bool snap = false, float shotLength = 150f)
     {
@@ -167,17 +167,121 @@ public partial class CameraRig : Camera3D
         LookAt(_look, Vector3.Up);
     }
 
+    /// <summary>How long (s) the camera takes to pick up speed after it starts following a shot.</summary>
+    private const double SettleSeconds = 0.6;
+
+    /// <summary>
+    /// How the camera follows one kind of shot. Always directly behind the ball, in line with where it was struck;
+    /// only how far back, how long it waits, and how it sits vertically differ.
+    /// </summary>
+    /// <param name="Hold">Seconds after the strike before the camera starts following.</param>
+    /// <param name="Back">Distance behind the ball (wu): kept large, so the shot stays framed from a distance.</param>
+    /// <param name="Rise">While the ball climbs, the camera sits this fraction of the ball's height below it.</param>
+    /// <param name="Above">Once the ball is coming down (and rolling), the camera sits this far above it (wu).</param>
+    /// <param name="Clear">The camera never goes lower than this above the ground (wu).</param>
+    private readonly record struct FollowStyle(double Hold, float Back, float Rise, float Above, float Clear);
+
+    private static readonly FollowStyle FullStyle = new(1.25, 30f, 0f, 15f, 2.0f);
+    private static readonly FollowStyle PitchStyle = new(1.0, 17f, 0f, 8f, 2.0f);
+    private static readonly FollowStyle ChipStyle = new(1.0, 11f, 0f, 3.5f, 1.8f);
+
+    /// <summary>Carry (wu) below which a shot is a chip, and below which it's a pitch; beyond that it's a full shot.</summary>
+    private const float ChipCarry = 22f, PitchCarry = 70f;
+
+    private static FollowStyle StyleFor(float carryUnits) =>
+        carryUnits < ChipCarry ? ChipStyle : carryUnits < PitchCarry ? PitchStyle : FullStyle;
+
+    /// <summary>
+    /// Where the camera wants to be and look while following the ball in the air or rolling out: on the line from
+    /// where the ball was struck through the ball (so a hook or a slice is followed round, not cut across), back by
+    /// <see cref="FollowStyle.Back"/>; below the ball while it climbs, above it once it comes down.
+    /// </summary>
+    private (Vector3 Pos, Vector3 Look) FollowPose(FollowStyle style)
+    {
+        var ball = _player.BallPosition;
+        var line = Flat(ball - _player.ShotStart);
+        // Right after the strike the ball is too close to its start for that line to mean much: use the aim.
+        float away = Mathf.SmoothStep(0, 1, Mathf.Clamp(line.Length() / 10f, 0f, 1f));
+        var dir = _player.ShotDirection.Lerp(line.LengthSquared() > 1e-4f ? line.Normalized() : _player.ShotDirection, away).Normalized();
+
+        // Vertical: 0 while the ball is still climbing, 1 once it's over the top and coming down, eased in just before the apex, so the camera is already over the ball as it starts down.
+        float down = Mathf.SmoothStep(0, 1, Mathf.Clamp((float)(_player.ShotTime - _player.ApexTime + 0.9) / 1.2f, 0f, 1f));
+        float height = Mathf.Max(ball.Y - Ground(ball), 0f);
+        float offset = Mathf.Lerp(-style.Rise * height, style.Above, down);
+
+        var pos = ball - dir * style.Back;
+        pos.Y = Mathf.Max(ball.Y + offset, Ground(pos) + style.Clear);
+
+        // Aim: just past the ball while it climbs; once it's coming down, between the ball and where it will land, so
+        // the camera looks down at both.
+        var look = ball + dir * 3f;
+        var toLanding = Flat(_player.LandingPoint - ball);
+        float ahead = toLanding.Dot(dir);
+        if (ahead > 0f)
+        {
+            var mid = ball + toLanding * 0.5f;
+            mid.Y = Ground(mid);
+            look = look.Lerp(mid, down * Mathf.SmoothStep(0, 1, Mathf.Clamp(ahead / 10f, 0f, 1f)));
+        }
+        return (pos, look);
+    }
+
+    // Full-shot camera, modeled on GSPro's range camera (see FullPose). Distances in wu, times as fractions of the flight.
+    private const double FullHoldFraction = 0.17, FullHoldMin = 1.0, FullHoldMax = 2.0;
+    private const double SwoopStartFraction = 0.08;   // of the way from the apex to the landing
+    private const double SwoopFraction = 0.13, SwoopMin = 0.7;
+    private const float SwoopBack = 55f, SwoopHeight = 45f;     // where the swoop ends: high and back from the ball
+    private const float OverheadBack = 14f, OverheadHeight = 26f; // where it settles: nearly straight over the ball
+
+    /// <summary>
+    /// A full shot, as GSPro's range camera does it: it stays put at the address pose for the first second or so; then,
+    /// still in place, tilts up to keep the ball in view as it climbs and starts down; once the ball is on its way
+    /// down it swoops up and forward to a high spot behind the landing area, looking down at it with the ball dropping
+    /// in; and it then drifts down and in to nearly overhead, following the ball as it rolls out. Null: stay at home.
+    /// </summary>
+    private (Vector3 Pos, Vector3 Look, float Rate)? FullPose()
+    {
+        double t = _player.ShotTime, land = _player.LandTime, apex = _player.ApexTime;
+        if (land <= 0 || t < Math.Clamp(FullHoldFraction * land, FullHoldMin, FullHoldMax)) return null;
+
+        var ball = _player.BallPosition;
+        double swoopStart = apex + SwoopStartFraction * (land - apex);
+        double swoopEnd = Math.Min(swoopStart + Math.Max(SwoopFraction * land, SwoopMin), land - 0.2);
+        if (t < swoopStart) return (_homePos, ball, 10f);
+
+        var g = t < land ? _player.LandingPoint : ball;     // the ground spot it looks toward: where the ball comes down
+        g.Y = Ground(g);
+        var onGround = ball;                                 // ...and the camera sits behind the ball, so it always has the ball in view
+        onGround.Y = Ground(ball);
+        var line = Flat(g - _player.ShotStart);
+        var dir = line.LengthSquared() > 1e-4f ? line.Normalized() : _player.ShotDirection;
+        Vector3 Pose(float back, float height) { var p = onGround - dir * back; p.Y = onGround.Y + height; return p; }
+
+        var far = Pose(SwoopBack, SwoopHeight);
+        if (t < swoopEnd)
+        {
+            float s = Mathf.SmoothStep(0, 1, (float)((t - swoopStart) / (swoopEnd - swoopStart)));
+            float up = 1f - (1f - s) * (1f - s);   // gets up in the air ahead of the move forward
+            var pos = new Vector3(Mathf.Lerp(_homePos.X, far.X, s), Mathf.Lerp(_homePos.Y, far.Y, up), Mathf.Lerp(_homePos.Z, far.Z, s));
+            return (pos, ball.Lerp(g, 0.5f * s), 20f);
+        }
+
+        float u = Mathf.SmoothStep(0, 1, Mathf.Clamp((float)((t - swoopEnd) / (land + 0.5 - swoopEnd)), 0f, 1f));
+        var settled = Pose(Mathf.Lerp(SwoopBack, OverheadBack, u), Mathf.Lerp(SwoopHeight, OverheadHeight, u));
+        return t < land ? (settled, ball.Lerp(g, 0.5f), 20f) : (settled, ball, 2.5f);
+    }
+
     public override void _Process(double delta)
     {
         if (_player == null) return;
 
-        // Off-axis projection: shift the optical centre to the middle of the area not covered by panels.
+        // Off-axis projection: shift the optical center to the middle of the area not covered by panels.
         float h = GetViewport().GetVisibleRect().Size.Y;
         if (h > 0) FrustumOffset = new Vector2(-(Insets.Left - Insets.Right) / 2, -(Insets.Bottom - Insets.Top) / 2) * (Size / h);
         if (_fly != null) { Fly(delta); return; }
 
         Vector3 wantPos = _homePos, wantLook = _homeLook;
-        float rate = 1.8f;
+        float rate = 1.8f, lookGain = 1.6f, heightGain = 1f;
 
         bool tracking = Follow && (_player.IsPlaying || _player.IdleSeconds < HoldSeconds);
         if (_landing is { } land)
@@ -187,24 +291,43 @@ public partial class CameraRig : Camera3D
             wantLook = land + _landingDir * 6f;
             rate = 2.2f;
         }
-        else if (tracking)
+        else if (tracking && _player.CarryUnits <= 0)
         {
+            // A putt (or anything rolled along the ground): close behind and a little above the ball.
             var ball = _player.BallPosition;
             var dir = _player.ShotDirection;
-            // Stay behind and above the ball along the shot line: much closer for a putt, and closer for a short
-            // shot than a long one (backing off as the ball climbs).
-            float reach = Reach(_player.ShotLength);
-            float back = _putting ? 5.5f : Mathf.Lerp(8f, 17f, reach) + ball.Y * 0.4f;
-            float up = _putting ? 2.2f : Mathf.Lerp(2.6f, 4.8f, reach) + ball.Y * 0.5f;
-            wantPos = ball - dir * back + new Vector3(0, up, 0);
-            wantPos.Y = Mathf.Max(wantPos.Y, Ground(wantPos) + (_putting ? 1.4f : Mathf.Lerp(1.8f, 3f, reach)));
-            wantLook = ball + dir * (_putting ? 2.5f : Mathf.Lerp(4f, 8f, reach));
+            wantPos = ball - dir * 5.5f + new Vector3(0, 2.2f, 0);
+            wantPos.Y = Mathf.Max(wantPos.Y, Ground(wantPos) + 1.4f);
+            wantLook = ball + dir * 2.5f;
             rate = 3.2f;
+        }
+        else if (tracking && _player.CarryUnits >= PitchCarry)
+        {
+            if (FullPose() is { } full)
+            {
+                (wantPos, wantLook, rate) = full;
+                lookGain = 1f;
+            }
+        }
+        else if (tracking)
+        {
+            // Held at home for the first second or two (the ball is hit, and the camera lets it go), then eased onto
+            // the follow pose.
+            var style = StyleFor(_player.CarryUnits);
+            float settle = (float)((_player.ShotTime - style.Hold) / SettleSeconds);
+            if (settle >= 0)
+            {
+                (wantPos, wantLook) = FollowPose(style);
+                heightGain = 2f;   // gets up to the ball's height ahead of the sideways sweep, so it never looks up at it from underneath
+                lookGain = 3.5f;   // the aim keeps the ball centered even while the camera itself eases along
+                rate = Mathf.Lerp(2.0f, 6.0f, Mathf.SmoothStep(0, 1, Mathf.Clamp(settle, 0f, 1f)));
+            }
         }
 
         float k = 1f - Mathf.Exp(-rate * (float)delta);
-        Position = Position.Lerp(wantPos, k);
-        _look = _look.Lerp(wantLook, Mathf.Min(1f, k * 1.6f));
+        float ky = Mathf.Min(1f, k * heightGain);
+        Position = new Vector3(Mathf.Lerp(Position.X, wantPos.X, k), Mathf.Lerp(Position.Y, wantPos.Y, ky), Mathf.Lerp(Position.Z, wantPos.Z, k));
+        _look = _look.Lerp(wantLook, Mathf.Min(1f, k * lookGain));
         if (Position.DistanceSquaredTo(_look) > 0.01f) LookAt(_look, Vector3.Up);
     }
 }

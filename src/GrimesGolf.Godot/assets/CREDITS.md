@@ -2,7 +2,7 @@
 
 All assets here are CC0 (public domain): no attribution is required, but it's recorded for reference.
 
-| File | Source | Licence |
+| File | Source | License |
 |---|---|---|
 | `sky/kloofendal_48d_partly_cloudy_puresky_4k.hdr` | [Poly Haven: Kloofendal 48d Partly Cloudy (Pure Sky)](https://polyhaven.com/a/kloofendal_48d_partly_cloudy_puresky), by Greg Zaal | CC0 |
 | `ground/grass_color.jpg`, `ground/grass_normal.jpg` | [ambientCG: Grass 005](https://ambientcg.com/view?id=Grass005) (2K, Color and NormalGL) | CC0 |

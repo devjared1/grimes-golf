@@ -25,7 +25,7 @@ public static class Impacts
     private static StandardMaterial3D? _bits;
     private static ShaderMaterial? _puff;
 
-    /// <summary>Small solid flecks, coloured per particle.</summary>
+    /// <summary>Small solid flecks, colored per particle.</summary>
     private static StandardMaterial3D Bits => _bits ??= new()
     {
         VertexColorUseAsAlbedo = true,
@@ -51,12 +51,12 @@ public static class Impacts
         }
         """;
 
-    /// <summary>Soft round puffs (dust, spray) that fade with their colour's alpha.</summary>
+    /// <summary>Soft round puffs (dust, spray) that fade with their color's alpha.</summary>
     private static ShaderMaterial Puff => _puff ??= new() { Shader = new Shader { Code = PuffShader } };
 
     /// <summary>
-    /// The burst for a ball landing at <paramref name="at"/> (on the ground) on <paramref name="lie"/>, travelling
-    /// along <paramref name="dir"/> (horizontal unit vector) and coming down at <paramref name="fall"/> m/s.
+    /// The burst for a ball landing at <paramref name="at"/> (on the ground) on <paramref name="lie"/>, traveling
+    /// along <paramref name="dir"/> (horizontal unit vector) and coming down at <paramref name="fall"/> wu/s.
     /// </summary>
     public static void Land(Node3D parent, Vector3 at, Lie lie, Vector3 dir, float fall)
     {
@@ -99,7 +99,7 @@ public static class Impacts
 
     /// <summary>
     /// <paramref name="count"/> particles thrown up from <paramref name="at"/>, leaning a little along <paramref name="dir"/>,
-    /// in a cone <paramref name="spread"/> degrees wide, sized and coloured between the two values given.
+    /// in a cone <paramref name="spread"/> degrees wide, sized and colored between the two values given.
     /// </summary>
     private static void Burst(Node3D parent, Vector3 at, Vector3 dir, Material material, int count, float minSize, float maxSize,
         float speed, float spread, float life, Color a, Color b, float gravity = 1f, bool fade = false)
@@ -141,7 +141,7 @@ public static class Impacts
         p.Finished += p.QueueFree;
     }
 
-    /// <summary>A ring spreading out on the water to <paramref name="radius"/> metres over <paramref name="seconds"/>.</summary>
+    /// <summary>A ring spreading out on the water to <paramref name="radius"/> world units over <paramref name="seconds"/>.</summary>
     private static void Ring(Node3D parent, Vector3 at, float radius, float seconds)
     {
         var material = new ShaderMaterial { Shader = new Shader { Code = RingShader } };

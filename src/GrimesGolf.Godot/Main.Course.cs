@@ -98,17 +98,17 @@ public partial class Main
 
     private string CourseName => _practice?.Green.Name ?? CourseLibrary.All[_courseIndex].Name;
 
-    /// <summary>The course's height above sea level (m), from its elevation data (sea level without).</summary>
-    private static double CourseAltitudeMetres(Course c) => c.Terrain?.Datum ?? 0;
+    /// <summary>The course's height above sea level (wu), from its elevation data (sea level without).</summary>
+    private static double CourseAltitudeUnits(Course c) => c.Terrain?.Datum ?? 0;
 
     /// <summary>The round's altitude, weather, fairways and greens on top of the physics tuning, and the weather's look.</summary>
     private void ApplyConditions()
     {
         var game = _game;
-        double altitude = _courseDef == null ? 0 : CourseAltitudeMetres(_courseDef);
+        double altitude = _courseDef == null ? 0 : CourseAltitudeUnits(_courseDef);
         ActivePhysics.SetConditions(t => game.ApplyTo(t, altitude));
         _weather?.Set(game.Weather);
-        Log($"Conditions: {game.Summary(_match?.Players.Count ?? 1)}; air at {game.AltitudeMetres(altitude) / Units.FeetToMetres:#,0} ft.");
+        Log($"Conditions: {game.Summary(_match?.Players.Count ?? 1)}; air at {game.AltitudeUnits(altitude) / Units.FeetToWorld:#,0} ft.");
     }
 
     /// <summary>
@@ -283,9 +283,9 @@ public partial class Main
             AddChild(_course);
         }
         SetGreenOverlay(_heatMap, _grid);
-        // The gimme circle round the hole, and auto-putting's second circle (twice as wide).
+        // The gimme circle around the hole, and auto-putting's second circle (twice as wide).
         var rules = match.Rules;
-        _course?.SetGimmeCircles(rules.GimmeMetres, rules.AutoPutt ? rules.SecondCircleMetres : 0);
+        _course?.SetGimmeCircles(rules.GimmeUnits, rules.AutoPutt ? rules.SecondCircleUnits : 0);
         _course?.SetFlagWind(match.Wind.IsCalm ? null : match.Wind.FromHeading + Math.PI);
         // With real ground the ball sits on it; on a flat course it sits on the raised green layer.
         var terrain = course.Terrain;
@@ -421,7 +421,7 @@ public partial class Main
         RaiseShotFinished(new ShotFinished(DateTime.Now, golfer, club, s, o.Flight, replay)
         {
             Course = CourseName, Hole = round.Hole, Stroke = strokesBefore + 1, Lie = before.Lie, Stance = stance,
-            ToPinYards = toPin * Units.MetresToYards, PlaysLikeYards = playsLike * Units.MetresToYards, Outcome = o,
+            ToPinYards = toPin * Units.WorldToYards, PlaysLikeYards = playsLike * Units.WorldToYards, Outcome = o,
             Match = Core.Course.ShotFinished.Standings(match),
         });
         SaveRound();   // where it finished, in case the app doesn't make it to the end of the animation
@@ -439,7 +439,7 @@ public partial class Main
         if (f.LandingIndex == 0)
         {
             // A putt (or a shot along the ground): all roll.
-            var rolled = Distance("Total", f.TotalYards * Units.YardsToMetres, short_: true);
+            var rolled = Distance("Total", f.TotalYards * Units.YardsToWorld, short_: true);
             stats.Add(rolled);
             stats.Add(rolled with { Caption = "Roll" });
         }
@@ -582,6 +582,7 @@ public partial class Main
         }
         // In the order the HUD lists them down the left (it matches them by caption).
         if (s.ClubMph is > 0 and var club) stats.Add(new Stat("Club speed", $"{club:0.0}", "mph"));
+        if (s.Smash is > 0 and var smash) stats.Add(new Stat("Smash", $"{smash:0.00}"));
         stats.Add(new Stat("Spin", $"{s.SpinRpm:0}", "rpm"));
         stats.Add(new Stat("Spin axis", RangeShot.Side(s.SpinAxisDeg) + "°"));
         stats.Add(new Stat("Direction", RangeShot.Side(s.DirectionDeg) + "°"));
@@ -590,9 +591,9 @@ public partial class Main
     }
 
     /// <summary>A distance in yards, or feet when short (putts, around the green).</summary>
-    private static Stat Distance(string caption, double metres, bool short_)
+    private static Stat Distance(string caption, double units, bool short_)
     {
-        double yd = metres * Units.MetresToYards;
+        double yd = units * Units.WorldToYards;
         return short_ || yd < 20 ? new Stat(caption, $"{yd * 3:0}", "ft") : new Stat(caption, $"{yd:0}", "yd");
     }
 
@@ -725,7 +726,7 @@ public partial class Main
         _ => "Hole halved",
     };
 
-    /// <summary>The other players' balls on the course, in their colours.</summary>
+    /// <summary>The other players' balls on the course, in their colors.</summary>
     private void ShowOtherBalls()
     {
         var match = _match;
@@ -738,9 +739,9 @@ public partial class Main
     }
 
     /// <summary>"153 yds", or "18 ft" on and around the green.</summary>
-    private static string PinDistance(double metres, bool green)
+    private static string PinDistance(double units, bool green)
     {
-        double yd = metres * Units.MetresToYards;
+        double yd = units * Units.WorldToYards;
         return green || yd < 20 ? $"{yd * 3:0} ft" : $"{yd:0} yds";
     }
 
@@ -766,8 +767,8 @@ public partial class Main
             else if (Math.Abs(feet) >= 1) elevation = $"{(rise > 0 ? "up" : "down")} {Math.Abs(feet):0}'";
         }
         // What it plays, with the rise and the wind, when that's a couple of yards or more off the distance.
-        if (!round.Holed && !green && !putting && Math.Abs(round.PlaysLike(pin) - toPinM) * Units.MetresToYards >= 2)
-            playsLike = $"Plays {round.PlaysLike(pin) * Units.MetresToYards:0} yds";
+        if (!round.Holed && !green && !putting && Math.Abs(round.PlaysLike(pin) - toPinM) * Units.WorldToYards >= 2)
+            playsLike = $"Plays {round.PlaysLike(pin) * Units.WorldToYards:0} yds";
 
         var stance = round.StanceAt(round.Ball, _aimHeading, _hud.LeftHanded);
         var preset = ClubPresets.Find(_hud.ClubCode) ?? ClubPresets.All[ClubPresets.IndexOf("I7")];
@@ -793,7 +794,7 @@ public partial class Main
         if (putting) clubNote = green ? "" : "Rolling it from off the green";
         else
         {
-            double carry = fromHere * Units.MetresToYards, cleanYd = clean * Units.MetresToYards;
+            double carry = fromHere * Units.WorldToYards, cleanYd = clean * Units.WorldToYards;
             clubNote = Math.Abs(carry - cleanYd) >= 3 ? $"Carry ≈ {carry:0} yd from here ({cleanYd:0} clean)" : $"Carry ≈ {carry:0} yd";
         }
 
@@ -804,7 +805,7 @@ public partial class Main
         double lateral = Math.Sin(off) * round.Ball.DistanceTo(target);
         string aim = round.Holed ? "" : green || putting
             ? (Math.Abs(lateral) < 0.05 ? $"At {targetName}" : $"{Math.Abs(lateral) * 39.37:0} in {(lateral > 0 ? "right" : "left")} of {targetName}")
-            : (Math.Abs(lateral) < 0.9 ? $"At {targetName}" : $"{Math.Abs(lateral) * Units.MetresToYards:0} yd {(lateral > 0 ? "right" : "left")} of {targetName}");
+            : (Math.Abs(lateral) < 0.9 ? $"At {targetName}" : $"{Math.Abs(lateral) * Units.WorldToYards:0} yd {(lateral > 0 ? "right" : "left")} of {targetName}");
 
         _hud.Shot.ShowPower();
         bool level = round.Lie == Lie.Tee || round.Holed;
@@ -856,7 +857,7 @@ public partial class Main
         _match.SetWind(CourseWind.ForHole(_game.Wind, seed, _match.Hole.Number - 1));
     }
 
-    /// <summary>"BIRDIE!" across the screen when a player holes out, in a colour for how good it was.</summary>
+    /// <summary>"BIRDIE!" across the screen when a player holes out, in a color for how good it was.</summary>
     private void CelebrateScore(Match match, HoleRound round, ShotOutcome o)
     {
         int strokes = o.Strokes, par = round.Hole.Par, diff = strokes - par;
@@ -901,7 +902,12 @@ public partial class Main
     private void AimAtMap(Vector2 mapPixel)
     {
         var at = _mapCamera.ProjectRayOrigin(mapPixel);
-        var target = new P2(-at.Z, at.X);
+        AimAtPoint(new P2(-at.Z, at.X));
+    }
+
+    /// <summary>Aims at a point on the ground (a click on the overview map or in the 3D view); on a practice green, a click near another hole picks that hole.</summary>
+    private void AimAtPoint(P2 target)
+    {
         if (!_courseMode)
         {
             if (target.X < 1) return;   // behind the tee
@@ -926,7 +932,7 @@ public partial class Main
         var round = _round;
         if (round == null || _course == null || _outcome != null) return;
         bool putting = Putter;
-        double length = Math.Max(AimDistance(round.Holed ? null : round.StanceAt(round.Ball, _aimHeading, _hud.LeftHanded)), 1);
+        double length = Math.Max(PinAimLength() ?? AimDistance(round.Holed ? null : round.StanceAt(round.Ball, _aimHeading, _hud.LeftHanded)), 1);
         var aimPoint = round.Ball + new P2(Math.Cos(_aimHeading), Math.Sin(_aimHeading)) * length;
         _course.SetAim(round.Ball, _aimHeading, length, visible: !round.Holed, showRing: !putting, landingView: _landingView);
         _course.ShowGrassAround(round.Ball);

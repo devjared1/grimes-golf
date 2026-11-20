@@ -2,7 +2,7 @@ namespace GrimesGolf.Core.Course;
 
 /// <summary>
 /// A set of holes to play. With <see cref="SharedLayout"/> the holes are parts of one mapped course: they share one
-/// coordinate frame and the same feature lists, so the whole course is drawn once and neighbouring holes are in play.
+/// coordinate frame and the same feature lists, so the whole course is drawn once and neighboring holes are in play.
 /// Otherwise each hole is drawn on its own (the test holes all start at the origin).
 /// </summary>
 public sealed record Course(string Name, IReadOnlyList<Hole> Holes)

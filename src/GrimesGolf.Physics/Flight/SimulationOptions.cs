@@ -22,13 +22,13 @@ public sealed record SimulationOptions
     public double StartX { get; init; }
     public double StartY { get; init; }
     /// <summary>Height of the bottom of the ball above the ground (tee height), m.</summary>
-    public double TeeHeightMetres { get; init; }
+    public double TeeHeightUnits { get; init; }
     /// <summary>Aim line heading, degrees clockwise from world +Y. Launch direction is relative to this.</summary>
     public double AimHeadingDegrees { get; init; }
 
-    /// <summary>A bounce whose outgoing normal speed is below this (m/s) turns into rolling contact (a hop of under ~1 cm).</summary>
+    /// <summary>A bounce whose outgoing normal speed is below this (wu/s) turns into rolling contact (a hop of under ~0.4 in).</summary>
     public double RollTransitionNormalSpeed { get; init; } = 0.4;
-    /// <summary>Safety stop on the number of ground impacts (a diagnostic is reported if hit). Not a modelled bounce count.</summary>
+    /// <summary>Safety stop on the number of ground impacts (a diagnostic is reported if hit). Not a modeled bounce count.</summary>
     public int MaximumGroundImpacts { get; init; } = 200;
 
     public GroundOptions Ground { get; init; } = GroundOptions.Default;
@@ -47,9 +47,9 @@ public sealed record SimulationOptions
         if (!(MaximumFlightTimeSeconds is > 0 and <= 120)) yield return $"Maximum flight time {MaximumFlightTimeSeconds} s is outside (0, 120].";
         if (!(MaximumGroundTimeSeconds is > 0 and <= 600)) yield return $"Maximum ground time {MaximumGroundTimeSeconds} s is outside (0, 600].";
         if (!(TrajectorySampleIntervalSeconds >= 0)) yield return "Trajectory sample interval must be ≥ 0.";
-        if (!(TeeHeightMetres is >= 0 and <= 0.15)) yield return $"Tee height {TeeHeightMetres} m is outside 0-0.15 m.";
+        if (!(TeeHeightUnits is >= 0 and <= 0.15)) yield return $"Tee height {TeeHeightUnits * UnitConversion.WorldToInches:0.0} in is outside 0-5.9 in.";
         if (!double.IsFinite(StartX) || !double.IsFinite(StartY) || !double.IsFinite(AimHeadingDegrees)) yield return "Start position and aim must be finite.";
-        if (!(RollTransitionNormalSpeed is > 0 and < 3)) yield return $"Roll transition speed {RollTransitionNormalSpeed} m/s is outside (0, 3).";
+        if (!(RollTransitionNormalSpeed is > 0 and < 3)) yield return $"Roll transition speed {RollTransitionNormalSpeed} wu/s is outside (0, 3).";
         foreach (var p in Ground.Validate()) yield return p;
     }
 }

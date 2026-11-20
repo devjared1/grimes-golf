@@ -123,7 +123,7 @@ public partial class Main
             Post(() =>
             {
                 _hud.MainMenu.SetCourseStats(index, stats);
-                if (c != null) _hud.MainMenu.SetCourseHoles(index, c.Holes, CourseAltitudeMetres(c) / Units.FeetToMetres);
+                if (c != null) _hud.MainMenu.SetCourseHoles(index, c.Holes, CourseAltitudeUnits(c) / Units.FeetToWorld);
             });
         });
     }

@@ -533,7 +533,7 @@ text = "Flag: out"
 [node name="HeatMap" type="Button" parent="ShotColumn/LiePanel/LieContent/GreenRows/Aids"]
 unique_name_in_owner = true
 layout_mode = 2
-tooltip_text = "Colour the green by height: blue low, red high  [H]"
+tooltip_text = "Color the green by height: blue low, red high  [H]"
 theme_type_variation = &"FlatButton"
 toggle_mode = true
 text = "Heat map"

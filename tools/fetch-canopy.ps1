@@ -25,9 +25,9 @@ param(
     [string]$Bbox = "-87.335,34.415,-87.298,34.442",   # west,south,east,north (same box as fetch-osm-course.ps1)
     [string]$Out = "$PSScriptRoot/../src/GrimesGolf.Godot/courses/deer-run/trees.csv.gz",
     [string]$Project = "",                             # lidar survey (EPT name); default: the newest over the box
-    [double]$Metres = 1.0,                             # canopy grid cell size
-    [double]$Density = 6,                              # lidar points per square metre to download
-    [double]$MinHeight = 4,                            # shortest tree counted, m
+    [double]$CellSize = 1.0,                           # canopy grid cell size
+    [double]$Density = 6,                              # lidar points per square world unit to download
+    [double]$MinHeight = 4,                            # shortest tree counted, world units
     [string]$Cache = "",                               # where downloaded lidar is kept (default: %LOCALAPPDATA%\SquareRange\ept-cache)
     [switch]$Preview,
     [switch]$Install
@@ -55,7 +55,7 @@ if ($missing) {
 $inv = [Globalization.CultureInfo]::InvariantCulture
 $arguments = @(
     "$PSScriptRoot/fetch-canopy.py", "--bbox=$Bbox", "--out=$([System.IO.Path]::GetFullPath($Out))",
-    "--metres=$($Metres.ToString($inv))", "--density=$($Density.ToString($inv))", "--min-height=$($MinHeight.ToString($inv))"
+    "--cell-size=$($CellSize.ToString($inv))", "--density=$($Density.ToString($inv))", "--min-height=$($MinHeight.ToString($inv))"
 )
 if ($Project) { $arguments += "--project=$Project" }
 if ($Cache) { $arguments += "--cache=$([System.IO.Path]::GetFullPath($Cache))" }

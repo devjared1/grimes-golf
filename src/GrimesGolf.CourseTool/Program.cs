@@ -4,7 +4,7 @@ using GrimesGolf.Core.Course;
 //   check <course folder>
 //   publish <out folder> <folder of courses>...
 //   merge <out folder> <live catalog.json, or "none"> [id to remove]...
-//   anonymise <map.osm> <name in the map> <name to publish it under>
+//   anonymize <map.osm> <name in the map> <name to publish it under>
 switch (args)
 {
     case ["check", var folder]:
@@ -13,18 +13,18 @@ switch (args)
         return Publish(outFolder, roots);
     case ["merge", var outFolder, var liveCatalog, .. var remove]:
         return Merge(outFolder, liveCatalog, remove);
-    case ["anonymise", var map, var mappedName, var publicName]:
-        return Anonymise(map, mappedName, publicName);
+    case ["anonymize", var map, var mappedName, var publicName]:
+        return Anonymize(map, mappedName, publicName);
     default:
-        Console.Error.WriteLine("Usage: check <course folder>  |  publish <out folder> <folder of courses>...  |  merge <out folder> <live catalog.json, or none> [id to remove]...  |  anonymise <map.osm> <name in the map> <name to publish it under>");
+        Console.Error.WriteLine("Usage: check <course folder>  |  publish <out folder> <folder of courses>...  |  merge <out folder> <live catalog.json, or none> [id to remove]...  |  anonymize <map.osm> <name in the map> <name to publish it under>");
         return 2;
 }
 
-static int Anonymise(string map, string mappedName, string publicName)
+static int Anonymize(string map, string mappedName, string publicName)
 {
     try
     {
-        OsmAnonymiser.Rewrite(map, mappedName, publicName);
+        OsmAnonymizer.Rewrite(map, mappedName, publicName);
         return 0;
     }
     catch (Exception ex) when (ex is InvalidDataException or IOException or System.Xml.XmlException)
@@ -85,7 +85,7 @@ static int Check(string folder)
     }
     Console.WriteLine($"{pack.Title}, version {pack.Version}");
     Console.WriteLine($"  {course.Holes.Count} holes, par {course.Holes.Sum(h => h.Par)}, {course.Holes.Sum(h => h.LengthYards):#,0} yd");
-    Console.WriteLine($"  Elevation: {(course.Terrain == null ? "none (flat)" : $"yes, {course.Terrain.Datum:0} m above sea level")}");
+    Console.WriteLine($"  Elevation: {(course.Terrain == null ? "none (flat)" : $"yes, {course.Terrain.Datum * Units.WorldToFeet:#,0} ft above sea level")}");
     Console.WriteLine($"  Trees: {(course.Trees == null ? "not surveyed (the scenery plants its own)" : $"{course.Trees.Count:#,0} surveyed")}");
     foreach (var h in course.Holes)
     {

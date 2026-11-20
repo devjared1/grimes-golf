@@ -86,7 +86,7 @@ Paths are sent as float32 bytes, about 16 KB for a 15 s shot (estimate). `ShotFi
 - Add a turn line, a "Waiting for Bob" ready state, and a separate online banner.
 
 **Disconnects.**
-| Event | Behaviour |
+| Event | Behavior |
 |---|---|
 | Player drops, on turn | 60 s countdown; host can skip sooner; then marked away and the turn moves on |
 | Player drops, not on turn | Play continues; the countdown starts if their turn arrives |
@@ -129,7 +129,7 @@ No online UI is visible until M7. Sizes are relative.
 | M6 | Resilience UI and host resume | `Main.Online.cs`, `GolfData.cs`, overlays | 4 |
 | M7 | Internet test with a friend's Square, enable the menu, docs | `MainMenu.cs`, `tools/export.ps1`, `README.md`, `ROADMAP.md` | 2 |
 
-**Order against the unfinished 1.0 list.** M1-M3 can start now because they don't change app behaviour.
+**Order against the unfinished 1.0 list.** M1-M3 can start now because they don't change app behavior.
 - Before M5: complete the 4-player, 18-hole no-crash round, since online inherits every hot-seat bug.
 - Before M7: monitor reconnect, one exported build with its version shown, and the 0.8 club-code and left-handed checks if a friend is left-handed.
 - Doesn't block: physics calibration (host tuning is shared), the 0.8 recorder (`sessions/*.jsonl` can drive the fake monitor), and 1.1 party games (not offered online in v1).
@@ -155,7 +155,7 @@ No online UI is visible until M7. Sizes are relative.
 
 ## Known limits
 
-- This plan hasn't been compiled or run. Fly.io behaviour and the .NET support date come from memory and need checking at M0/M2.
+- This plan hasn't been compiled or run. Fly.io behavior and the .NET support date come from memory and need checking at M0/M2.
 - Testing online end to end needs a friend's Square; until M7 the fake monitor stands in.
 - There's no auto-update, so friends must install the same build, and an unsigned exe will trigger SmartScreen.
 - The relay is this project's first always-on public service, with a small hosting bill.

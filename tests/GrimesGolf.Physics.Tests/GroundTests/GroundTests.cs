@@ -93,7 +93,7 @@ public class RollTests
     private static BallState Rolling(GroundContext c, Vector3D velocity)
     {
         var n = c.Terrain.GetSurfaceNormal(0, 0);
-        return new BallState(c.OnSurface(0, 0), velocity, Vector3D.Cross(n, velocity) / BallProperties.Standard.RadiusMetres);
+        return new BallState(c.OnSurface(0, 0), velocity, Vector3D.Cross(n, velocity) / BallProperties.Standard.RadiusUnits);
     }
 
     [Fact]

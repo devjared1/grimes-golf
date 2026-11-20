@@ -1,7 +1,7 @@
 namespace GrimesGolf.Physics;
 
 /// <summary>
-/// The ground, in the engine's world frame (X right, Y forward, Z up; metres). Implementations must be immutable and
+/// The ground, in the engine's world frame (X right, Y forward, Z up; world units). Implementations must be immutable and
 /// thread-safe. Return surface properties as configured (with their firmness and moisture); the engine folds those in
 /// with <see cref="SurfaceProperties.Effective"/>. Returning the same instance for the same surface lets the engine
 /// cache that.
@@ -21,7 +21,7 @@ public static class TerrainExtensions
     /// <summary>Slope angle (radians) at (x, y).</summary>
     public static double GetSlopeAngle(this ITerrainProvider t, double x, double y) => Math.Acos(Math.Clamp(t.GetSurfaceNormal(x, y).Z, -1, 1));
 
-    /// <summary>Unit normal from a height gradient (rise per metre along +X and +Y).</summary>
+    /// <summary>Unit normal from a height gradient (rise per world unit along +X and +Y).</summary>
     public static Vector3D NormalFromGradient(double dx, double dy) => new Vector3D(-dx, -dy, 1).Normalized();
 }
 
@@ -39,7 +39,7 @@ public sealed class FlatTerrain : ITerrainProvider
 }
 
 /// <summary>
-/// A tilted plane: z = z₀ + <see cref="RiseAlongX"/>·x + <see cref="RiseAlongY"/>·y (rise in metres per metre, e.g.
+/// A tilted plane: z = z₀ + <see cref="RiseAlongX"/>·x + <see cref="RiseAlongY"/>·y (rise in world units per world unit, e.g.
 /// 0.02 = 2 %). Uphill toward +Y has positive RiseAlongY.
 /// </summary>
 public sealed class InclinedPlaneTerrain : ITerrainProvider
@@ -64,7 +64,7 @@ public sealed class InclinedPlaneTerrain : ITerrainProvider
 
 /// <summary>
 /// Ground from a height function and a surface map (synthetic greens, double-breakers, tests). Normals come from
-/// central differences over <see cref="NormalStep"/> metres.
+/// central differences over <see cref="NormalStep"/> world units.
 /// </summary>
 public sealed class FunctionTerrain : ITerrainProvider
 {

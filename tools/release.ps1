@@ -58,7 +58,7 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path $installer)) { throw "Inno Setup fai
 Write-Host "Installer: $installer ($([math]::Round((Get-Item $installer).Length / 1MB)) MB)"
 if (-not $Publish) { return }
 
-$notes = "Download **GrimesGolf-Setup-$version.exe** and run it. It installs over any earlier version and keeps your rounds and settings. Windows may warn about an unrecognised app (the installer isn't code-signed): choose More info, then Run anyway."
+$notes = "Download **GrimesGolf-Setup-$version.exe** and run it. It installs over any earlier version and keeps your rounds and settings. Windows may warn about an unrecognized app (the installer isn't code-signed): choose More info, then Run anyway."
 gh release create $tag $installer --title "Grimes Golf $version" --notes $notes
 if ($LASTEXITCODE -ne 0) { throw "Couldn't create the release." }
 Write-Host "Published $tag."

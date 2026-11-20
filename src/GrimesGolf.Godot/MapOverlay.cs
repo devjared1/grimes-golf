@@ -3,7 +3,7 @@ using Godot;
 namespace GrimesGolf.Game;
 
 /// <summary>
-/// Drawn over the overview map: a ring on the ball (in the player's colour), a dashed line from it to where the shot
+/// Drawn over the overview map: a ring on the ball (in the player's color), a dashed line from it to where the shot
 /// is aimed (along the aim, as far as the power set carries it, so it swings with the aim and stretches with the
 /// power), a target ring there with the shot's distance, and the flag with its distance. Points are in this
 /// control's pixels.

@@ -7,23 +7,25 @@ namespace GrimesGolf.Game;
 /// Green-reading aids laid on one putting surface, squared to the line of play:
 /// <list type="bullet">
 /// <item>a heat map of the green's height (blue the low side, red the high side, relative to this green's own relief);</item>
-/// <item>a 1 m grid draped over the surface, with a dot on every grid segment rolling downhill along it, faster where
+/// <item>a one-unit grid draped over the surface, with a dot on every grid segment rolling downhill along it, faster where
 ///   it's steeper (and still where the segment is flat). The dots are animated in their shader, so they cost nothing per frame.</item>
 /// </list>
 /// </summary>
 public partial class GreenOverlay : Node3D
 {
-    /// <summary>Grid spacing (m).</summary>
+    /// <summary>Grid spacing (wu).</summary>
     private const float Spacing = 1f;
-    /// <summary>Heat map cell size (m): fine enough for its edge to follow the green's.</summary>
+    /// <summary>Heat map cell size (wu): fine enough for its edge to follow the green's.</summary>
     private const float HeatCell = 0.25f;
-    /// <summary>Heights the layers are drawn above the surface (m), so they never z-fight with it.</summary>
+    /// <summary>Heights the layers are drawn above the surface (wu), so they never z-fight with it.</summary>
     private const float HeatLift = 0.03f, LineLift = 0.035f, DotLift = 0.05f;
     /// <summary>Thin enough not to crowd the ball from the putting camera (dots well under the ball's size).</summary>
-    private const float LineWidth = 0.018f, DotRadius = 0.015f;
-    /// <summary>Dot speed (m/s) per unit slope along the segment, and its limits; below <see cref="FlatSlope"/> a dot stays put.</summary>
+    private const float LineWidth = 0.036f, DotRadius = 0.024f;
+    /// <summary>Deep golden yellow like the aim line, fully opaque and a little wide so it stands out on a bright green.</summary>
+    private static readonly Color GridColor = new(1, 0.72f, 0, 1);
+    /// <summary>Dot speed (wu/s) per unit slope along the segment, and its limits; below <see cref="FlatSlope"/> a dot stays put.</summary>
     private const float SpeedPerSlope = 25f, MinSpeed = 0.08f, MaxSpeed = 1.5f, FlatSlope = 0.002f;
-    /// <summary>Height range (m) that spans the full colour ramp at least, so a nearly flat green doesn't look dramatic.</summary>
+    /// <summary>Height range (wu) that spans the full color ramp at least, so a nearly flat green doesn't look dramatic.</summary>
     private const float MinRelief = 0.2f;
 
     private const string DotShader = """
@@ -74,14 +76,14 @@ public partial class GreenOverlay : Node3D
         AddChild(_heat);
         // The grid is too fine for the minimap: main camera only (the heat map shows on both).
         _grid = new Node3D();
-        _grid.AddChild(new MeshInstance3D { Mesh = BuildLines(), MaterialOverride = Scenery.Overlay(0.6f), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Layers = ShotPlayer.TrailLayer });
+        _grid.AddChild(new MeshInstance3D { Mesh = BuildLines(), MaterialOverride = Scenery.Overlay(1f), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Layers = ShotPlayer.TrailLayer });
         var dots = BuildDots();
         dots.Layers = ShotPlayer.TrailLayer;
         _grid.AddChild(dots);
         AddChild(_grid);
     }
 
-    /// <summary>Course point at (<paramref name="u"/> along the line of play, <paramref name="v"/> across it) from the green's centre.</summary>
+    /// <summary>Course point at (<paramref name="u"/> along the line of play, <paramref name="v"/> across it) from the green's center.</summary>
     private P2 At(float u, float v) => _center + _along * u + _across * v;
 
     private Vector3 On(P2 p, float lift) => Scenery.ToGodot(p, _height(p) + lift);
@@ -91,7 +93,7 @@ public partial class GreenOverlay : Node3D
     private ArrayMesh BuildHeatMap()
     {
         int n = (int)Math.Ceiling(_reach / HeatCell), size = 2 * n + 1;
-        // Heights at the cell corners (shared by neighbouring cells), and which corners are on the green.
+        // Heights at the cell corners (shared by neighboring cells), and which corners are on the green.
         var h = new float[size, size];
         var on = new bool[size, size];
         float lo = float.MaxValue, hi = float.MinValue;
@@ -116,7 +118,7 @@ public partial class GreenOverlay : Node3D
             if (corner.TryGetValue((a, b), out int i)) return i;
             var p = At((a - n) * HeatCell, (b - n) * HeatCell);
             verts.Add(Scenery.ToGodot(p, h[a, b] + HeatLift));
-            // The outermost corners (next to one off the green) are transparent, so the colour fades out over the
+            // The outermost corners (next to one off the green) are transparent, so the color fades out over the
             // last cell inside the edge instead of stair-stepping, and never spills past the green (or the grid on it).
             bool inner = OnGreen(a - 1, b) && OnGreen(a + 1, b) && OnGreen(a, b - 1) && OnGreen(a, b + 1);
             colors.Add(new Color(Ramp((h[a, b] - mid) / half), inner ? 1 : 0));
@@ -149,7 +151,6 @@ public partial class GreenOverlay : Node3D
     private ArrayMesh BuildLines()
     {
         const float piece = 0.25f;
-        var lineColor = new Color(1, 1, 1, 0.8f);
         var verts = new List<Vector3>();
         var colors = new List<Color>();
         var indices = new List<int>();
@@ -167,7 +168,7 @@ public partial class GreenOverlay : Node3D
                     int i = verts.Count;
                     verts.Add(On(a + side, LineLift)); verts.Add(On(a - side, LineLift));
                     verts.Add(On(b + side, LineLift)); verts.Add(On(b - side, LineLift));
-                    for (int c = 0; c < 4; c++) colors.Add(lineColor);
+                    for (int c = 0; c < 4; c++) colors.Add(GridColor);
                     indices.AddRange(new[] { i, i + 2, i + 3, i, i + 3, i + 1 });
                 }
             }
@@ -210,7 +211,7 @@ public partial class GreenOverlay : Node3D
             mm.SetInstanceCustomData(i, new Color(run.X, run.Y, run.Z, rate));
         }
         var material = new ShaderMaterial { Shader = new Shader { Code = DotShader } };
-        material.SetShaderParameter("tint", new Color(1, 1, 1, 0.95f));
+        material.SetShaderParameter("tint", GridColor);
         // The dots move, so their bounds can't come from their rest positions alone.
         return new MultiMeshInstance3D { Multimesh = mm, MaterialOverride = material, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, ExtraCullMargin = 2 };
     }

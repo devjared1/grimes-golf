@@ -32,7 +32,7 @@ public class PuttingTests
         double mu = GreenModel.Surface(10).RollingResistance;
         double dragFree = 4.0 / (2 * mu * PhysicsConstants.Gravity);
         Assert.InRange(r.Displacement, dragFree * 0.93, dragFree);
-        Assert.Equal(r.Displacement, r.DistanceTravelled, 6);
+        Assert.Equal(r.Displacement, r.DistanceTraveled, 6);
         Assert.InRange(r.InitialAcceleration, -mu * PhysicsConstants.Gravity * 1.15, -mu * PhysicsConstants.Gravity);
         Assert.True(r.TimeToStop > 2);
     }
@@ -65,7 +65,7 @@ public class PuttingTests
     [Fact]
     public void DoubleBreakerBendsBothWays()
     {
-        // Falls right for the first 2 m, then left.
+        // Falls right for the first 2 wu, then left.
         var green = new FunctionTerrain((x, y) => 0.025 * x * Math.Tanh((y - 2) / 0.3), GreenModel.Surface(10));
         var r = Putt(green, speed: 2.4);
         double furthestRight = r.Trajectory.Max(p => p.Position.X);

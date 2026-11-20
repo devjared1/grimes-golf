@@ -120,7 +120,7 @@ public partial class CourseStorePanel : Control
         (first ?? _close).GrabFocus();
     }
 
-    /// <summary>A download is running: everything but cancelling it waits.</summary>
+    /// <summary>A download is running: everything but canceling it waits.</summary>
     public void ShowDownloading(string title)
     {
         _busy = true;

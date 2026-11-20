@@ -149,7 +149,7 @@ balls or play a round with me, and never see a console, a command-line flag or a
       when the ball is ready
 - [x] **Overview map labels:** the aim's distance no longer covers the flag's
 - [x] **New Game at large text:** the course list scrolls, so the launch monitor card stays on screen
-- [x] **Licence notices** for Godot, its libraries and .NET are installed with the app
+- [x] **License notices** for Godot, its libraries and .NET are installed with the app
 - [x] **Tests in CI:** GitHub Actions runs the tests and builds the game on every pull request and push to `main`
 - [x] **Publish course shapes under another name:** `make-course.ps1 -PublicName`; publishing only uploads what changed
 
@@ -263,10 +263,10 @@ only if the numbers work out.
 
 The numbers that decide the hardware (worked out here, not measured):
 
-- **Ball speed:** a driver at 70 m/s (157 mph) moves 14 cm between frames at 500 fps, 28 cm at 250 fps and over a
-  metre at 60 fps. Seeing the ball in 4-6 frames over a ~1 m window needs roughly 400-500 fps, or a trick that
+- **Ball speed:** a driver at 157 mph (230 ft/s) moves 5.5 in between frames at 500 fps, 11 in at 250 fps and nearly 4 ft at
+  60 fps. Seeing the ball in 4-6 frames over a window of about 3 ft needs roughly 400-500 fps, or a trick that
   puts several images of the ball in one frame (below).
-- **Blur:** to keep the ball sharp to about 1 mm at 70 m/s, each exposure (or strobe flash) must be about 15 µs or
+- **Blur:** to keep the ball sharp to about 0.04 in at 157 mph, each exposure (or strobe flash) must be about 15 µs or
   shorter. That needs a global-shutter sensor (a rolling shutter smears and leans a fast ball) and bright infrared
   light flashed only for those microseconds; room lighting is far too dim.
 - **Launch angle from above:** one camera looking down sees direction and speed well but height badly. Two cameras
@@ -274,7 +274,7 @@ The numbers that decide the hardware (worked out here, not measured):
 - **Spin:** a driver at 2,500 rpm turns 30° between frames at 500 fps; a wedge at 10,000 rpm turns 120°, too far
   to track markings reliably. So spin needs either strobe flashes a fraction of a millisecond apart or a much
   faster camera, plus markings on the ball (a printed line or logo) that can be followed.
-- **Mounting:** commercial overhead units want a ceiling of about 9 ft (2.7 m), 10 ft is more comfortable, with the
+- **Mounting:** commercial overhead units want a ceiling of about 9 ft, 10 ft is more comfortable, with the
   cameras slightly in front of the ball looking back at it. The rig has to survive a mishit.
 
 Commercial overhead monitors, for scale (2026 prices as listed by retailers, not checked with makers): NVISAGE N1
@@ -313,7 +313,7 @@ marking tool. Check current prices before buying.
   - Almost no club data: one strobed frame after impact says little about the club, and nothing films the swing.
   - Only one usable image of each shot, so no slow-motion replays (impact snapshots, yes).
   - The high-current strobe driver and its timing are the fiddliest part to build.
-  - Reusing PiTrac's code means following its licence: check it before copying anything into this MIT project.
+  - Reusing PiTrac's code means following its license: check it before copying anything into this MIT project.
 
 #### $$ — two USB3 machine-vision cameras on the game PC, about $900-1,300
 
@@ -368,7 +368,7 @@ marking tool. Check current prices before buying.
 - **Cons**
   - Approaching the price of a budget commercial overhead monitor (about $5,000) once the mount, cabling and
     lighting are done, without its accuracy guarantee or support.
-  - By far the most software: synchronising four cameras, calibrating them together, a club pipeline and a
+  - By far the most software: synchronizing four cameras, calibrating them together, a club pipeline and a
     trained model, plus a second machine to keep updated.
   - Jetson development is its own toolchain (Linux, CUDA), separate from the Windows game.
   - More cameras means more calibration that has to stay true if the ceiling mount gets knocked.
@@ -387,26 +387,26 @@ Chosen from retailer listings and datasheets in November 2026. The sums here are
 has been bought or tested yet.
 
 - **Camera: Daheng MER2-041-528U3M** ($319 at RMA Electronics): IMX287 mono, global shutter, 720×540, 528 fps, about
-  13 cm of ball travel per frame at 70 m/s.
+  5 in of ball travel per frame at 157 mph.
   - Don't buy an "-L" version: on the sister 608 model, -L means no I/O at all. The 8-pin I/O cable is also needed.
-  - A reseller lists 52 µs as its shortest exposure (2.6 px of blur at 70 m/s), so the flash has to set the
+  - A reseller lists 52 µs as its shortest exposure (2.6 px of blur at 157 mph), so the flash has to set the
     sharpness: about a 100 µs exposure with a 15 µs flash inside it.
   - The 528 manual couldn't be opened, so its output timing is unchecked. The plan assumes a microcontroller
     triggers both cameras and the flash.
   - Worth pricing instead: the MER2-041-608U3M-HS, with 608 fps and exposures down to 1 µs, which makes flash timing
     much easier.
 - **Lens: Computar M1214-MP2** (12 mm f/1.4, 2/3", about $97-166, 30.5 mm filter thread). Lock the focus under the
-  infrared light with the filter on, and put the long side of the sensor along the target line. At 2.4 m from lens
+  infrared light with the filter on, and put the long side of the sensor along the target line. At 8 ft from lens
   to ball:
 
   | Focal length | Field of view | Ball size | Fit |
   |---|---|---|---|
-  | 8 mm | 1.49 × 1.12 m | 21 px | Too coarse |
-  | **12 mm** | **0.99 × 0.75 m** | **31 px** | **Best balance** |
-  | 16 mm | 0.75 × 0.56 m | 41 px | Better for spin, but fewer frames |
+  | 8 mm | 4.9 × 3.7 ft | 21 px | Too coarse |
+  | **12 mm** | **3.2 × 2.5 ft** | **31 px** | **Best balance** |
+  | 16 mm | 2.5 × 1.8 ft | 41 px | Better for spin, but fewer frames |
 
-  With the cameras about 0.5 m apart, launch angle error should be about 0.25°, assuming quarter-pixel tracking and
-  good calibration. Spin is the main risk: a 3-4 mm ball marking is only 2-3 px wide.
+  With the cameras about 20 in apart, launch angle error should be about 0.25°, assuming quarter-pixel tracking and
+  good calibration. Spin is the main risk: a ball marking about 1/8 in across is only 2-3 px wide.
 - **Light: two 100 W COB LED modules** with lenses of about 30°.
   - Start with 730 nm, as PiTrac does: the sensor is about 1.7× more sensitive there than at 850 nm (going by the
     sister model's response chart), but it shows a dim red glow. Use 850 nm if that matters more than the signal.
@@ -423,15 +423,15 @@ has been bought or tested yet.
     bench.
 - **Filter:** 700 nm longpass for 730 nm light, or an 850 nm filter for 850 nm light, on the lens's 30.5 mm thread.
 - **Ruled out: SVPRO USB webcam-style cameras**, even several of them. The global-shutter models found top out at
-  90-210 fps (33 cm or more of ball travel per frame), and frame rates don't add up without a hardware trigger: a 1 ms
-  mismatch between two cameras is 7 cm of ball travel. They usually have no strobe output either. One could still be a
+  90-210 fps (13 in or more of ball travel per frame), and frame rates don't add up without a hardware trigger: a 1 ms
+  mismatch between two cameras is nearly 3 in of ball travel. They usually have no strobe output either. One could still be a
   cheap swing-video camera for the AI coach (1.4). The specific listing checked (B0H15FHSQZ) couldn't be opened, and no
   SVPRO camera with an IMX287 was found.
 
 ### Tasks
 
 - [ ] **Cameras:** buy one camera with its I/O cable, one lens, one filter and one LED module (see "Parts for the $$
-      build"); on the bench, confirm the frame rate, exposure, flash sync and how bright a ball looks from 2.4 m; then
+      build"); on the bench, confirm the frame rate, exposure, flash sync and how bright a ball looks from 8 ft; then
       the second set for stereo
 - [ ] **System:** a rolling frame buffer on the game PC, triggered by the ball moving (frame difference), keeping a
       few frames before and after impact; measure the CPU and USB load during a round
@@ -439,7 +439,7 @@ has been bought or tested yet.
       work out speed, launch, direction and spin (from the ball's markings, or estimated from launch and club data
       if spin can't be seen). Club path and face from the club head in the frames before impact. Check every number
       against the Square shot by shot, using the recorded sessions (0.8)
-- [ ] **PiTrac review:** read its licence, triggering and spin code, and decide whether a $ build is worth it
+- [ ] **PiTrac review:** read its license, triggering and spin code, and decide whether a $ build is worth it
 - [ ] **Bonus:** the same cameras give the impact snapshots and slow-motion replays the Square can't share
 
 ## Later / nice-to-have

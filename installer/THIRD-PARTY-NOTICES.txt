@@ -1,7 +1,7 @@
-Grimes Golf includes the software below. Its own licence is at https://github.com/devjared1/grimes-golf/blob/main/LICENSE
+Grimes Golf includes the software below. Its own license is at https://github.com/devjared1/grimes-golf/blob/main/LICENSE
 
 Grimes Golf
-Copyright (c) 2026 Jared Grimes. Released under the MIT Licence (see LICENSE).
+Copyright (c) 2026 Jared Grimes. Released under the MIT License (see LICENSE).
 
 This product includes software derived from the following projects.
 
@@ -11,7 +11,7 @@ https://github.com/mholow/gsp-r10-adapter
 
 The Garmin Approach R10 Bluetooth support (src/GrimesGolf.Core/Garmin, src/GrimesGolf.Bluetooth/R10BleLink.cs) is
 ported from gsp-r10-adapter's direct Bluetooth mode: its GATT identifiers, MultiLink handshake bytes, GFDI
-acknowledgement layout, the order of its set-up requests, and its LaunchMonitor.proto schema.
+acknowledgment layout, the order of its set-up requests, and its LaunchMonitor.proto schema.
 
 MIT License
 
@@ -38,7 +38,7 @@ SOFTWARE.
 -------------------------------------------------------------------------------
 10over (the tenover crate)
 https://github.com/divotmaker/10over
-Copyright 2026 Eric Thill. Licensed under the Apache License, Version 2.0, or the MIT licence, at your option.
+Copyright 2026 Eric Thill. Licensed under the Apache License, Version 2.0, or the MIT license, at your option.
 
 No code is taken from it. Its protocol documentation (docs/WIRE.md, docs/SEQUENCE.md) was used to cross-check the
 R10 support, and the protobuf byte sequences in its src/wire_golden.rs are used as test fixtures in
@@ -80,100 +80,100 @@ Godot Engine
   Files: *
   (c) 2014-present, Godot Engine contributors
   (c) 2007-2014, Juan Linietsky, Ariel Manzur
-  Licence: Expat
+  License: Expat
 
 Bullet Continuous Collision Detection and Physics Library
   Files: core/math/convex_hull.cpp, core/math/convex_hull.h
   (c) 2011, Ole Kniemeyer, MAXON, www.maxon.net
   (c) 2014-present, Godot Engine contributors
   (c) 2007-2014, Juan Linietsky, Ariel Manzur
-  Licence: Expat and Zlib
+  License: Expat and Zlib
   Files: modules/godot_physics_3d/gjk_epa.cpp, modules/godot_physics_3d/joints/godot_generic_6dof_joint_3d.cpp, modules/godot_physics_3d/joints/godot_generic_6dof_joint_3d.h, modules/godot_physics_3d/joints/godot_hinge_joint_3d.cpp, modules/godot_physics_3d/joints/godot_hinge_joint_3d.h, modules/godot_physics_3d/joints/godot_jacobian_entry_3d.h, modules/godot_physics_3d/joints/godot_pin_joint_3d.cpp, modules/godot_physics_3d/joints/godot_pin_joint_3d.h, modules/godot_physics_3d/joints/godot_slider_joint_3d.cpp, modules/godot_physics_3d/joints/godot_slider_joint_3d.h, modules/godot_physics_3d/godot_soft_body_3d.cpp, modules/godot_physics_3d/godot_soft_body_3d.h, modules/godot_physics_3d/godot_shape_3d.cpp, modules/godot_physics_3d/godot_shape_3d.h
   (c) 2003-2008, Erwin Coumans
   (c) 2014-present, Godot Engine contributors
   (c) 2007-2014, Juan Linietsky, Ariel Manzur
-  Licence: Expat and Zlib
+  License: Expat and Zlib
   Files: modules/godot_physics_3d/joints/godot_cone_twist_joint_3d.cpp, modules/godot_physics_3d/joints/godot_cone_twist_joint_3d.h
   (c) 2007, Starbreeze Studios
   (c) 2014-present, Godot Engine contributors
   (c) 2007-2014, Juan Linietsky, Ariel Manzur
-  Licence: Expat and Zlib
+  License: Expat and Zlib
 
 Linux AppStream Metadata File
   Files: misc/dist/linux/org.godotengine.Godot.appdata.xml
   (c) 2017-2022, RÃ©mi Verschelde
-  Licence: CC0-1.0
+  License: CC0-1.0
 
 Godot Engine logo
   Files: misc/logo/*
   (c) 2017, Andrea CalabrÃ³
-  Licence: CC-BY-4.0
+  License: CC-BY-4.0
 
 Betsy
   Files: modules/betsy/alpha_stitch.glsl, modules/betsy/bc1.glsl, modules/betsy/bc4.glsl, modules/betsy/bc6h.glsl
   (c) 2020-2022, Matias N. Goldberg
-  Licence: Expat
+  License: Expat
 
 Chipmunk2D Joint Constraints
   Files: modules/godot_physics_2d/godot_joints_2d.cpp
   (c) 2007, Scott Lembcke
-  Licence: Expat
+  License: Expat
 
 Open Dynamics Engine
   Files: modules/godot_physics_3d/godot_collision_solver_3d_sat.cpp
   (c) 2001-2003, Russell L. Smith, Alen Ladavac, Nguyen Binh
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 Jolt Physics
   Files: modules/jolt_physics/spaces/jolt_temp_allocator.cpp
   (c) 2021, Jorrit Rouwe
   (c) 2014-present, Godot Engine contributors
   (c) 2007-2014, Juan Linietsky, Ariel Manzur
-  Licence: Expat
+  License: Expat
   Files: thirdparty/jolt_physics/*
   (c) 2021, Jorrit Rouwe
-  Licence: Expat
+  License: Expat
 
 Joint Non-Local Means (JNLM) denoiser
   Files: modules/lightmapper_rd/lm_compute.glsl
   (c) 2020, Manuel Prandini
   (c) 2014-present, Godot Engine contributors
   (c) 2007-2014, Juan Linietsky, Ariel Manzur
-  Licence: Expat
+  License: Expat
 
 The Android Open Source Project
   Files: platform/android/java/editor/src/main/java/com/android/*, platform/android/java/lib/src/main/aidl/com/android/*, platform/android/java/lib/src/main/res/layout/status_bar_ongoing_event_progress_bar.xml, platform/android/java/lib/src/main/java/com/google/android/*
   (c) 2008-2016, The Android Open Source Project
   (c) 2002, Google, Inc.
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 ProcessPhoenix
   Files: platform/android/java/lib/src/main/java/org/godotengine/godot/utils/ProcessPhoenix.java
   (c) 2015, Jake Wharton
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 Robert Penner's Easing Functions
   Files: scene/animation/easing_equations.h
   (c) 2001, Robert Penner
   (c) 2014-present, Godot Engine contributors
   (c) 2007-2014, Juan Linietsky, Ariel Manzur
-  Licence: Expat
+  License: Expat
 
 NVidia's FXAA 3.11, simplified by Simon Rodriguez
   Files: servers/rendering/renderer_rd/shaders/effects/tonemap.glsl
   (c) 2014-2015, NVIDIA CORPORATION
   (c) 2017 Simon Rodriguez
-  Licence: BSD-3-clause and Expat
+  License: BSD-3-clause and Expat
 
 Intel ASSAO and related files
   Files: servers/rendering/renderer_rd/shaders/effects/ss_effects_downsample.glsl, servers/rendering/renderer_rd/shaders/effects/ssao_blur.glsl, servers/rendering/renderer_rd/shaders/effects/ssao_importance_map.glsl, servers/rendering/renderer_rd/shaders/effects/ssao_interleave.glsl, servers/rendering/renderer_rd/shaders/effects/ssao.glsl, servers/rendering/renderer_rd/shaders/effects/ssil_blur.glsl, servers/rendering/renderer_rd/shaders/effects/ssil_importance_map.glsl, servers/rendering/renderer_rd/shaders/effects/ssil_interleave.glsl, servers/rendering/renderer_rd/shaders/effects/ssil.glsl
   (c) 2016, Intel Corporation
-  Licence: Expat
+  License: Expat
 
 Temporal Anti-Aliasing resolve implementation
   Files: servers/rendering/renderer_rd/shaders/effects/taa_resolve.glsl
   (c) 2016, Panos Karabelas
-  Licence: Expat
+  License: Expat
 
 Subpixel Morphological Antialiasing
   Files: servers/rendering/renderer_rd/shaders/effects/smaa_blending.glsl, servers/rendering/renderer_rd/shaders/effects/smaa_weight_calculation.glsl, servers/rendering/renderer_rd/shaders/effects/smaa_edge_detection.glsl, thirdparty/smaa/*
@@ -182,157 +182,157 @@ Subpixel Morphological Antialiasing
   (c) 2013, Belen Masia
   (c) 2013, Fernando Navarro
   (c) 2013, Diego Gutierrez
-  Licence: Expat
+  License: Expat
 
 AccessKit
   Files: thirdparty/accesskit/*
   (c) 2023, The AccessKit Authors.
-  Licence: Expat
+  License: Expat
 
 AMD FidelityFX Super Resolution
   Files: thirdparty/amd-fsr/*
   (c) 2021, Advanced Micro Devices, Inc.
-  Licence: Expat
+  License: Expat
 
 AMD FidelityFX Super Resolution 2
   Files: thirdparty/amd-fsr2/*
   (c) 2022-2023, Advanced Micro Devices, Inc.
-  Licence: Expat
+  License: Expat
 
 ANGLE
   Files: thirdparty/angle/*
   (c) 2018, The ANGLE Project Authors.
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 Arm ASTC Encoder
   Files: thirdparty/astcenc/*
   (c) 2011-2025, Arm Limited
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 Basis Universal
   Files: thirdparty/basis_universal/*
   (c) 2019-2025, Binomial LLC.
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 Brotli
   Files: thirdparty/brotli/*
   (c) 2009, 2010, 2013-2016 by the Brotli Authors.
-  Licence: Expat
+  License: Expat
 
 CA certificates
   Files: thirdparty/certs/ca-bundle.crt
   (c) Mozilla Contributors
-  Licence: MPL-2.0
+  License: MPL-2.0
 
 Clipper2
   Files: thirdparty/clipper2/*
   (c) 2010-2025, Angus Johnson
-  Licence: BSL-1.0
+  License: BSL-1.0
 
 Convection Texture Tools Stand-Alone Kernels
   Files: thirdparty/cvtt/*
   (c) 2018, Eric Lasota
   (c) 2018, Microsoft Corp.
-  Licence: Expat
+  License: Expat
 
 D3D12 Memory Allocator
   Files: thirdparty/d3d12ma/*
   (c) 2019-2022 Advanced Micro Devices, Inc.
-  Licence: Expat
+  License: Expat
 
 DirectX Headers
   Files: thirdparty/directx_headers/*
   (c) Microsoft Corporation
-  Licence: Expat
+  License: Expat
 
 doctest
   Files: thirdparty/doctest/*
   (c) 2016-2023, Viktor Kirilov
-  Licence: Expat
+  License: Expat
 
 dr_libs
   Files: thirdparty/dr_libs/*
   (c) 2020, David Reid
-  Licence: Unlicense or MIT-0
+  License: Unlicense or MIT-0
 
 Embree
   Files: thirdparty/embree/*
   (c) 2009-2021 Intel Corporation
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 ENet
   Files: thirdparty/enet/*
   (c) 2002-2024, Lee Salzman
-  Licence: Expat
+  License: Expat
 
 etcpak
   Files: thirdparty/etcpak/*
   (c) 2013-2022, Bartosz Taudul
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 DroidSans font
   Files: thirdparty/fonts/DroidSans*.woff2
   (c) 2008, The Android Open Source Project
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 Inter font
   Files: thirdparty/fonts/Inter*.woff2
   (c) 2016, The Inter Project Authors
-  Licence: OFL-1.1
+  License: OFL-1.1
 
 JetBrains Mono font
   Files: thirdparty/fonts/JetBrainsMono_Regular.woff2
   (c) 2020, JetBrains s.r.o.
-  Licence: OFL-1.1
+  License: OFL-1.1
 
 Noto Sans font
   Files: thirdparty/fonts/NotoSans*.woff2
   (c) 2012, Google Inc.
-  Licence: OFL-1.1
+  License: OFL-1.1
 
 Open Sans font
   Files: thirdparty/fonts/OpenSans*.woff2
   (c) 2020, The Open Sans Project Authors
-  Licence: OFL-1.1
+  License: OFL-1.1
 
 Vazirmatn font
   Files: thirdparty/fonts/Vazirmatn*.woff2
   (c) 2015, The Vazirmatn Project Authors.
-  Licence: OFL-1.1
+  License: OFL-1.1
 
 The FreeType Project
   Files: thirdparty/freetype/*
   (c) 1996-2025, David Turner, Robert Wilhelm, and Werner Lemberg.
-  Licence: FTL
+  License: FTL
 
 GamepadMotionHelpers
   Files: thirdparty/gamepadmotionhelpers/*
   (c) 2020-2023, Julian "Jibb" Smart
-  Licence: Expat
+  License: Expat
 
 glad
   Files: thirdparty/glad/*
   (c) 2013-2022, David Herberth
   (c) 2013-2020, The Khronos Group Inc.
-  Licence: CC0-1.0 and Apache-2.0
+  License: CC0-1.0 and Apache-2.0
 
 glslang
   Files: thirdparty/glslang/*
   (c) 2015-2020, Google, Inc.
   (c) 2014-2020, The Khronos Group Inc
   (c) 2002, NVIDIA Corporation.
-  Licence: glslang
+  License: glslang
 
 Graphite engine
   Files: thirdparty/graphite/*
   (c) 2010, SIL International
-  Licence: Expat
+  License: Expat
 
 Grisu2 float serialization algorithm
   Files: thirdparty/grisu2/*
   (c) 2009, Florian Loitsch
   (c) 2018-2023, The simdjson authors
-  Licence: Expat and Apache-2.0
+  License: Expat and Apache-2.0
 
 HarfBuzz text shaping library
   Files: thirdparty/harfbuzz/*
@@ -353,38 +353,38 @@ HarfBuzz text shaping library
   (c) 2018, 2021, Khaled Hosny
   (c) 2018-2020, Adobe, Inc.
   (c) 2013-2015, Alexei Podtelezhnikov
-  Licence: HarfBuzz
+  License: HarfBuzz
 
 International Components for Unicode
   Files: thirdparty/icu4c/*
   (c) 2016-2024, Unicode, Inc.
-  Licence: Unicode
+  License: Unicode
 
 libbacktrace
   Files: thirdparty/libbacktrace/*
   (c) 2012-2021, Free Software Foundation, Inc.
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 libjpeg-turbo
   Files: thirdparty/libjpeg-turbo/*
   (c) 2009-2025, D. R. Commander
   (c) 2015, Viktor SzathmÃ¡ry.
   (c) 1991-2020, Thomas G. Lane, Guido Vollbeding
-  Licence: BSD-3-clause and IJG
+  License: BSD-3-clause and IJG
 
 KTX
   Files: thirdparty/libktx/*
   (c) 2013-2020, Mark Callow
   (c) 2010-2020 The Khronos Group, Inc.
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 OggVorbis
   Files: thirdparty/libogg/*
   (c) 2002, Xiph.org Foundation
-  Licence: BSD-3-clause
+  License: BSD-3-clause
   Files: thirdparty/libvorbis/*
   (c) 2002-2015, Xiph.org Foundation
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 libpng
   Files: thirdparty/libpng/*
@@ -393,229 +393,229 @@ libpng
   (c) 2000-2002, 2004, 2006-2018 Glenn Randers-Pehrson.
   (c) 1996-1997, Andreas Dilger.
   (c) 1995-1996, Guy Eric Schalnat, Group 42, Inc.
-  Licence: Zlib
+  License: Zlib
 
 OggTheora
   Files: thirdparty/libtheora/*
   (c) 2002-2009, Xiph.org Foundation
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 WebP codec
   Files: thirdparty/libwebp/*
   (c) 2010, Google Inc.
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 Manifold
   Files: thirdparty/manifold/*
   (c) 2020-2025, The Manifold Authors
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 Mbed TLS
   Files: thirdparty/mbedtls/*
   (c) The Mbed TLS Contributors
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 meshoptimizer
   Files: thirdparty/meshoptimizer/*
   (c) 2016-2026, Arseny Kapoulkine
-  Licence: Expat
+  License: Expat
 
 metal-cpp
   Files: thirdparty/metal-cpp/*
   (c) 2024, Apple Inc.
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 mingw-std-threads
   Files: thirdparty/mingw-std-threads/*
   (c) 2016, Mega Limited
-  Licence: BSD-2-clause
+  License: BSD-2-clause
 
 MiniUPnP Project
   Files: thirdparty/miniupnpc/*
   (c) 2005-2025, Thomas Bernard
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 MiniZip
   Files: thirdparty/minizip/*
   (c) 1998-2026, Gilles Vollant
   (c) 2007-2008, Even Rouault
   (c) 2009-2010, Mathias Svensson
-  Licence: Zlib
+  License: Zlib
 
 bcdec
   Files: thirdparty/misc/bcdec.h
   (c) 2022, Sergii Kudlai
-  Licence: Expat
+  License: Expat
 
 Fast Filtering of Reflection Probes
   Files: thirdparty/misc/cubemap_coeffs.h
   (c) 2016, Activision Publishing, Inc.
-  Licence: Expat
+  License: Expat
 
 FastLZ
   Files: thirdparty/misc/fastlz.c, thirdparty/misc/fastlz.h
   (c) 2005-2020, Ariya Hidayat
-  Licence: Expat
+  License: Expat
 
 FastNoise Lite
   Files: thirdparty/misc/FastNoiseLite.h
   (c) 2023, Jordan Peck and contributors
-  Licence: Expat
+  License: Expat
 
 libjingle
   Files: thirdparty/misc/ifaddrs-android.cc, thirdparty/misc/ifaddrs-android.h
   (c) 2012-2013, Google Inc.
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 Tangent Space Normal Maps implementation
   Files: thirdparty/misc/mikktspace.c, thirdparty/misc/mikktspace.h
   (c) 2011, Morten S. Mikkelsen
-  Licence: Zlib
+  License: Zlib
 
 NVIDIA NVAPI (minimal excerpt)
   Files: thirdparty/misc/nvapi_minimal.h
   (c) 2019-2022, NVIDIA Corporation
-  Licence: Expat
+  License: Expat
 
 OK Lab color space
   Files: thirdparty/misc/ok_color.h, thirdparty/misc/ok_color_shader.h
   (c) 2021, BjÃ¶rn Ottosson
-  Licence: Expat
+  License: Expat
 
 Minimal PCG32 implementation
   Files: thirdparty/misc/pcg.cpp, thirdparty/misc/pcg.h
   (c) 2014, M.E. O'Neill
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 PolyPartition / Triangulator
   Files: thirdparty/misc/polypartition.cpp, thirdparty/misc/polypartition.h
   (c) 2011-2021, Ivan Fratric and contributors
-  Licence: Expat
+  License: Expat
 
 Quite OK Audio Format
   Files: thirdparty/misc/qoa.h
   (c) 2023, Dominic Szablewski
-  Licence: Expat
+  License: Expat
 
 r128 library
   Files: thirdparty/misc/r128.c, thirdparty/misc/r128.h
   (c) Alan Hickman
-  Licence: Unlicense
+  License: Unlicense
 
 SMAZ
   Files: thirdparty/misc/smaz.c, thirdparty/misc/smaz.h
   (c) 2006-2009, Salvatore Sanfilippo
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 SMOL-V
   Files: thirdparty/misc/smolv.cpp, thirdparty/misc/smolv.h
   (c) 2016-2024, Aras Pranckevicius
-  Licence: Unlicense or Expat
+  License: Unlicense or Expat
 
 stb libraries
   Files: thirdparty/misc/stb_rect_pack.h
   (c) Sean Barrett
-  Licence: Unlicense or Expat
+  License: Unlicense or Expat
 
 YUV2RGB
   Files: thirdparty/misc/yuv2rgb.h
   (c) 2008-2011, Robin Watts
-  Licence: BSD-2-clause
+  License: BSD-2-clause
 
 Multi-channel signed distance field generator
   Files: thirdparty/msdfgen/*
   (c) 2014-2025, Viktor Chlumsky
-  Licence: Expat
+  License: Expat
 
 OpenXR Loader
   Files: thirdparty/openxr/*
   (c) 2020-2025, The Khronos Group Inc.
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 PCRE2
   Files: thirdparty/pcre2/*
   (c) 1997-2024, University of Cambridge
   (c) 2009-2024, Zoltan Herczeg
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 Recast
   Files: thirdparty/recastnavigation/*
   (c) 2009, Mikko Mononen
-  Licence: Zlib
+  License: Zlib
 
 RVO2
   Files: thirdparty/rvo2/*
   (c) 2016, University of North Carolina at Chapel Hill
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 SDL
   Files: thirdparty/sdl/*
   (c) 1997-2025, Sam Lantinga
-  Licence: Zlib
+  License: Zlib
 
 hidapi
   Files: thirdparty/sdl/hidapi/*
   (c) 2010, Alan Ott, Signal 11 Software
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 SPIRV-Cross
   Files: thirdparty/spirv-cross/*
   (c) 2015-2021, Arm Limited
-  Licence: Apache-2.0 or Expat
+  License: Apache-2.0 or Expat
 
 SPIRV-Headers
   Files: thirdparty/spirv-headers/*
   (c) 2015-2024, The Khronos Group Inc.
-  Licence: Expat
+  License: Expat
 
 SPIRV-Reflect
   Files: thirdparty/spirv-reflect/*
   (c) 2017-2022, Google Inc.
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 Swappy
   Files: thirdparty/swappy-frame-pacing/*
   (c) 2019, The Android Open Source Project
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 ThorVG
   Files: thirdparty/thorvg/*
   (c) 2020-2026, The ThorVG Project
-  Licence: Expat
+  License: Expat
 
 TinyEXR
   Files: thirdparty/tinyexr/*
   (c) 2014-2021, Syoyo Fujita
   (c) 2002, Industrial Light & Magic, a division of Lucas Digital Ltd. LLC
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 ufbx
   Files: thirdparty/ufbx/*
   (c) 2020, Samuli Raivio
-  Licence: Expat
+  License: Expat
 
 V-HACD
   Files: thirdparty/vhacd/*
   (c) 2011, Khaled Mamou
   (c) 2003-2009, Erwin Coumans
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
 volk
   Files: thirdparty/volk/*
   (c) 2018-2025, Arseny Kapoulkine
-  Licence: Expat
+  License: Expat
 
 Vulkan Headers
   Files: thirdparty/vulkan/*
   (c) 2015-2025, The Khronos Group Inc.
   (c) 2015-2025, Valve Corporation
   (c) 2015-2025, LunarG, Inc.
-  Licence: Apache-2.0
+  License: Apache-2.0
 
 Vulkan Memory Allocator
   Files: thirdparty/vulkan/vk_mem_alloc.h
   (c) 2017-2025, Advanced Micro Devices, Inc.
-  Licence: Expat
+  License: Expat
 
 Wayland core protocol
   Files: thirdparty/wayland/*
@@ -623,7 +623,7 @@ Wayland core protocol
   (c) 2010-2012, Intel Corporation
   (c) 2011, Benjamin Franzke
   (c) 2012, Collabora, Ltd.
-  Licence: Expat
+  License: Expat
 
 Wayland protocols
   Files: thirdparty/wayland-protocols/*
@@ -635,37 +635,37 @@ Wayland protocols
   (c) 2014, Jason Ekstrand
   (c) 2014-2015, Collabora, Ltd.
   (c) 2015, Red Hat Inc.
-  Licence: Expat
+  License: Expat
 
 Mesa Wayland protocols
   Files: thirdparty/wayland-protocols/mesa/wayland-drm.xml
   (c) 2008-2011, Kristian HÃ¸gsberg
   (c) 2010-2011, Intel Corporation
-  Licence: X11
+  License: X11
 
 Wslay
   Files: thirdparty/wslay/*
   (c) 2011, 2012, 2015, Tatsuhiro Tsujikawa
-  Licence: Expat
+  License: Expat
 
 xatlas
   Files: thirdparty/xatlas/*
   (c) 2018-2020, Jonathan Young
   (c) 2013, Thekla, Inc
   (c) 2006, NVIDIA Corporation, Ignacio Castano
-  Licence: Expat
+  License: Expat
 
 zlib
   Files: thirdparty/zlib/*
   (c) 1995-2026, Jean-loup Gailly and Mark Adler
-  Licence: Zlib
+  License: Zlib
 
 Zstandard
   Files: thirdparty/zstd/*
   (c) Meta Platforms, Inc. and affiliates.
-  Licence: BSD-3-clause
+  License: BSD-3-clause
 
-LICENCE TEXTS
+LICENSE TEXTS
 
 ----- Apache-2.0 -----
 
